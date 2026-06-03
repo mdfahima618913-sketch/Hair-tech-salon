@@ -1,0 +1,156 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny — nothing is accessible unless explicitly allowed below
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ─── Helpers ─────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_:\\-]+$');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+
+    function isAdmin() {
+      return isSignedIn() &&
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+    }
+
+    // ─── Booking Validation ───────────────────────────────────────────────────
+
+    function isValidBookingCreate(data) {
+      return
+        data.customerName  is string && data.customerName.size()  >= 2 &&
+        data.customerPhone is string && data.customerPhone.size() >= 1 &&
+        data.customerEmail is string && data.customerEmail.size() >= 1 &&
+        data.startTime is string && data.startTime.size() >= 1 &&
+        data.endTime   is string && data.endTime.size()   >= 1 &&
+        data.bookingDate is string && data.bookingDate.size() >= 1 &&
+        data.serviceNames        is string && data.serviceNames.size()  >= 1 &&
+        data.serviceDurationMins is number && data.serviceDurationMins  >  0 &&
+        data.paymentId   is string && data.paymentId.size() >= 1 &&
+        data.totalAmount is number && data.totalAmount       >  0 &&
+        data.status in ['paid', 'pending'] &&
+        data.createdAt == request.time;
+    }
+
+    function isValidBookingUpdate(data) {
+      return isAdmin() || (
+        incoming().diff(existing()).affectedKeys().hasOnly(
+          ['status', 'orderId', 'paymentId', 'updatedAt', 'paymentError', 'webhookCapturedAt']
+        ) &&
+        (!('status' in incoming()) || incoming().status in ['pending', 'confirmed', 'failed', 'paid'])
+      );
+    }
+
+    // ─── Rules ───────────────────────────────────────────────────────────────
+
+    match /admins/{adminId} {
+      allow read:  if isSignedIn() && request.auth.uid == adminId;
+      allow write: if false;
+    }
+
+    match /bookings/{bookingId} {
+      allow get:    if true;
+      allow list:   if isAdmin() || isSignedIn();  // Staff need to list bookings
+      allow create: if isValidBookingCreate(incoming());
+      allow update: if isValidBookingUpdate(incoming());
+      allow delete: if isAdmin();
+    }
+
+    match /customer_details/{bookingId} {
+      allow read:   if isAdmin();
+      allow create: if
+        incoming().name  is string && incoming().name.size()  >= 2 &&
+        incoming().phone is string && incoming().phone.size() >= 1;
+    }
+
+    match /locked_slots/{lockId} {
+      allow read:           if true;
+      allow create, update: if
+        incoming().date     is string &&
+        incoming().timeSlot is string &&
+        isValidId(lockId);
+      allow delete: if true;
+    }
+
+    match /blocked_slots/{blockId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    match /services/{serviceId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    match /website_config/{docId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read:   if true;
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && existing().userId == request.auth.uid;
+    }
+
+    match /bookings/{document} {
+      allow read, write: if true;
+    }
+
+    match /customers/{phone} {
+      allow read, write: if true;
+    }
+
+    match /invoices/{phone} {
+      allow read, write: if true;
+    }
+
+    match /users/{userId} {
+      allow get, list: if isSignedIn() && request.auth.uid == userId;
+      allow write:     if isSignedIn() && request.auth.uid == userId;
+    }
+
+    // ─── Staff ───────────────────────────────────────────────────────────────
+    // Signed-in users can read staff (needed for staff portal authEmail lookup)
+    // App-level logic hides other members' financial data in the UI
+
+    match /staff/{staffId} {
+      allow read:  if isAdmin() || isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ─── Coupons ─────────────────────────────────────────────────────────────
+    // Public read: checkout validates coupon codes for unauthenticated users
+
+    match /coupons/{couponCode} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── Banner images ────────────────────────────────────────────────────────
+
+    match /banner_images/{imageId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+    // ─── Gallery images ───────────────────────────────────────────────────────
+
+    match /gallery_images/{imageId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
+  }
+}

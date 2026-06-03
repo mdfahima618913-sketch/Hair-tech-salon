@@ -1,0 +1,170 @@
+{
+  "entities": {
+    "Booking": {
+      "title": "Booking",
+      "description": "Public appointment record for availability check.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "timeSlot": { "type": "string" },
+        "serviceIds": { "type": "array", "items": { "type": "string" } },
+        "totalPrice": { "type": "number" },
+        "paymentId": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["date", "timeSlot", "serviceIds", "totalPrice", "status", "createdAt", "updatedAt"]
+    },
+    "CustomerDetail": {
+      "title": "CustomerDetail",
+      "description": "Private PII corresponding to a booking.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "phone": { "type": "string" },
+        "bookingId": { "type": "string" }
+      },
+      "required": ["name", "phone", "bookingId"]
+    },
+    "LockedSlot": {
+      "title": "LockedSlot",
+      "description": "A temporary hold on a time slot during payment.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "timeSlot": { "type": "string" },
+        "expiresAt": { "type": "string", "format": "date-time" },
+        "userId": { "type": "string" }
+      },
+      "required": ["date", "timeSlot", "expiresAt"]
+    },
+    "BlockedSlot": {
+      "title": "BlockedSlot",
+      "description": "A time slot manually blocked by the admin.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "date": { "type": "string", "format": "date" },
+        "timeSlot": { "type": "string" },
+        "reason": { "type": "string" }
+      },
+      "required": ["date", "timeSlot"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Customer feedback and rating for the salon.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "text": { "type": "string" },
+        "rating": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "approved", "flagged"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "text", "rating", "status", "createdAt"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Users with administrative privileges.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "super-admin"] },
+        "addedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "role", "addedAt"]
+    },
+    "Service": {
+      "title": "Service",
+      "description": "A salon service offering.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "string" },
+        "priceValue": { "type": "number" },
+        "time": { "type": "string" },
+        "category": { "type": "string" },
+        "image": { "type": "string" },
+        "active": { "type": "boolean" },
+        "order": { "type": "number" }
+      },
+      "required": ["name", "price", "priceValue", "category", "active"]
+    },
+    "WebsiteConfig": {
+      "title": "WebsiteConfig",
+      "description": "Dynamic content for the homepage.",
+      "type": "object",
+      "properties": {
+        "heroHeadline": { "type": "string" },
+        "heroSubline": { "type": "string" },
+        "promoText": { "type": "string" },
+        "promoActive": { "type": "boolean" },
+        "offerHeadline": { "type": "string" },
+        "contactPhone": { "type": "string" },
+        "contactAddress": { "type": "string" }
+      }
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Stored profiles for repeat customers.",
+      "type": "object",
+      "properties": {
+        "phone": { "type": "string" },
+        "name": { "type": "string" },
+        "totalSpent": { "type": "number" },
+        "visitCount": { "type": "number" },
+        "lastVisit": { "type": "string", "format": "date-time" },
+        "tags": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["phone", "name"]
+    }
+  },
+  "firestore": {
+    "/bookings/{bookingId}": {
+      "schema": "Booking",
+      "description": "Collection of appointment bookings (Public availability data)."
+    },
+    "/customer_details/{bookingId}": {
+      "schema": "CustomerDetail",
+      "description": "Private PII for appointments."
+    },
+    "/locked_slots/{lockId}": {
+      "schema": "LockedSlot",
+      "description": "Temporary locks on time slots while payment is being processed."
+    },
+    "/blocked_slots/{blockId}": {
+      "schema": "BlockedSlot",
+      "description": "Admin-level manual blocks on specific time slots."
+    },
+    "/reviews/{reviewId}": {
+      "schema": "Review",
+      "description": "Collection of customer reviews."
+    },
+    "/admins/{email}": {
+      "schema": "Admin",
+      "description": "Authorized administrative users, identified by their verified email."
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Dynamic salon service offerings managed by the owner."
+    },
+    "/website_config/main": {
+      "schema": "WebsiteConfig",
+      "description": "Main singleton configuration for the live website content."
+    },
+    "/customers/{phone}": {
+      "schema": "Customer",
+      "description": "Central customer database indexed by phone number."
+    },
+    "/payment_references/{transactionId}": {
+      "schema": "PaymentReference",
+      "description": "Unique mapping of UPI transaction IDs to bookings to prevent re-use."
+    }
+  }
+}

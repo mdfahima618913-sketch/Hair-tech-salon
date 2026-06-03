@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Dark background matching site theme -->
+  <rect width="32" height="32" rx="7" fill="#111111"/>
+  <!-- Gold scissors scaled into 20x20 area, centered at (6,6) in 32x32 -->
+  <g transform="translate(5,5) scale(0.92)" stroke="#D4AF37" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <circle cx="6" cy="6" r="3"/>
+    <circle cx="6" cy="18" r="3"/>
+    <line x1="20" y1="4" x2="8.12" y2="15.88"/>
+    <line x1="14.47" y1="14.48" x2="20" y2="20"/>
+    <line x1="8.12" y1="8.12" x2="12" y2="12"/>
+  </g>
+</svg>

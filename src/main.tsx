@@ -1,0 +1,16 @@
+import {StrictMode} from 'react';
+import {createRoot} from 'react-dom/client';
+import App from './App.tsx';
+import './index.css';
+import { testConnection } from './lib/firebase-test';
+import { seedServicesIfEmpty } from './lib/firebase';
+
+// Initialize and seed data
+testConnection();
+seedServicesIfEmpty();
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+);
