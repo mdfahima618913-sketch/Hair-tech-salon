@@ -14,7 +14,7 @@ import {
   ChevronDown, ChevronUp,
 } from 'lucide-react';
 import {
-  collection, addDoc, serverTimestamp, query, where, getDocs,
+  collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc,
 } from 'firebase/firestore';
 import { User as FirebaseUser } from 'firebase/auth';
 import { db } from '../lib/firebase';
@@ -177,10 +177,22 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
     const t = setTimeout(async () => {
       setPhoneLoading(true);
       try {
-        for (const fmt of [digits, `+91${digits}`, `91${digits}`]) {
-          const snap = await getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt)));
+        // 1. Check customers collection first — instant O(1) lookup by normalized phone (doc ID)
+        const custSnap = await getDoc(doc(db, 'customers', digits));
+        if (custSnap.exists()) {
+          const name = (custSnap.data().name ?? '').trim();
+          if (name && !customerName) { setCustomerName(name); setAutoFilled(true); return; }
+        }
+
+        // 2. Fall back to bookings collection (covers customers not yet in customers collection)
+        const snaps = await Promise.all(
+          [digits, `+91${digits}`, `+91 ${digits}`, `91${digits}`, `0${digits}`].map(
+            fmt => getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt)))
+          )
+        );
+        for (const snap of snaps) {
           if (!snap.empty) {
-            const name = snap.docs[0].data().customerName ?? '';
+            const name = (snap.docs[0].data().customerName ?? '').trim();
             if (name && !customerName) { setCustomerName(name); setAutoFilled(true); break; }
           }
         }

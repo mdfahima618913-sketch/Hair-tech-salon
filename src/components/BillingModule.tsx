@@ -196,12 +196,15 @@ function CustomerStep({
         // Check customers collection first
         const custSnap = await getDoc(doc(db, 'customers', clean));
         if (custSnap.exists()) { setFound(custSnap.data() as Customer); return; }
-        // Fall back to bookings for name lookup
-        const bookSnap = await getDocs(
-          query(collection(db, 'bookings'), where('customerPhone', '==', clean))
+        // Fall back: search bookings with all common phone formats
+        const bookSnaps = await Promise.all(
+          [clean, `+91${clean}`, `+91 ${clean}`, `91${clean}`, `0${clean}`].map(
+            fmt => getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt)))
+          )
         );
-        if (!bookSnap.empty) {
-          const b = bookSnap.docs[0].data();
+        const firstHit = bookSnaps.find(s => !s.empty);
+        if (firstHit) {
+          const b = firstHit.docs[0].data();
           setFound({
             phone: clean, name: b.customerName ?? '',
             visitCount: 0, totalSpend: 0,

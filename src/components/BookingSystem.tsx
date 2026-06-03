@@ -736,16 +736,31 @@ export default function BookingSystem() {
     if (digits.length !== 10) return;
     setPhoneLookupLoading(true);
     try {
-      for (const fmt of [digits, `+91${digits}`, `91${digits}`]) {
-        const snap = await getDocs(
-          query(collection(db, 'bookings'), where('customerPhone', '==', fmt))
-        );
+      // 1. Check customers collection first — instant O(1) lookup by document ID
+      //    The customers collection uses normalized 10-digit phone as the doc ID
+      const custSnap = await getDoc(doc(db, 'customers', digits));
+      if (custSnap.exists()) {
+        const name = (custSnap.data().name ?? '').trim();
+        if (name) {
+          setInfo(prev => ({ ...prev, name }));
+          setAutoFilled(true);
+          return;
+        }
+      }
+
+      // 2. Fall back to bookings collection (for customers who have booked but not yet billed)
+      const snaps = await Promise.all(
+        [digits, `+91${digits}`, `+91 ${digits}`, `91${digits}`, `0${digits}`].map(
+          fmt => getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt)))
+        )
+      );
+      for (const snap of snaps) {
         if (!snap.empty) {
           const name = (snap.docs[0].data().customerName ?? '').trim();
           if (name) {
             setInfo(prev => ({ ...prev, name }));
             setAutoFilled(true);
-            return;
+            break;
           }
         }
       }
@@ -818,7 +833,7 @@ export default function BookingSystem() {
 
     const bookingData = {
       customerName:        info.name,
-      customerPhone:       info.phone,
+      customerPhone:       info.phone.replace(/\D/g, '').slice(-10),
       startTime:           selSlot.startISO,
       endTime:             selSlot.endISO,
       bookingTime:         selSlot.label,

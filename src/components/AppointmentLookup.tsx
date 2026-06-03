@@ -292,17 +292,17 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
       const seen    = new Set<string>();
       const results: Booking[] = [];
 
-      for (const fmt of [digits, `+91${digits}`, `91${digits}`]) {
-        const snap = await getDocs(
-          query(collection(db, 'bookings'), where('customerPhone', '==', fmt))
-        );
-        snap.docs.forEach(d => {
-          if (!seen.has(d.id)) {
-            seen.add(d.id);
-            results.push({ id: d.id, ...(d.data() as Omit<Booking, 'id'>) });
-          }
-        });
-      }
+      // Parallel queries — 5 formats to cover all common Indian phone variants
+      const formats = [digits, `+91${digits}`, `+91 ${digits}`, `91${digits}`, `0${digits}`];
+      const snaps = await Promise.all(
+        formats.map(fmt => getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt))))
+      );
+      snaps.forEach(snap => snap.docs.forEach(d => {
+        if (!seen.has(d.id)) {
+          seen.add(d.id);
+          results.push({ id: d.id, ...(d.data() as Omit<Booking, 'id'>) });
+        }
+      }));
 
       // Sort: upcoming/today first (ascending), then past most-recent first
       results.sort((a, b) => {

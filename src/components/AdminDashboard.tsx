@@ -22,12 +22,13 @@ import {
 } from 'firebase/auth';
 import {
   collection, query, orderBy, onSnapshot, getDocs,
-  doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, where,
+  doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, where, limit,
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import BillingModule, { type OnlineBookingPrefill, type StaffMember, type Customer, type Invoice, type BillItem } from './BillingModule';
 import WalkInBooking    from './WalkInBooking';
-import StaffAnalytics   from './StaffAnalytics';
+import StaffAnalytics    from './StaffAnalytics';
+import CustomerAnalytics from './CustomerAnalytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -959,6 +960,11 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   // Invoice view modal
   const [invoiceModalId, setInvoiceModalId] = useState<string | null>(null);
 
+  // Performance — manual refresh trigger + last-refresh tracking
+  const [refreshKey,      setRefreshKey]      = useState(0);
+  const [isRefreshing,    setIsRefreshing]    = useState(false);
+  const [lastRefreshedMs, setLastRefreshedMs] = useState<number>(0);
+
   // Billing tab — invoice list
   const [billingInvoices, setBillingInvoices]   = useState<(Invoice & { id: string })[]>([]);
   const [billingLoading,  setBillingLoading]     = useState(false);
@@ -977,8 +983,9 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [staffSubView,  setStaffSubView]  = useState<'list' | 'analytics'>('list');
 
   // Customers module state
-  const [customers, setCustomers]         = useState<any[]>([]);
+  const [customers, setCustomers]               = useState<any[]>([]);
   const [customersLoading, setCustomersLoading] = useState(false);
+  const [customerSubView, setCustomerSubView]   = useState<'list' | 'analytics'>('list');
 
   // ── Notification state ────────────────────────────────────────────────────
   const [newBookingQueue, setNewBookingQueue] = useState<Booking[]>([]);
@@ -1028,7 +1035,19 @@ Your uid is: ${user.uid}
       }
 
       // Step 2: admin doc confirmed — start the live bookings listener
-      const q = query(collection(db, 'bookings'), orderBy('createdAt', 'desc'));
+      // Limit to last 90 days + 300 records to reduce Firestore reads.
+      // This covers all active bookings and recent history.
+      // Admins can click "Refresh" to force a fresh pull; the All-Time analytics
+      // note will prompt loading extended history separately when needed.
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - 90);
+      cutoffDate.setHours(0, 0, 0, 0);
+      const q = query(
+        collection(db, 'bookings'),
+        where('createdAt', '>=', Timestamp.fromDate(cutoffDate)),
+        orderBy('createdAt', 'desc'),
+        limit(300)
+      );
       unsub = onSnapshot(
         q,
         snap => {
@@ -1036,6 +1055,8 @@ Your uid is: ${user.uid}
           setBookings(all);
           setListenerError(null);
           setLoading(false);
+          setIsRefreshing(false);
+          setLastRefreshedMs(performance.now() | 0);
 
           // ── New booking detection ──────────────────────────────────────────
           // First snapshot: record all existing IDs and seed the pending tracker.
@@ -1100,7 +1121,7 @@ Your uid is: ${user.uid}
 
     init();
     return () => unsub();
-  }, [user.uid, user.email]);
+  }, [user.uid, user.email, refreshKey]);
 
   const handleStatusChange = async (id: string, status: BookingStatus) => {
     await updateDoc(doc(db, 'bookings', id), { status, updatedAt: serverTimestamp() });
@@ -1138,7 +1159,7 @@ Your uid is: ${user.uid}
     setStaffLoading(true);
     Promise.all([
       getDocs(query(collection(db, 'staff'), orderBy('name'))),
-      getDocs(collection(db, 'invoices')),
+      getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(500))),
     ]).then(([staffSnap, invSnap]) => {
       setStaff(staffSnap.docs.map(d => ({ id: d.id, ...d.data() } as StaffMember)));
       setStaffInvoices(invSnap.docs.map(d => d.data()));
@@ -1164,7 +1185,7 @@ Your uid is: ${user.uid}
   useEffect(() => {
     if (view !== 'billing') return;
     setBillingLoading(true);
-    getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc')))
+    getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(100)))
       .then(snap => {
         setBillingInvoices(snap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice & { id: string })));
       })
@@ -1226,7 +1247,7 @@ Your uid is: ${user.uid}
     setCustomersLoading(true);
     Promise.all([
       getDocs(query(collection(db, 'customers'), orderBy('lastVisit', 'desc'))),
-      getDocs(collection(db, 'bookings')),
+      getDocs(query(collection(db, 'bookings'), orderBy('createdAt', 'desc'), limit(1000))),
     ]).then(([custSnap, bookSnap]) => {
       // Seed map from customers collection — use stored source if available
       const map = new Map<string, any>();
@@ -1795,6 +1816,26 @@ Your uid is: ${user.uid}
             >
               <Receipt size={13} /> Express Bill
             </button>
+
+            {/* Refresh — only visible on bookings/insights, admin-only */}
+            {!isStaffMode && (view === 'bookings' || view === 'insights') && (
+              <div className="flex items-center gap-2">
+                {lastRefreshedMs > 0 && (
+                  <span className="text-[9px] text-gray-600 font-bold hidden lg:block">
+                    Showing last 90 days
+                  </span>
+                )}
+                <button
+                  onClick={() => { setIsRefreshing(true); setRefreshKey(k => k + 1); }}
+                  disabled={isRefreshing}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-bold text-gray-400 hover:text-white hover:bg-white/8 transition-all disabled:opacity-40"
+                  title="Refresh booking data"
+                >
+                  <RefreshCw size={11} className={isRefreshing ? 'animate-spin text-gold' : ''}/>
+                  {isRefreshing ? 'Refreshing…' : 'Refresh'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -3062,6 +3103,32 @@ Your uid is: ${user.uid}
       ════════════════════════════════════════════════════════════════ */}
       {view === 'customers' && (
         <div className="space-y-4">
+
+          {/* Sub-view toggle */}
+          <div className="flex items-center gap-1 bg-zinc-800 border border-white/8 rounded-xl p-1 w-fit">
+            <button onClick={() => setCustomerSubView('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                customerSubView === 'list'
+                  ? 'bg-gold/15 border border-gold/25 text-gold'
+                  : 'text-gray-500 hover:text-white'
+              }`}>
+              <Users size={12}/> Customers
+            </button>
+            <button onClick={() => setCustomerSubView('analytics')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                customerSubView === 'analytics'
+                  ? 'bg-blue-500/15 border border-blue-500/25 text-blue-400'
+                  : 'text-gray-500 hover:text-white'
+              }`}>
+              <BarChart2 size={12}/> Analytics
+            </button>
+          </div>
+
+          {/* Analytics view */}
+          {customerSubView === 'analytics' && <CustomerAnalytics customers={customers} />}
+
+          {/* Customer list */}
+          {customerSubView === 'list' && (<>
           {/* Summary chips */}
           <div className="flex items-center gap-3 flex-wrap">
             <p className="text-gray-400 text-sm font-bold">{customers.length} customers</p>
@@ -3147,6 +3214,7 @@ Your uid is: ${user.uid}
               </div>
             </div>
           )}
+          </>)}{/* /list sub-view */}
         </div>
       )}
 

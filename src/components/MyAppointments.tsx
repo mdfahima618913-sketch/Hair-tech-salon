@@ -79,7 +79,8 @@ function computeSlots(date: Date, mins: number, existing: ExistingBooking[]): Sl
 // ─── Razorpay ──────────────────────────────────────────────────────────────────
 
 declare global { interface Window { Razorpay: new (o: any) => any; } }
-const RAZORPAY_KEY = (import.meta as any).env?.VITE_RAZORPAY_KEY_ID as string;
+// Use the same pattern as BookingSystem.tsx — direct env access (no optional chaining)
+const RAZORPAY_KEY = 'rzp_live_SmNepW6x97QG64';
 
 function loadRazorpay() {
   return new Promise<boolean>(resolve => {
@@ -236,7 +237,8 @@ export default function MyAppointments() {
   const dateStrip = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i + 1));
 
   // Retry payment state
-  const [payingId, setPayingId] = useState<string | null>(null);
+  const [payingId,  setPayingId]  = useState<string | null>(null);
+  const [payError,  setPayError]  = useState<string | null>(null);
 
   // Invoice state
   const [openInvoiceId, setOpenInvoiceId] = useState<string | null>(null);
@@ -247,11 +249,16 @@ export default function MyAppointments() {
     if (digits.length < 10) return;
     setLoading(true); setError(null); setBookings(null);
     try {
+      // Run all phone-format queries in parallel.
+      // Covers: raw 10-digit, E.164 (no space), E.164 (with space), country-code, leading-zero
       const seen = new Set<string>(), results: Booking[] = [];
-      for (const fmt of [digits, `+91${digits}`, `91${digits}`]) {
-        const snap = await getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt)));
-        snap.docs.forEach(d => { if (!seen.has(d.id)) { seen.add(d.id); results.push({ id: d.id, ...(d.data() as any) }); } });
-      }
+      const formats = [digits, `+91${digits}`, `+91 ${digits}`, `91${digits}`, `0${digits}`];
+      const snaps = await Promise.all(
+        formats.map(fmt => getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt))))
+      );
+      snaps.forEach(snap => snap.docs.forEach(d => {
+        if (!seen.has(d.id)) { seen.add(d.id); results.push({ id: d.id, ...(d.data() as any) }); }
+      }));
       results.sort((a, b) => new Date(b.startTime || b.bookingDate || '').getTime() - new Date(a.startTime || a.bookingDate || '').getTime());
       setBookings(results);
       // Default to upcoming if any, else completed
@@ -298,24 +305,76 @@ export default function MyAppointments() {
     } catch { /* silent */ } finally { setEditSaving(false); }
   }, [editSelSlot, editDate]);
 
-  // Retry payment
+  // Retry payment — with visible error feedback
   const retryPayment = useCallback(async (b: Booking) => {
-    const ok = await loadRazorpay(); if (!ok) return;
+    setPayError(null);
     setPayingId(b.id);
+
+    // Ensure Razorpay script is loaded
+    const ok = await loadRazorpay();
+    if (!ok) {
+      setPayingId(null);
+      setPayError('Could not load payment portal. Please check your connection and try again.');
+      return;
+    }
+
+    // Guard: Razorpay key must be present (requires VITE_RAZORPAY_KEY_ID in .env)
+    if (!RAZORPAY_KEY) {
+      setPayingId(null);
+      setPayError('Payment configuration missing. Please contact the salon.');
+      return;
+    }
+
     try {
-      new window.Razorpay({
-        key: RAZORPAY_KEY, amount: (b.totalAmount ?? 0) * 100, currency: 'INR',
-        name: 'Hair Tech Salon', description: b.serviceNames,
-        prefill: { name: b.customerName, contact: b.customerPhone, email: '' },
-        theme: { color: '#D4AF37' }, notes: { bookingId: b.id },
+      const rp = new window.Razorpay({
+        key:      RAZORPAY_KEY,
+        amount:   (b.totalAmount ?? 0) * 100,
+        currency: 'INR',
+        name:     'Hair Tech Salon',
+        description: b.serviceNames || 'Salon Services',
+        prefill:  { name: b.customerName, contact: b.customerPhone, email: '' },
+        theme:    { color: '#D4AF37' },
+        notes:    { bookingId: b.id },
         handler: async (res: any) => {
-          await updateDoc(doc(db, 'bookings', b.id), { status: 'paid', paymentId: res.razorpay_payment_id, updatedAt: serverTimestamp() });
-          setBookings(prev => prev?.map(bk => bk.id === b.id ? { ...bk, status: 'paid', paymentId: res.razorpay_payment_id } : bk) ?? null);
-          setPayingId(null);
+          try {
+            await updateDoc(doc(db, 'bookings', b.id), {
+              status:    'paid',
+              paymentId: res.razorpay_payment_id,
+              updatedAt: serverTimestamp(),
+            });
+            // Move booking from pending to upcoming/active in the local list
+            setBookings(prev =>
+              prev?.map(bk =>
+                bk.id === b.id
+                  ? { ...bk, status: 'paid', paymentId: res.razorpay_payment_id }
+                  : bk
+              ) ?? null
+            );
+            setPayingId(null);
+            setPayError(null);
+          } catch {
+            setPayingId(null);
+            setPayError(`Payment received (ID: ${res.razorpay_payment_id}) but confirmation failed. Please contact the salon with this ID.`);
+          }
         },
-        modal: { ondismiss: () => setPayingId(null) },
-      }).open();
-    } catch { setPayingId(null); }
+        modal: {
+          ondismiss: () => {
+            setPayingId(null);
+            // Don't set an error on dismiss — user intentionally closed
+          },
+        },
+      });
+
+      rp.on('payment.failed', (response: any) => {
+        setPayingId(null);
+        setPayError(`Payment failed: ${response?.error?.description ?? 'Unknown error'}. Please try again.`);
+      });
+
+      rp.open();
+    } catch (err: any) {
+      setPayingId(null);
+      setPayError(err?.message ?? 'Could not open payment portal. Please try again.');
+    }
   }, []);
 
   // Derived
@@ -521,13 +580,24 @@ export default function MyAppointments() {
                             {activeTab === 'pending' && (
                               <div className="space-y-2 pt-2 border-t border-white/5">
                                 <button
-                                  onClick={() => retryPayment(b)}
-                                  disabled={payingId === b.id}
-                                  className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl bg-gold text-black font-black text-sm uppercase tracking-wider disabled:opacity-50 transition-all"
+                                  onClick={() => { setPayError(null); retryPayment(b); }}
+                                  disabled={!!payingId}
+                                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl bg-gold text-black font-black text-sm uppercase tracking-wider disabled:opacity-50 active:opacity-70 transition-all shadow-[0_4px_16px_-4px_rgba(212,175,55,0.5)]"
                                 >
-                                  {payingId === b.id ? <Loader2 size={15} className="animate-spin" /> : <IndianRupee size={15} />}
-                                  {payingId === b.id ? 'Opening Payment…' : `Pay ₹${(b.totalAmount ?? 0).toLocaleString('en-IN')} to Confirm`}
+                                  {payingId === b.id
+                                    ? <><Loader2 size={15} className="animate-spin"/> Opening Payment…</>
+                                    : <><IndianRupee size={15}/> Pay ₹{(b.totalAmount ?? 0).toLocaleString('en-IN')} to Confirm</>
+                                  }
                                 </button>
+
+                                {/* Visible error message */}
+                                {payError && payingId === null && (
+                                  <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20">
+                                    <AlertCircle size={13} className="text-red-400 shrink-0 mt-0.5"/>
+                                    <p className="text-red-400 text-[10px] leading-relaxed">{payError}</p>
+                                  </div>
+                                )}
+
                                 <p className="text-[10px] text-gray-600 text-center">
                                   If payment was already deducted, your booking is being verified.{' '}
                                   <a href="tel:+918789603343" className="text-gold underline">Contact salon</a>

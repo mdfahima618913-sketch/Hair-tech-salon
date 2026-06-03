@@ -1,29 +1,52 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Menu, X, Calendar, ClipboardList } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { motion as m } from 'motion/react';
 const MotionLink = m(Link);
 import Logo from './Logo';
 
 const navLinks = [
-  { name: 'About',    href: '/#about'    },
-  { name: 'Services', href: '/#services' },
-  { name: 'Offers',   href: '/#offers'   },
-  { name: 'Reviews',  href: '/#reviews'  },
-  { name: 'FAQ',      href: '/#faq'      },
-  { name: 'Contact',  href: '/#contact'  },
+  { name: 'About',    id: 'about'    },
+  { name: 'Services', id: 'services' },
+  { name: 'Offers',   id: 'offers'   },
+  { name: 'Reviews',  id: 'reviews'  },
+  { name: 'FAQ',      id: 'faq'      },
+  { name: 'Contact',  id: 'contact'  },
 ];
 
 export default function Navbar() {
   const [isOpen,   setIsOpen]   = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 40);
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  // Close menu when route changes
+  useEffect(() => { setIsOpen(false); }, [location.pathname]);
+
+  /**
+   * Handle section navigation:
+   * - On landing page (/) → close menu + smooth-scroll after animation ends
+   * - On any other route  → navigate to landing page with hash
+   */
+  const handleSectionNav = useCallback((id: string) => {
+    setIsOpen(false);
+    if (location.pathname === '/') {
+      // Already on landing page — scroll after the menu close animation (~300ms)
+      setTimeout(() => {
+        const el = document.getElementById(id);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 320);
+    } else {
+      // Navigate away; browser will handle the hash scroll on landing page load
+      window.location.href = '/#' + id;
+    }
+  }, [location.pathname]);
 
   return (
     <nav className={`transition-all duration-500 ${
@@ -35,22 +58,21 @@ export default function Navbar() {
         <div className="flex items-center justify-between">
           <Logo />
 
-          {/* Desktop */}
+          {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-6">
             {navLinks.map((link, i) => (
-              <motion.a
+              <motion.button
                 key={link.name}
-                href={link.href}
+                onClick={() => handleSectionNav(link.id)}
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.07 }}
                 className="text-[11px] font-bold uppercase tracking-[0.15em] text-gray-400 hover:text-white transition-colors duration-200"
               >
                 {link.name}
-              </motion.a>
+              </motion.button>
             ))}
 
-            {/* My Appointments — link to dedicated page */}
             <MotionLink
               to="/my-appointments"
               initial={{ opacity: 0, y: -8 }}
@@ -61,7 +83,6 @@ export default function Navbar() {
               <ClipboardList size={12} /> My Bookings
             </MotionLink>
 
-            {/* Book Now — primary CTA */}
             <MotionLink
               to="/booking"
               initial={{ opacity: 0, scale: 0.9 }}
@@ -71,7 +92,6 @@ export default function Navbar() {
               transition={{ delay: 0.52 }}
               className="relative flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gold text-black font-black text-[11px] uppercase tracking-[0.15em] shadow-[0_4px_20px_-4px_rgba(212,175,55,0.6)] hover:shadow-[0_8px_28px_-4px_rgba(212,175,55,0.75)] transition-all duration-300"
             >
-              <span className="absolute inset-0 rounded-xl bg-gold/40 animate-ping opacity-0 group-hover:opacity-100 pointer-events-none" />
               <Calendar size={13} /> Book Now
             </MotionLink>
 
@@ -83,7 +103,7 @@ export default function Navbar() {
             </a>
           </div>
 
-          {/* Mobile: My Bookings icon + hamburger */}
+          {/* Mobile: icons + hamburger */}
           <div className="md:hidden flex items-center gap-2">
             <Link
               to="/my-appointments"
@@ -95,6 +115,7 @@ export default function Navbar() {
             <button
               onClick={() => setIsOpen(v => !v)}
               className="p-2 text-gray-400 hover:text-white transition-colors"
+              aria-label="Toggle menu"
             >
               {isOpen ? <X size={24} /> : <Menu size={24} />}
             </button>
@@ -102,41 +123,44 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Mobile menu */}
+      {/* Mobile menu — rendered at z-[60] so it floats above PromoSlider */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-black/95 backdrop-blur-2xl border-t border-white/8 overflow-hidden"
+            transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+            className="md:hidden bg-black/98 backdrop-blur-2xl border-t border-white/8 overflow-hidden relative z-[60]"
           >
-            <div className="px-5 py-6 flex flex-col gap-1">
+            <div className="px-5 py-5 flex flex-col gap-1">
+              {/* Section links — use button + programmatic scroll */}
               {navLinks.map(link => (
-                <a
+                <button
                   key={link.name}
-                  href={link.href}
-                  onClick={() => setIsOpen(false)}
-                  className="py-3 px-4 rounded-xl text-sm font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-all"
+                  onClick={() => handleSectionNav(link.id)}
+                  className="w-full text-left py-3.5 px-4 rounded-xl text-base font-bold uppercase tracking-widest text-gray-300 hover:text-white hover:bg-white/5 active:bg-white/10 transition-all"
                 >
                   {link.name}
-                </a>
+                </button>
               ))}
+
+              <div className="h-px bg-white/8 my-2" />
 
               <Link
                 to="/my-appointments"
                 onClick={() => setIsOpen(false)}
-                className="mt-2 py-3 px-4 rounded-xl border border-white/10 text-sm font-bold uppercase tracking-widest text-gray-400 hover:text-white hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+                className="py-3.5 px-4 rounded-xl border border-white/10 text-base font-bold uppercase tracking-widest text-gray-300 hover:text-white hover:bg-white/5 transition-all flex items-center justify-center gap-2"
               >
-                <ClipboardList size={14} /> My Bookings
+                <ClipboardList size={15} /> My Bookings
               </Link>
 
               <Link
                 to="/booking"
                 onClick={() => setIsOpen(false)}
-                className="mt-2 py-4 rounded-xl bg-gold text-black font-black text-sm uppercase tracking-widest text-center flex items-center justify-center gap-2 shadow-[0_4px_20px_-4px_rgba(212,175,55,0.5)]"
+                className="mt-1 py-4 rounded-xl bg-gold text-black font-black text-base uppercase tracking-widest text-center flex items-center justify-center gap-2 shadow-[0_4px_20px_-4px_rgba(212,175,55,0.5)] active:opacity-80 transition-all"
               >
-                <Calendar size={15} /> Book Appointment
+                <Calendar size={16} /> Book Appointment
               </Link>
             </div>
           </motion.div>
