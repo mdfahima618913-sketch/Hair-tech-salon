@@ -9,7 +9,7 @@ import {
   CheckSquare, ListChecks, PhoneOff,
   TrendingDown, BarChart3, CalendarDays, ChevronRight as ChevronRightIcon,
   Receipt, UserCheck, Plus, Trash2, Edit2, Save, Building2,
-  Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer,
+  Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer, CalendarPlus,
 } from 'lucide-react';
 import BannerManager  from './BannerManager';
 import GalleryManager from './GalleryManager';
@@ -26,6 +26,8 @@ import {
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import BillingModule, { type OnlineBookingPrefill, type StaffMember, type Customer, type Invoice, type BillItem } from './BillingModule';
+import WalkInBooking    from './WalkInBooking';
+import StaffAnalytics   from './StaffAnalytics';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,6 +46,7 @@ interface Booking {
   paymentId?: string;
   orderId?: string;
   invoiceId?: string;        // set once a bill is generated for this booking
+  paymentMethod?: string;
   createdAt?: Timestamp;
   startTime?: string;
 }
@@ -950,6 +953,9 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [billingOpen, setBillingOpen]       = useState(false);
   const [billingPrefill, setBillingPrefill] = useState<OnlineBookingPrefill | null>(null);
 
+  // Walk-in booking
+  const [walkInOpen, setWalkInOpen] = useState(false);
+
   // Invoice view modal
   const [invoiceModalId, setInvoiceModalId] = useState<string | null>(null);
 
@@ -966,8 +972,9 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [staff, setStaff]                 = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading]   = useState(false);
   const [staffForm, setStaffForm]         = useState<Partial<StaffMember> | null>(null);
-  const [staffSaving, setStaffSaving]     = useState(false);
+  const [staffSaving,   setStaffSaving]   = useState(false);
   const [staffInvoices, setStaffInvoices] = useState<any[]>([]);
+  const [staffSubView,  setStaffSubView]  = useState<'list' | 'analytics'>('list');
 
   // Customers module state
   const [customers, setCustomers]         = useState<any[]>([]);
@@ -981,6 +988,9 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   // Track IDs seen on the initial snapshot load so we don't fire notifications
   // for existing bookings — only genuinely new ones added after page load.
   const initialIdsRef = useRef<Set<string> | null>(null);
+  // Track booking IDs that arrived as 'pending' so we can notify when they
+  // transition to 'paid' after Razorpay completes (that's a 'modified' change, not 'added').
+  const pendingIdsRef = useRef<Set<string>>(new Set());
 
   // Live listener — first verify the admin doc exists so we can give a
   // clear setup instruction if it's missing, rather than a cryptic error.
@@ -1028,29 +1038,49 @@ Your uid is: ${user.uid}
           setLoading(false);
 
           // ── New booking detection ──────────────────────────────────────────
-          // First snapshot: record all existing IDs so we don't notify
-          // for pre-existing bookings — only genuinely new arrivals.
+          // First snapshot: record all existing IDs and seed the pending tracker.
           if (initialIdsRef.current === null) {
             initialIdsRef.current = new Set(snap.docs.map(d => d.id));
+            // Seed pending tracker so we can detect transitions later
+            snap.docs.forEach(d => {
+              if (d.data().status === 'pending') pendingIdsRef.current.add(d.id);
+            });
             return;
           }
 
-          // Subsequent snapshots: find added docs not seen before
-          const newBookings = snap.docChanges()
-            .filter(change => change.type === 'added' && !initialIdsRef.current!.has(change.doc.id))
-            .map(change => {
-              initialIdsRef.current!.add(change.doc.id);
-              return { id: change.doc.id, ...change.doc.data() } as Booking;
+          // 1. Added docs — new bookings created after page load
+          const addedBookings = snap.docChanges()
+            .filter(c => c.type === 'added' && !initialIdsRef.current!.has(c.doc.id))
+            .map(c => {
+              initialIdsRef.current!.add(c.doc.id);
+              const b = { id: c.doc.id, ...c.doc.data() } as Booking;
+              // Track if it arrives as pending — it may pay later
+              if (b.status === 'pending') pendingIdsRef.current.add(b.id);
+              return b;
             });
 
-          if (newBookings.length === 0) return;
+          // 2. Modified docs — detect pending → paid transition
+          //    (customer completed Razorpay after the pending order was created)
+          const justPaidBookings = snap.docChanges()
+            .filter(c =>
+              c.type === 'modified' &&
+              pendingIdsRef.current.has(c.doc.id) &&
+              (c.doc.data().status === 'paid' || c.doc.data().status === 'confirmed')
+            )
+            .map(c => {
+              pendingIdsRef.current.delete(c.doc.id); // no longer pending
+              return { id: c.doc.id, ...c.doc.data() } as Booking;
+            });
 
-          // Only banner/ring for paid/confirmed bookings — NOT for payment-pending ones.
-          // Pending orders appear silently in the Pending tab.
-          const paidBookings = newBookings.filter(b => b.status !== 'pending');
-          if (paidBookings.length > 0) {
-            setNewBookingQueue(prev => [...prev, ...paidBookings]);
-            paidBookings.forEach(b => fireDesktopNotification(b));
+          // Notify for: newly-added paid/confirmed bookings + pending→paid transitions
+          const toNotify = [
+            ...addedBookings.filter(b => b.status !== 'pending'),
+            ...justPaidBookings,
+          ];
+
+          if (toNotify.length > 0) {
+            setNewBookingQueue(prev => [...prev, ...toNotify]);
+            toNotify.forEach(b => fireDesktopNotification(b));
           }
         },
         err => {
@@ -1268,7 +1298,7 @@ Your uid is: ${user.uid}
         role:           staffForm.role ?? '',
         commissionRate: staffForm.commissionRate ?? 5,
         salary:         (staffForm as any).salary ?? 0,
-        authEmail:      (staffForm as any).authEmail?.trim() ?? '',
+        email:      (staffForm as any).email?.trim() ?? '',
         isActive:       staffForm.isActive ?? true,
       };
       if (staffForm.id) {
@@ -1318,6 +1348,7 @@ Your uid is: ${user.uid}
       totalAmount:   booking.totalAmount ?? 0,
       paymentId:     booking.paymentId,
       bookingTime:   booking.bookingTime,
+      paymentMethod: booking.paymentMethod,
     });
     setBillingOpen(true);
   }, []);
@@ -1751,6 +1782,13 @@ Your uid is: ${user.uid}
                 <span>{stats.todayCount} booking{stats.todayCount !== 1 ? 's' : ''} today</span>
               </div>
             )}
+            {/* Walk-In Booking — teal to distinguish from billing */}
+            <button
+              onClick={() => setWalkInOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-black font-black text-xs uppercase tracking-wider shadow-[0_4px_20px_-4px_rgba(20,184,166,0.4)] hover:scale-105 transition-all"
+            >
+              <CalendarPlus size={13} /> Walk-In
+            </button>
             <button
               onClick={() => { setBillingPrefill(null); setBillingOpen(true); }}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] rounded-xl text-black font-black text-xs uppercase tracking-wider shadow-[0_4px_20px_-4px_rgba(212,175,55,0.4)] hover:scale-105 transition-all"
@@ -2772,7 +2810,37 @@ Your uid is: ${user.uid}
       ════════════════════════════════════════════════════════════════ */}
       {view === 'staff' && (
         <div className="space-y-4">
-          {/* Staff mode: show own profile only */}
+
+          {/* Sub-view toggle — admin only (staff mode shows profile directly) */}
+          {!isStaffMode && (
+            <div className="flex items-center gap-1 bg-zinc-800 border border-white/8 rounded-xl p-1 w-fit">
+              <button onClick={() => setStaffSubView('list')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                  staffSubView === 'list'
+                    ? 'bg-gold/15 border border-gold/25 text-gold'
+                    : 'text-gray-500 hover:text-white'
+                }`}>
+                <Users size={12}/> Staff List
+              </button>
+              <button onClick={() => setStaffSubView('analytics')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                  staffSubView === 'analytics'
+                    ? 'bg-purple-500/15 border border-purple-500/25 text-purple-400'
+                    : 'text-gray-500 hover:text-white'
+                }`}>
+                <BarChart3 size={12}/> Analytics
+              </button>
+            </div>
+          )}
+
+          {/* Analytics view */}
+          {!isStaffMode && staffSubView === 'analytics' && (
+            <StaffAnalytics staffInvoices={staffInvoices} staff={staff} />
+          )}
+
+          {/* Staff list — shown when list view is selected OR in staff mode */}
+          {(isStaffMode || staffSubView === 'list') && (
+          <>{/* Staff mode: show own profile only */}
           {isStaffMode && staffMember && (
             <div className="bg-zinc-900 border border-white/8 rounded-2xl p-6 space-y-4">
               <p className="text-[10px] uppercase tracking-widest font-black text-gold">My Profile</p>
@@ -2874,8 +2942,8 @@ Your uid is: ${user.uid}
                     <label className="text-[10px] font-black uppercase tracking-widest text-gold block mb-1.5">Staff Portal Login Email</label>
                     <input type="email"
                       placeholder="staff@example.com"
-                      value={(staffForm as any).authEmail ?? ''}
-                      onChange={e => setStaffForm(f => ({ ...f, authEmail: e.target.value.trim() } as any))}
+                      value={(staffForm as any).email ?? ''}
+                      onChange={e => setStaffForm(f => ({ ...f, email: e.target.value.trim() } as any))}
                       className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
                     />
                     <p className="text-[9px] text-gray-600 mt-1">Staff logs in at /admin with this email + a password you set in Firebase Console.</p>
@@ -2985,6 +3053,7 @@ Your uid is: ${user.uid}
             </div>
           )}
           </>)}{/* /!isStaffMode admin section */}
+          </>)}{/* /(isStaffMode || list) wrapper */}
         </div>
       )}
 
@@ -3098,6 +3167,22 @@ Your uid is: ${user.uid}
         </div>
       )}
 
+      {/* ── Walk-in booking modal ── */}
+      <AnimatePresence>
+        {walkInOpen && (
+          <WalkInBooking
+            user={user}
+            staffMember={staffMember ?? undefined}
+            onClose={() => setWalkInOpen(false)}
+            onCreated={(_id) => {
+              setWalkInOpen(false);
+              // Live onSnapshot listener picks up the new booking automatically.
+              setActiveTab('active');
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {/* ── Billing module modal — rendered over everything ── */}
       <AnimatePresence>
         {billingOpen && (
@@ -3111,6 +3196,9 @@ Your uid is: ${user.uid}
           />
         )}
       </AnimatePresence>
+
+      {/* ── Walk-In Booking modal ── */}
+      {walkInOpen && <WalkInBooking onClose={() => setWalkInOpen(false)} />}
 
       {/* ── Invoice view modal ── */}
       {invoiceModalId && (
@@ -3147,6 +3235,7 @@ export default function AdminDashboard() {
         // role: 'super_admin' → full admin access (default for existing docs without role)
         // role: 'staff'       → staff portal access
         const adminSnap = await getDoc(doc(db, 'admins', u.uid));
+        console.log(adminSnap.data(), "test")
 
         if (!adminSnap.exists()) {
           // User not found in admins collection → no access
@@ -3160,28 +3249,20 @@ export default function AdminDashboard() {
         const adminData = adminSnap.data();
         // Default to 'super_admin' for existing docs that don't have a role field yet
         const role: string = adminData?.role ?? 'super_admin';
-
         if (role === 'super_admin') {
           setIsAdminUser(true);
           setStaffMember(null);
 
         } else if (role === 'staff') {
           setIsAdminUser(false);
-          // Fetch the staff profile — prefer staffId if present, else fall back to email match
-          const staffId: string | undefined = adminData?.staffId;
-          if (staffId) {
-            const staffDocSnap = await getDoc(doc(db, 'staff', staffId));
-            if (staffDocSnap.exists()) {
-              setStaffMember({ id: staffDocSnap.id, ...(staffDocSnap.data() as Omit<StaffMember, 'id'>) });
-            } else {
-              setStaffMember(null);
-            }
-          } else if (u.email) {
-            // Fallback: match by authEmail in staff collection
+          // Use the logged-in email to find the matching staff document.
+          // No staffId needed in the admins doc — just { role: 'staff' } is enough.
+          // The staff document must have email matching u.email.
+          if (u.email) {
             const staffQuery = await getDocs(
               query(collection(db, 'staff'),
-                where('authEmail', '==', u.email),
-                where('isActive',  '==', true)
+                where('email', '==', u.email),
+                where('isActive', '==', true)
               )
             );
             if (!staffQuery.empty) {
@@ -3190,6 +3271,8 @@ export default function AdminDashboard() {
             } else {
               setStaffMember(null);
             }
+          } else {
+            setStaffMember(null);
           }
 
         } else {

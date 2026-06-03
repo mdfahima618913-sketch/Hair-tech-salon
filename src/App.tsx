@@ -19,6 +19,7 @@ import Footer    from './components/Footer';
 // Full-screen routes
 import BookingSystem   from './components/BookingSystem';
 import AdminDashboard  from './components/AdminDashboard';
+import MyAppointments  from './components/MyAppointments';
 
 import { seedServicesIfEmpty } from './lib/firebase';
 
@@ -65,9 +66,10 @@ export default function App() {
       <Routes>
         <Route path="/"        element={<LandingPage scaleX={scaleX} />} />
         {/* Booking opens as a full-screen page — completely isolated from landing */}
-        <Route path="/booking" element={<BookingSystem />} />
-        <Route path="/admin"   element={<AdminDashboard />} />
-        <Route path="*"        element={<Navigate to="/" replace />} />
+        <Route path="/booking"         element={<BookingSystem />} />
+        <Route path="/my-appointments" element={<MyAppointments />} />
+        <Route path="/admin"           element={<AdminDashboard />} />
+        <Route path="*"                element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
   );

@@ -575,12 +575,13 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                       >
                                         {payingId === b.id
                                           ? <><Loader2 size={11} className="animate-spin" /> Processing…</>
-                                          : <><IndianRupee size={11} /> Pay ₹{(b.totalAmount ?? 0).toLocaleString('en-IN')}</>}
+                                          : <><IndianRupee size={11} /> Pay ₹{(b.totalAmount ?? 0).toLocaleString('en-IN')} to Confirm</>}
                                       </button>
                                     </div>
                                     <p className="text-gray-600 text-[9px] text-center">
-                                      If payment was already deducted but order still shows pending, please{' '}
-                                      <a href="tel:+918789603343" className="text-gold underline">contact the salon</a>.
+                                      Your payment is being verified. If the amount has already been deducted, please{' '}
+                                      <a href="tel:+918789603343" className="text-gold underline">contact the salon</a>{' '}
+                                      for assistance.
                                     </p>
                                   </div>
                                 </div>

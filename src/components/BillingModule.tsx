@@ -50,7 +50,7 @@ export interface StaffMember {
   commissionRate: number;  // percentage e.g. 5
   salary: number;          // fixed monthly salary in ₹
   isActive: boolean;
-  authEmail?: string;      // Firebase Auth email for staff portal login
+  email?: string;          // Firebase Auth email for staff portal login
 }
 
 export interface BillItem {
@@ -99,6 +99,7 @@ export interface OnlineBookingPrefill {
   totalAmount: number;
   paymentId?: string;
   bookingTime?: string;
+  paymentMethod?: string;      // e.g. 'pay_at_salon' — full amount due at counter
 }
 
 interface BillingModuleProps {
@@ -586,7 +587,7 @@ function ServiceStep({
 // Payment step
 function PaymentStep({
   subtotal, discountPercent, onDiscountChange, paymentMethod,
-  onPaymentChange, isOnline, alreadyPaidAmount = 0,
+  onPaymentChange, isOnline, alreadyPaidAmount = 0, isPayAtSalon = false,
 }: {
   subtotal: number;
   discountPercent: number;
@@ -595,6 +596,7 @@ function PaymentStep({
   onPaymentChange: (m: PaymentMethod) => void;
   isOnline: boolean;
   alreadyPaidAmount?: number;
+  isPayAtSalon?: boolean;
 }) {
   const discountAmt  = Math.round(subtotal * discountPercent / 100);
   const total        = subtotal - discountAmt;
@@ -608,9 +610,19 @@ function PaymentStep({
       <div>
         <h3 className="text-white font-black text-lg uppercase tracking-tight mb-1">Payment</h3>
         <p className="text-gray-500 text-xs">
-          {isOnline ? 'Already paid online via Razorpay — just confirm.' : 'Select payment method and apply discount if any.'}
+          {isOnline && !isPayAtSalon ? 'Already paid online via Razorpay — just confirm.' : 'Select payment method and apply discount if any.'}
         </p>
       </div>
+
+      {/* Pay-at-salon notice */}
+      {isOnline && isPayAtSalon && alreadyPaidAmount === 0 && (
+        <div className="flex items-start gap-3 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl">
+          <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-amber-300 text-xs font-bold leading-relaxed">
+            Pay at Salon booking — full amount due. Collect payment before generating invoice.
+          </p>
+        </div>
+      )}
 
       {/* Bill summary */}
       <div className="bg-white/5 border border-white/8 rounded-2xl p-5 space-y-3">
@@ -944,8 +956,9 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   const [saveError, setSaveError]     = useState<string | null>(null);
   const [invoice, setInvoice]         = useState<Invoice | null>(null);
 
-  // Amount already paid via Razorpay (online flow only)
-  const alreadyPaidAmount = isOnlineFlow ? (prefill?.totalAmount ?? 0) : 0;
+  // Amount already paid via Razorpay (online flow only).
+  // pay_at_salon bookings are confirmed but nothing has been collected yet — treat as ₹0 paid.
+  const alreadyPaidAmount = (isOnlineFlow && prefill?.paymentMethod !== 'pay_at_salon') ? (prefill?.totalAmount ?? 0) : 0;
 
   const STEPS = isOnlineFlow
     ? ['Services', 'Payment', 'Invoice']
@@ -1234,6 +1247,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
                   onDiscountChange={setDiscount} paymentMethod={paymentMethod}
                   onPaymentChange={setPayment} isOnline={isOnlineFlow}
                   alreadyPaidAmount={alreadyPaidAmount}
+                  isPayAtSalon={prefill?.paymentMethod === 'pay_at_salon'}
                 />
               </motion.div>
             )}

@@ -39,7 +39,7 @@ service cloud.firestore {
         data.serviceDurationMins is number && data.serviceDurationMins  >  0 &&
         data.paymentId   is string && data.paymentId.size() >= 1 &&
         data.totalAmount is number && data.totalAmount       >  0 &&
-        data.status in ['paid', 'pending'] &&
+        data.status in ['paid', 'pending', 'confirmed'] &&
         data.createdAt == request.time;
     }
 
