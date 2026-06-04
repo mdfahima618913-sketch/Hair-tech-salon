@@ -1,4 +1,4 @@
-/**
+﻿/**
  * BillingModule.tsx
  *
  * Standalone billing module for Hair Tech Salon admin dashboard.
@@ -153,16 +153,16 @@ function Steps({ current, steps }: { current: number; steps: string[] }) {
             <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black transition-all ${
               i < current  ? 'bg-emerald-500 text-white'
               : i === current ? 'bg-gold text-black scale-110 shadow-[0_0_12px_rgba(212,175,55,0.4)]'
-              : 'bg-white/5 text-gray-600 border border-white/10'
+              : 'bg-white/8 text-gray-400 border border-white/10'
             }`}>
               {i < current ? <CheckCircle2 size={12} /> : i + 1}
             </div>
             <span className={`text-[10px] font-black uppercase tracking-wider hidden sm:inline ${
-              i === current ? 'text-gold' : i < current ? 'text-emerald-400' : 'text-gray-600'
+              i === current ? 'text-gold' : i < current ? 'text-emerald-400' : 'text-gray-400'
             }`}>{label}</span>
           </div>
           {i < steps.length - 1 && (
-            <div className={`w-8 h-[1px] mx-1 ${i < current ? 'bg-emerald-500/50' : 'bg-white/5'}`} />
+            <div className={`w-8 h-[1px] mx-1 ${i < current ? 'bg-emerald-500/50' : 'bg-white/8'}`} />
           )}
         </React.Fragment>
       ))}
@@ -170,33 +170,75 @@ function Steps({ current, steps }: { current: number; steps: string[] }) {
   );
 }
 
-// Customer search + create
+// Customer search + create — with live suggestions from local customer list
 function CustomerStep({
   onSelect,
 }: {
   onSelect: (customer: Customer, isNew: boolean) => void;
 }) {
-  const [phone, setPhone]         = useState('');
-  const [name, setName]           = useState('');
-  const [found, setFound]         = useState<Customer | null | 'not-found'>(null);
-  const [searching, setSearching] = useState(false);
-  const [creating, setCreating]   = useState(false);
-  const [error, setError]         = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [phone,        setPhone]        = useState('');
+  const [name,         setName]         = useState('');
+  const [found,        setFound]        = useState<Customer | null | 'not-found'>(null);
+  const [searching,    setSearching]    = useState(false);
+  const [creating,     setCreating]     = useState(false);
+  const [error,        setError]        = useState<string | null>(null);
+  const [customerList, setCustomerList] = useState<Customer[]>([]);
+  const [suggestions,  setSuggestions]  = useState<Customer[]>([]);
+  const [showDrop,     setShowDrop]     = useState(false);
+  const [dropPos,      setDropPos]      = useState<{ top: number; left: number; width: number } | null>(null);
+  const inputRef   = useRef<HTMLInputElement>(null);
+  const wrapperRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  // Load customer list once on mount for instant local suggestions
+  useEffect(() => {
+    getDocs(query(collection(db, 'customers'), orderBy('lastVisit', 'desc'), limit(500)))
+      .then(snap => setCustomerList(snap.docs.map(d => ({ ...d.data(), phone: d.id } as Customer))))
+      .catch(() => {});
+    inputRef.current?.focus();
+  }, []);
 
-  // Auto-search with 400ms debounce — no button click needed
+  // Close dropdown on outside click
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) setShowDrop(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  // Calculate fixed viewport position so dropdown escapes overflow-y-auto clipping
+  useEffect(() => {
+    if (showDrop && wrapperRef.current) {
+      const r = wrapperRef.current.getBoundingClientRect();
+      setDropPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+  }, [showDrop, suggestions]);
+
+  // Live suggestions from local list after 3+ chars (phone digits or name)
+  useEffect(() => {
+    const raw    = phone.trim();
+    const digits = raw.replace(/\D/g, '');
+    if (raw.length < 3) { setSuggestions([]); setShowDrop(false); return; }
+    if (found && found !== 'not-found') return;
+    const matches = customerList.filter((c: Customer) =>
+      digits.length >= 3
+        ? c.phone.includes(digits)
+        : c.name.toLowerCase().includes(raw.toLowerCase())
+    ).slice(0, 8);
+    setSuggestions(matches);
+    setShowDrop(matches.length > 0);
+  }, [phone, customerList, found]);
+
+  // Firestore exact lookup once 10 digits are present
   useEffect(() => {
     const clean = normalisePhone(phone);
     if (clean.length < 10) { setFound(null); setError(null); return; }
+    setShowDrop(false);
     const t = setTimeout(async () => {
       setSearching(true); setError(null);
       try {
-        // Check customers collection first
         const custSnap = await getDoc(doc(db, 'customers', clean));
         if (custSnap.exists()) { setFound(custSnap.data() as Customer); return; }
-        // Fall back: search bookings with all common phone formats
         const bookSnaps = await Promise.all(
           [clean, `+91${clean}`, `+91 ${clean}`, `91${clean}`, `0${clean}`].map(
             fmt => getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt)))
@@ -205,11 +247,7 @@ function CustomerStep({
         const firstHit = bookSnaps.find(s => !s.empty);
         if (firstHit) {
           const b = firstHit.docs[0].data();
-          setFound({
-            phone: clean, name: b.customerName ?? '',
-            visitCount: 0, totalSpend: 0,
-            firstVisit: '', lastVisit: '',
-          } as Customer);
+          setFound({ phone: clean, name: b.customerName ?? '', visitCount: 0, totalSpend: 0, firstVisit: '', lastVisit: '' } as Customer);
         } else {
           setFound('not-found');
         }
@@ -219,47 +257,76 @@ function CustomerStep({
     return () => clearTimeout(t);
   }, [phone]);
 
+  const pickSuggestion = (c: Customer) => {
+    setPhone(c.phone);
+    setName(c.name);
+    setFound(c);
+    setShowDrop(false);
+    setSuggestions([]);
+  };
+
   const handleCreate = async () => {
     const clean = normalisePhone(phone);
     if (!name.trim()) { setError('Enter customer name.'); return; }
-    setCreating(true);
-    setError(null);
+    setCreating(true); setError(null);
     try {
       const now = new Date().toISOString();
-      const customer: Customer = {
-        phone: clean, name: name.trim(),
-        visitCount: 0, totalSpend: 0,
-        firstVisit: now, lastVisit: now,
-      };
+      const customer: Customer = { phone: clean, name: name.trim(), visitCount: 0, totalSpend: 0, firstVisit: now, lastVisit: now };
       await setDoc(doc(db, 'customers', clean), customer);
       onSelect(customer, true);
-    } catch (e: any) {
-      setError(e.message);
-    } finally {
-      setCreating(false);
-    }
+    } catch (e: any) { setError(e.message); }
+    finally { setCreating(false); }
   };
 
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-white font-black text-lg uppercase tracking-tight mb-1">Find Customer</h3>
-        <p className="text-gray-500 text-xs">Search by phone number. New customers are added automatically.</p>
+        <p className="text-gray-400 text-xs">Type phone or name — suggestions appear after 3 characters.</p>
       </div>
 
-      <div className="relative">
-        <Phone size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
+      <div ref={wrapperRef} className="relative">
+        <Phone size={15} className="absolute left-3 top-3.5 text-gray-400 z-10" />
         <input
           ref={inputRef}
           type="tel"
-          placeholder="Type 10-digit phone number — auto-searches"
+          placeholder="Phone number or customer name…"
           value={phone}
-          onChange={e => setPhone(e.target.value)}
-          className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-9 pr-10 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
+          onChange={e => { setPhone(e.target.value); setFound(null); }}
+          onFocus={() => suggestions.length > 0 && setShowDrop(true)}
+          className="w-full bg-white/8 border border-white/10 rounded-xl py-3 pl-9 pr-10 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
         />
-        {searching && (
-          <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gold animate-spin" />
-        )}
+        {searching && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gold animate-spin" />}
+
+        {/* Live suggestions dropdown — rendered with fixed position to escape overflow-y-auto clipping */}
+        <AnimatePresence>
+          {showDrop && dropPos && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
+              style={{ position: 'fixed', top: dropPos.top, left: dropPos.left, width: dropPos.width, zIndex: 9999 }}
+              className="bg-zinc-900 border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
+            >
+              {suggestions.map((c: Customer) => (
+                <button
+                  key={c.phone}
+                  onMouseDown={(e: React.MouseEvent) => { e.preventDefault(); pickSuggestion(c); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/8 transition-colors text-left border-b border-white/12 last:border-0"
+                >
+                  <div className="w-8 h-8 rounded-full bg-gold/15 border border-gold/30 flex items-center justify-center text-gold text-xs font-black shrink-0">
+                    {(c.name || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-bold truncate">{c.name}</p>
+                    <p className="text-gray-400 text-xs">{c.phone}</p>
+                  </div>
+                  {(c.visitCount ?? 0) > 0 && (
+                    <span className="text-[9px] text-amber-400 font-black shrink-0">{c.visitCount} visit{c.visitCount !== 1 ? 's' : ''}</span>
+                  )}
+                </button>
+              ))}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       <AnimatePresence mode="wait">
@@ -301,14 +368,14 @@ function CustomerStep({
         {/* Not found — create new */}
         {found === 'not-found' && (
           <motion.div key="notfound" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-            className="p-5 bg-white/5 border border-white/10 rounded-2xl space-y-4"
+            className="p-5 bg-white/8 border border-white/10 rounded-2xl space-y-4"
           >
             <div className="flex items-center gap-2 text-amber-400">
               <UserPlus size={15} />
               <p className="text-xs font-bold">No customer found — add new customer</p>
             </div>
             <div className="relative">
-              <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
+              <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Customer full name"
@@ -316,7 +383,7 @@ function CustomerStep({
                 onChange={e => { setName(e.target.value); setError(null); }}
                 onKeyDown={e => e.key === 'Enter' && handleCreate()}
                 autoFocus
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
+                className="w-full bg-white/8 border border-white/10 rounded-xl py-3 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
               />
             </div>
             <button
@@ -416,7 +483,7 @@ function ServiceStep({
       {/* ── Bill items table ── */}
       {items.length > 0 && (
         <div className="rounded-2xl border border-white/10 overflow-hidden">
-          <div className="px-4 py-2.5 bg-white/[0.03] border-b border-white/8 flex items-center justify-between">
+          <div className="px-4 py-2.5 bg-white/[0.03] border-b border-white/12 flex items-center justify-between">
             <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">
               Bill Items ({items.length})
             </p>
@@ -440,7 +507,7 @@ function ServiceStep({
                   </div>
                 </div>
                 <button onClick={() => onRemove(idx)}
-                  className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0">
+                  className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0">
                   <X size={13} />
                 </button>
               </div>
@@ -448,7 +515,7 @@ function ServiceStep({
           </div>
           {/* Commission summary row */}
           {selectedStaffId && totalCommission > 0 && (
-            <div className="px-4 py-2.5 border-t border-white/8 bg-white/[0.02] flex items-center justify-between">
+            <div className="px-4 py-2.5 border-t border-white/12 bg-white/[0.02] flex items-center justify-between">
               <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
                 Total Commission ({items[0]?.commissionRate ?? 0}%)
               </span>
@@ -461,14 +528,14 @@ function ServiceStep({
       {/* ── Live calculation summary ── */}
       {items.length > 0 && (
         <div className="px-4 py-3 bg-zinc-800/60 border border-white/10 rounded-xl space-y-1.5">
-          <p className="text-[9px] uppercase tracking-widest font-black text-gray-600 mb-2">Bill Summary</p>
+          <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-2">Bill Summary</p>
           {items.map((it, i) => (
             <div key={i} className="flex justify-between text-[10px]">
               <span className="text-gray-500 truncate flex-1 pr-2">{it.serviceName}</span>
               <span className="text-white font-bold shrink-0">₹{it.price.toLocaleString('en-IN')}</span>
             </div>
           ))}
-          <div className="border-t border-white/8 pt-1.5 flex justify-between text-sm font-black">
+          <div className="border-t border-white/12 pt-1.5 flex justify-between text-sm font-black">
             <span className="text-gray-400">Subtotal</span>
             <span className="text-gold">₹{items.reduce((a, i) => a + i.price, 0).toLocaleString('en-IN')}</span>
           </div>
@@ -486,7 +553,7 @@ function ServiceStep({
       <div>
         <button
           onClick={() => setShowCatalogue(v => !v)}
-          className="w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.03] border border-white/8 rounded-xl hover:bg-white/[0.05] transition-all"
+          className="w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.03] border border-white/12 rounded-xl hover:bg-white/[0.05] transition-all"
         >
           <div className="flex items-center gap-2">
             <Scissors size={13} className="text-gold" />
@@ -494,7 +561,7 @@ function ServiceStep({
               {items.length > 0 ? 'Add More Services' : 'Select Services'}
             </span>
           </div>
-          {showCatalogue ? <ChevronUp size={13} className="text-gray-600" /> : <ChevronDown size={13} className="text-gray-600" />}
+          {showCatalogue ? <ChevronUp size={13} className="text-gray-400" /> : <ChevronDown size={13} className="text-gray-400" />}
         </button>
 
         <AnimatePresence>
@@ -508,17 +575,17 @@ function ServiceStep({
               <div className="pt-3 space-y-2">
                 {/* Search */}
                 <div className="relative">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
+                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input
                     type="text"
                     placeholder="Search services…"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
+                    className="w-full bg-white/8 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
                   />
                   {search && (
                     <button onClick={() => setSearch('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-600 hover:text-white">
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
                       <X size={13} />
                     </button>
                   )}
@@ -527,15 +594,15 @@ function ServiceStep({
                 {/* Catalogue */}
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1 scrollbar-hide">
                   {Object.entries(grouped).map(([cat, services]) => (
-                    <div key={cat} className="border border-white/8 rounded-xl overflow-hidden">
+                    <div key={cat} className="border border-white/12 rounded-xl overflow-hidden">
                       <button
                         onClick={() => setOpenCat(openCat === cat ? null : cat)}
                         className="w-full flex items-center justify-between px-4 py-2 bg-white/[0.03] hover:bg-white/[0.06] transition-all"
                       >
                         <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{cat}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[9px] text-gray-600">{services.length}</span>
-                          {openCat === cat ? <ChevronUp size={11} className="text-gray-600" /> : <ChevronDown size={11} className="text-gray-600" />}
+                          <span className="text-[9px] text-gray-400">{services.length}</span>
+                          {openCat === cat ? <ChevronUp size={11} className="text-gray-400" /> : <ChevronDown size={11} className="text-gray-400" />}
                         </div>
                       </button>
                       <AnimatePresence>
@@ -550,7 +617,7 @@ function ServiceStep({
                                   >
                                     <div className="min-w-0 flex-1">
                                       <p className={`text-xs font-medium truncate ${added ? 'text-gold' : 'text-gray-300'}`}>{service.name}</p>
-                                      <p className="text-[9px] text-gray-600">{service.time}</p>
+                                      <p className="text-[9px] text-gray-400">{service.time}</p>
                                     </div>
                                     <div className="flex items-center gap-3 shrink-0 ml-3">
                                       <span className="text-xs font-black text-white">{service.price}</span>
@@ -628,7 +695,7 @@ function PaymentStep({
       )}
 
       {/* Bill summary */}
-      <div className="bg-white/5 border border-white/8 rounded-2xl p-5 space-y-3">
+      <div className="bg-white/8 border border-white/12 rounded-2xl p-5 space-y-3">
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">Subtotal</span>
           <span className="text-white font-bold">₹{subtotal.toLocaleString('en-IN')}</span>
@@ -648,7 +715,7 @@ function PaymentStep({
             </div>
           </div>
         )}
-        <div className="pt-3 border-t border-white/5 flex justify-between">
+        <div className="pt-3 border-t border-white/10 flex justify-between">
           <span className="text-white font-black uppercase tracking-wide">Total</span>
           <span className="text-gold text-2xl font-black">₹{total.toLocaleString('en-IN')}</span>
         </div>
@@ -661,7 +728,7 @@ function PaymentStep({
               </span>
               <span className="font-bold">-₹{alreadyPaidAmount.toLocaleString('en-IN')}</span>
             </div>
-            <div className={`pt-2 border-t border-white/5 flex justify-between font-black text-lg ${balanceDue > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
+            <div className={`pt-2 border-t border-white/10 flex justify-between font-black text-lg ${balanceDue > 0 ? 'text-amber-400' : 'text-emerald-400'}`}>
               <span>{balanceDue > 0 ? 'Balance Due' : 'No Balance Due ✓'}</span>
               <span>₹{balanceDue.toLocaleString('en-IN')}</span>
             </div>
@@ -707,7 +774,7 @@ function PaymentStep({
                 className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${
                   paymentMethod === m.id
                     ? 'bg-gold/20 border-gold/40 text-gold'
-                    : 'bg-white/5 border-white/10 text-gray-500 hover:border-white/20 hover:text-white'
+                    : 'bg-white/8 border-white/10 text-gray-500 hover:border-white/20 hover:text-white'
                 }`}
               >
                 {m.icon} {m.label}
@@ -813,7 +880,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
         <h3 className="text-white font-black text-lg uppercase tracking-tight">Invoice Generated</h3>
         <div className="flex items-center gap-2">
           <button onClick={handlePrint}
-            className="flex items-center gap-2 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/10 transition-all">
+            className="flex items-center gap-2 px-3 py-2 bg-white/8 border border-white/10 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/10 transition-all">
             <Printer size={13} /> Print
           </button>
           <button onClick={onClose}
@@ -879,7 +946,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
 
         {/* Totals */}
         <div className="border-t border-dashed border-gray-300 pt-3 space-y-1.5">
-          <div className="flex justify-between text-xs text-gray-600">
+          <div className="flex justify-between text-xs text-gray-400">
             <span>Subtotal</span><span>₹{invoice.subtotal.toLocaleString('en-IN')}</span>
           </div>
           {invoice.discountAmount > 0 && (
@@ -892,7 +959,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
             <span>TOTAL</span>
             <span style={{ color: '#B8941F' }}>₹{invoice.total.toLocaleString('en-IN')}</span>
           </div>
-          <div className="flex justify-between text-[10px] text-gray-600 pt-1">
+          <div className="flex justify-between text-[10px] text-gray-400 pt-1">
             <span>Payment</span>
             <span className="uppercase font-bold text-black">{invoice.paymentMethod}</span>
           </div>
@@ -914,7 +981,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
                 return acc;
               }, {} as Record<string, number>)
             ).map(([name, amt]) => (
-              <div key={name} className="flex justify-between text-[10px] text-gray-600">
+              <div key={name} className="flex justify-between text-[10px] text-gray-400">
                 <span>{name}</span><span>₹{(amt as number).toLocaleString('en-IN')}</span>
               </div>
             ))}
@@ -1081,36 +1148,26 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
       // Write invoice
       const invoiceRef = await addDoc(collection(db, 'invoices'), inv);
 
-      // Update customer master
+      // Update customer master — stats (visitCount, totalSpend) are derived from invoices at display time,
+      // so here we only maintain identity fields: name, phone, source, timestamps.
       const invoiceSource = isOnlineFlow ? 'online' : 'walkin';
-      // Online booking visits are already captured in the `bookings` collection, which
-      // the Customers tab aggregates separately. Only increment manual-bill counters
-      // for Express Bill (walk-in) flow to avoid double-counting.
-      const isFromBooking = !!prefill?.bookingId;
       const custRef  = doc(db, 'customers', customer.phone);
       const custSnap = await getDoc(custRef);
       if (custSnap.exists()) {
         const existing   = custSnap.data() as Customer & { source?: string };
         const prevSource = existing.source ?? 'walkin';
-        const mergedSource =
-          prevSource === invoiceSource ? invoiceSource :
-          prevSource === 'both'        ? 'both'        : 'both';
+        const mergedSource = (prevSource === invoiceSource || prevSource === 'both') ? prevSource : 'both';
         await setDoc(custRef, {
           ...existing,
-          source:     mergedSource,
-          // Don't double-count online booking visits — they're tracked via bookings collection
-          visitCount: isFromBooking ? existing.visitCount : existing.visitCount + 1,
-          totalSpend: isFromBooking ? existing.totalSpend : existing.totalSpend + total,
-          lastVisit:  new Date().toISOString(),
+          name:      customer.name || existing.name,
+          source:    mergedSource,
+          lastVisit: new Date().toISOString(),
         });
       } else {
         await setDoc(custRef, {
           phone:      customer.phone,
           name:       customer.name,
           source:     invoiceSource,
-          // Online billing: start at 0 manual-bill counts (online activity lives in bookings)
-          visitCount: isFromBooking ? 0 : 1,
-          totalSpend: isFromBooking ? 0 : total,
           firstVisit: new Date().toISOString(),
           lastVisit:  new Date().toISOString(),
         });
@@ -1190,10 +1247,10 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 20 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="relative w-full max-w-2xl bg-[#0f0f0f] border border-white/10 rounded-[28px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-[#0f0f0f] border border-white/15 rounded-[28px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-7 py-5 border-b border-white/8 shrink-0">
+        <div className="flex items-center justify-between px-7 py-5 border-b border-white/12 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center">
               <Receipt size={15} className="text-gold" />
@@ -1202,13 +1259,13 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
               <p className="text-white font-black uppercase tracking-tight text-sm leading-none">
                 {isOnlineFlow ? 'Online Booking Bill' : 'Express Billing'}
               </p>
-              {customer && <p className="text-gray-600 text-[10px] mt-0.5">{customer.name} · {customer.phone}</p>}
+              {customer && <p className="text-gray-400 text-[10px] mt-0.5">{customer.name} · {customer.phone}</p>}
             </div>
           </div>
           <div className="flex items-center gap-4">
             <Steps current={displayStep} steps={STEPS} />
             {onClose && (
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-gray-600 hover:text-white transition-colors">
+              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-colors">
                 <X size={16} />
               </button>
             )}
@@ -1266,7 +1323,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
 
         {/* Footer navigation */}
         {step < (isOnlineFlow ? 3 : 4) && !invoice && (
-          <div className="px-7 py-5 border-t border-white/8 shrink-0 flex items-center justify-between gap-4">
+          <div className="px-7 py-5 border-t border-white/12 shrink-0 flex items-center justify-between gap-4">
             {/* Bill summary pill */}
             {items.length > 0 && (
               <div className="flex items-center gap-2 text-xs text-gray-400">
@@ -1278,7 +1335,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
             <div className="flex items-center gap-3 ml-auto">
               {step > (isOnlineFlow ? 1 : 0) && (
                 <button onClick={() => setStep(s => s - 1)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/10 transition-all">
+                  className="flex items-center gap-2 px-4 py-2.5 bg-white/8 border border-white/10 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/10 transition-all">
                   <ArrowLeft size={13} /> Back
                 </button>
               )}
@@ -1317,3 +1374,4 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
     </div>
   );
 }
+

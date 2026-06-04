@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ImagePlus, Trash2, Eye, EyeOff, Loader2,
@@ -169,13 +169,13 @@ export default function BannerManager() {
               </label>
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Link size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" />
+                  <Link size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   <input
                     type="url"
                     placeholder="https://images.unsplash.com/..."
                     value={formUrl}
                     onChange={e => handleUrlChange(e.target.value)}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
                   />
                 </div>
                 <button
@@ -206,7 +206,7 @@ export default function BannerManager() {
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-900/90">
                     <AlertCircle size={24} className="text-red-400" />
                     <p className="text-red-400 text-xs font-bold">Cannot load this URL</p>
-                    <p className="text-gray-600 text-[10px] text-center px-4">
+                    <p className="text-gray-400 text-[10px] text-center px-4">
                       Make sure the image is publicly accessible and the URL ends with an image extension.
                     </p>
                   </div>
@@ -229,7 +229,7 @@ export default function BannerManager() {
                 placeholder="e.g. Hair Styling, Bridal Makeup…"
                 value={formTitle}
                 onChange={e => setFormTitle(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
               />
             </div>
 
@@ -263,7 +263,7 @@ export default function BannerManager() {
         <div className="text-center py-16 bg-zinc-900 border border-white/8 rounded-2xl space-y-3">
           <ImageIcon size={36} className="text-gray-700 mx-auto" />
           <p className="text-gray-400 font-bold">No banner images yet</p>
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-400 text-sm">
             The homepage slider will use 5 default images until you add custom ones.
           </p>
           <button
@@ -275,7 +275,7 @@ export default function BannerManager() {
         </div>
       ) : (
         <div>
-          <p className="text-gray-600 text-[10px] uppercase tracking-wider font-bold mb-4">
+          <p className="text-gray-400 text-[10px] uppercase tracking-wider font-bold mb-4">
             {images.filter(i => i.active).length} active · {images.length} total
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -327,7 +327,7 @@ export default function BannerManager() {
                   <button
                     onClick={() => reorder(idx, 'up')}
                     disabled={idx === 0}
-                    className="p-1.5 rounded-lg text-gray-600 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
                     title="Move up"
                   >
                     <ChevronUp size={14} />
@@ -335,7 +335,7 @@ export default function BannerManager() {
                   <button
                     onClick={() => reorder(idx, 'down')}
                     disabled={idx === images.length - 1}
-                    className="p-1.5 rounded-lg text-gray-600 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all"
                     title="Move down"
                   >
                     <ChevronDown size={14} />
@@ -360,7 +360,7 @@ export default function BannerManager() {
                   {/* Delete */}
                   <button
                     onClick={() => handleDelete(img)}
-                    className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                    className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
                     title="Delete image"
                   >
                     <Trash2 size={14} />
@@ -378,3 +378,4 @@ export default function BannerManager() {
     </div>
   );
 }
+

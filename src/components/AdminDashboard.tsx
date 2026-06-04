@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LogIn, LogOut, Eye, EyeOff, AlertCircle, Loader2,
@@ -361,7 +361,7 @@ function NewBookingBanner({ booking, onDismiss, onAccept }: NewBookingBannerProp
           <button
             onClick={onDismiss}
             title="Dismiss banner — ring continues until all bookings are accepted"
-            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-gray-400 font-black text-xs uppercase tracking-widest transition-all"
+            className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/8 hover:bg-white/10 border border-white/10 rounded-xl text-gray-400 font-black text-xs uppercase tracking-widest transition-all"
           >
             <PhoneOff size={14} />
           </button>
@@ -427,11 +427,11 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           </div>
           <div>
             <p className="text-white font-black uppercase tracking-[0.2em] text-sm leading-none">Hair Tech</p>
-            <p className="text-gray-600 text-[10px] uppercase tracking-widest font-bold">Admin Console</p>
+            <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold">Admin Console</p>
           </div>
         </div>
 
-        <div className="bg-zinc-900 border border-white/10 rounded-[28px] p-8 shadow-2xl">
+        <div className="bg-zinc-900 border border-white/15 rounded-[28px] p-8 shadow-2xl">
           <h1 className="text-3xl font-black text-white uppercase tracking-tighter mb-1">Sign In</h1>
           <p className="text-gray-500 text-sm mb-8">Restricted to authorised admins only.</p>
 
@@ -443,7 +443,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
                 value={email}
                 onChange={e => setEmail(e.target.value)}
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 px-5 text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700 text-sm"
+                className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 px-5 text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500 text-sm"
               />
               <label className="absolute -top-2 left-4 px-2 bg-zinc-900 text-[9px] font-black uppercase tracking-widest text-gold">Email</label>
             </div>
@@ -455,10 +455,10 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
                 value={password}
                 onChange={e => setPassword(e.target.value)}
                 required
-                className="w-full bg-white/5 border border-white/10 rounded-2xl py-4 pl-5 pr-12 text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700 text-sm"
+                className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 pl-5 pr-12 text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500 text-sm"
               />
               <label className="absolute -top-2 left-4 px-2 bg-zinc-900 text-[9px] font-black uppercase tracking-widest text-gold">Password</label>
-              <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-300 transition-colors">
+              <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors">
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
@@ -501,7 +501,7 @@ function StatCard({ label, value, sub, icon, trend }: {
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-      className="bg-zinc-900 border border-white/8 rounded-2xl p-6 flex flex-col gap-4"
+      className="bg-zinc-900 border border-white/12 rounded-2xl p-6 flex flex-col gap-4"
     >
       <div className="flex items-start justify-between">
         <div className="p-2.5 bg-gold/10 rounded-xl text-gold">{icon}</div>
@@ -557,7 +557,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
     <>
       <tr
         onClick={() => setExpanded(v => !v)}
-        className="border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer group"
+        className="border-b border-white/10 hover:bg-white/[0.02] transition-colors cursor-pointer group"
       >
         <td className="py-4 px-5">
           <div className="flex items-center gap-3">
@@ -572,7 +572,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
         </td>
         <td className="py-4 px-5 hidden md:table-cell">
           <p className="text-gray-300 text-sm">{booking.bookingDate ? fmtDate(booking.bookingDate) : '—'}</p>
-          <p className="text-gray-600 text-[10px]">{booking.bookingTime ?? '—'}</p>
+          <p className="text-gray-400 text-[10px]">{booking.bookingTime ?? '—'}</p>
         </td>
         <td className="py-4 px-5 hidden lg:table-cell">
           <p className="text-gray-400 text-xs max-w-[180px] truncate">{booking.serviceNames ?? '—'}</p>
@@ -585,7 +585,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
         <td className="py-4 px-5">
           <StatusBadge status={booking.status ?? 'pending'} />
         </td>
-        <td className="py-4 px-5 text-gray-600 group-hover:text-gray-400 transition-colors">
+        <td className="py-4 px-5 text-gray-400 group-hover:text-gray-400 transition-colors">
           {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
         </td>
       </tr>
@@ -598,7 +598,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden bg-white/[0.015] border-b border-white/5"
+                className="overflow-hidden bg-white/[0.015] border-b border-white/10"
               >
                 <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
@@ -608,14 +608,14 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                     { label: 'Booked At',   value: fmtTs(booking.createdAt) },
                   ].map(({ label, value }) => (
                     <div key={label}>
-                      <p className="text-[9px] uppercase tracking-widest font-black text-gray-600 mb-1">{label}</p>
+                      <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-1">{label}</p>
                       <p className="text-gray-300 text-xs font-medium break-all">{value}</p>
                     </div>
                   ))}
 
                   {/* Services full list */}
                   <div className="sm:col-span-2">
-                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-600 mb-1">Services</p>
+                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-1">Services</p>
                     <p className="text-gray-300 text-xs">{booking.serviceNames}</p>
                   </div>
 
@@ -635,7 +635,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                             placeholder="e.g. pay_XXXXXXXXXXXXXXXXXX"
                             value={pendingPayId}
                             onChange={e => setPendingPayId(e.target.value)}
-                            className="flex-1 bg-zinc-900 border border-white/10 rounded-xl py-2 px-3 text-white text-xs focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700 font-mono"
+                            className="flex-1 bg-zinc-900 border border-white/10 rounded-xl py-2 px-3 text-white text-xs focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500 font-mono"
                           />
                           <button
                             onClick={async e => {
@@ -655,7 +655,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                             Confirm
                           </button>
                         </div>
-                        <p className="text-[9px] text-gray-600">Enter the Razorpay Payment ID from your dashboard to confirm this booking.</p>
+                        <p className="text-[9px] text-gray-400">Enter the Razorpay Payment ID from your dashboard to confirm this booking.</p>
                       </div>
 
                       {/* Pay at Salon */}
@@ -677,7 +677,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                       {/* Delete pending */}
                       <button
                         onClick={e => { e.stopPropagation(); if (confirm('Remove this pending booking?')) handleStatus('failed'); }}
-                        className="text-[9px] text-gray-600 hover:text-red-400 transition-colors"
+                        className="text-[9px] text-gray-400 hover:text-red-400 transition-colors"
                       >
                         Remove pending booking
                       </button>
@@ -687,7 +687,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                   {/* Status + actions (for non-pending bookings) */}
                   {booking.status !== 'pending' && (
                   <div className="sm:col-span-2 lg:col-span-2 flex items-end gap-2 flex-wrap">
-                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-600 w-full mb-1">Status</p>
+                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 w-full mb-1">Status</p>
 
                     {/* Current status badge */}
                     <StatusBadge status={booking.status ?? 'paid'} />
@@ -700,7 +700,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                         className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-40 ${
                           booking.status === s
                             ? `${STATUS_META[s].color} ${STATUS_META[s].bg}`
-                            : 'bg-white/5 border-white/10 text-gray-500 hover:border-white/20 hover:text-white'
+                            : 'bg-white/8 border-white/10 text-gray-500 hover:border-white/20 hover:text-white'
                         }`}
                       >
                         {updating && booking.status !== s ? <Loader2 size={10} className="animate-spin inline" /> : STATUS_META[s].label}
@@ -708,7 +708,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                     ))}
 
                     <div className="w-full mt-1 flex flex-wrap gap-2">
-                      <p className="text-[9px] uppercase tracking-widest font-black text-gray-600 w-full mb-0.5">Actions</p>
+                      <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 w-full mb-0.5">Actions</p>
 
                       {/* Service Completed — shown after bill is generated */}
                       {booking.invoiceId ? (
@@ -837,9 +837,9 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
   return (
     <div className="fixed inset-0 z-[350] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-[#0f0f0f] border border-white/10 rounded-[24px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-md bg-[#0f0f0f] border border-white/15 rounded-[24px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/8 shrink-0">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/12 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center">
               <Receipt size={13} className="text-gold" />
@@ -849,12 +849,12 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
           <div className="flex items-center gap-2">
             {invoice && (
               <button onClick={handlePrint}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/10 transition-all">
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/8 border border-white/10 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/10 transition-all">
                 <Printer size={12} /> Print
               </button>
             )}
             <button onClick={onClose}
-              className="p-2 rounded-xl text-gray-600 hover:text-white hover:bg-white/5 transition-all">
+              className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/8 transition-all">
               <X size={16} />
             </button>
           </div>
@@ -899,12 +899,12 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                 ))}
               </div>
               <div className="border-t border-dashed border-gray-300 pt-3 space-y-1.5">
-                <div className="flex justify-between text-xs text-gray-600"><span>Subtotal</span><span>₹{invoice.subtotal.toLocaleString('en-IN')}</span></div>
+                <div className="flex justify-between text-xs text-gray-400"><span>Subtotal</span><span>₹{invoice.subtotal.toLocaleString('en-IN')}</span></div>
                 {invoice.discountAmount > 0 && <div className="flex justify-between text-xs text-red-600"><span>Discount ({invoice.discountPercent}%)</span><span>-₹{invoice.discountAmount.toLocaleString('en-IN')}</span></div>}
                 <div className="flex justify-between font-black text-sm pt-1.5 border-t border-dashed border-gray-300">
                   <span>TOTAL</span><span style={{ color: '#B8941F' }}>₹{invoice.total.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between text-[10px] text-gray-600 pt-1"><span>Payment</span><span className="font-bold text-black uppercase">{invoice.paymentMethod}</span></div>
+                <div className="flex justify-between text-[10px] text-gray-400 pt-1"><span>Payment</span><span className="font-bold text-black uppercase">{invoice.paymentMethod}</span></div>
                 {invoice.paymentId && <div className="flex justify-between text-[9px] text-gray-400"><span>ID</span><span className="font-mono truncate max-w-[140px]">{invoice.paymentId}</span></div>}
               </div>
               {invoice.items.some(i => i.commissionAmount > 0) && (
@@ -914,7 +914,7 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                     if (it.staffId) acc[it.staffName] = (acc[it.staffName] ?? 0) + it.commissionAmount;
                     return acc;
                   }, {})).map(([name, amt]) => (
-                    <div key={name} className="flex justify-between text-[10px] text-gray-600">
+                    <div key={name} className="flex justify-between text-[10px] text-gray-400">
                       <span>{name}</span><span>₹{(amt as number).toLocaleString('en-IN')}</span>
                     </div>
                   ))}
@@ -985,7 +985,10 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   // Customers module state
   const [customers, setCustomers]               = useState<any[]>([]);
   const [customersLoading, setCustomersLoading] = useState(false);
-  const [customerSubView, setCustomerSubView]   = useState<'list' | 'analytics'>('list');
+  const [customerSubView,     setCustomerSubView]     = useState<'list' | 'analytics'>('list');
+  const [customerSearch,      setCustomerSearch]      = useState('');
+  const [customerSourceFilter,setCustomerSourceFilter]= useState<'all'|'online'|'walkin'|'both'>('all');
+  const [staffSearch,         setStaffSearch]         = useState('');
 
   // ── Notification state ────────────────────────────────────────────────────
   const [newBookingQueue, setNewBookingQueue] = useState<Booking[]>([]);
@@ -1241,62 +1244,60 @@ Your uid is: ${user.uid}
     return { totalRevenue, count, avgBill, onlineCount, walkinCount, pmRevenue, displayed };
   }, [billingInvoices, billingPeriod, billingFrom, billingTo, billingSearch]);
 
-  // Load customers — merge online bookings + manual billing records
+  // Load customers — stats derived purely from invoices (each invoice = one completed visit)
   useEffect(() => {
     if (view !== 'customers') return;
     setCustomersLoading(true);
     Promise.all([
       getDocs(query(collection(db, 'customers'), orderBy('lastVisit', 'desc'))),
-      getDocs(query(collection(db, 'bookings'), orderBy('createdAt', 'desc'), limit(1000))),
-    ]).then(([custSnap, bookSnap]) => {
-      // Seed map from customers collection — use stored source if available
-      const map = new Map<string, any>();
-      custSnap.docs.forEach(d => {
-        const data = d.data();
-        // Use the source stored on the document; fall back to 'walkin' only if not set
-        map.set(d.id, { ...data, source: data.source ?? 'walkin' });
-      });
-
-      // Aggregate online bookings per phone
-      const online = new Map<string, { name: string; count: number; spend: number; lastVisit: string }>();
-      bookSnap.docs.forEach(d => {
-        const b   = d.data();
-        const raw = (b.customerPhone ?? '').replace(/\D/g, '').slice(-10);
-        if (!raw || raw.length < 10) return;
-        if (!online.has(raw)) online.set(raw, { name: b.customerName ?? '', count: 0, spend: 0, lastVisit: '' });
-        const e = online.get(raw)!;
+      getDocs(query(collection(db, 'invoices'),  orderBy('createdAt', 'desc'), limit(2000))),
+    ]).then(([custSnap, invSnap]) => {
+      // Aggregate visit count, total spend, and sources from invoices
+      type InvAgg = { name: string; count: number; spend: number; firstVisit: string; lastVisit: string; sources: Set<string> };
+      const invMap = new Map<string, InvAgg>();
+      invSnap.docs.forEach(d => {
+        const inv  = d.data();
+        const phone = (inv.customerPhone ?? '').replace(/\D/g, '').slice(-10);
+        if (!phone || phone.length < 10) return;
+        const ts   = inv.createdAt?.toDate?.()?.toISOString() ?? '';
+        if (!invMap.has(phone)) invMap.set(phone, { name: inv.customerName ?? '', count: 0, spend: 0, firstVisit: ts, lastVisit: ts, sources: new Set() });
+        const e = invMap.get(phone)!;
         e.count++;
-        e.spend += b.totalAmount ?? 0;
-        const d_ = b.startTime || b.bookingDate || '';
-        if (d_ > e.lastVisit) e.lastVisit = d_;
+        e.spend += inv.total ?? 0;
+        if (ts && ts > e.lastVisit)  e.lastVisit  = ts;
+        if (ts && ts < e.firstVisit) e.firstVisit = ts;
+        if (inv.source) e.sources.add(inv.source);
       });
 
-      // Merge online bookings into the map
-      online.forEach((data, phone) => {
+      // Build customer list from invoice aggregation
+      const map = new Map<string, any>();
+      invMap.forEach((data, phone) => {
+        const src = (data.sources.has('online') && data.sources.has('walkin')) ? 'both'
+                  : data.sources.has('online') ? 'online' : 'walkin';
+        map.set(phone, {
+          phone,
+          name:       data.name,
+          visitCount: data.count,
+          totalSpend: data.spend,
+          firstVisit: data.firstVisit,
+          lastVisit:  data.lastVisit,
+          source:     src,
+        });
+      });
+
+      // Overlay name from customers master (more authoritative) and include customers with no invoices yet
+      custSnap.docs.forEach(d => {
+        const data  = d.data();
+        const phone = d.id;
         if (map.has(phone)) {
-          const ex         = map.get(phone);
-          const prevSource = ex.source ?? 'walkin';
-          // Only mark 'both' if stored source is genuinely walk-in;
-          // if they're already 'online', keep 'online'
-          const newSource  = prevSource === 'online' ? 'online'
-                           : prevSource === 'both'   ? 'both'
-                           : 'both'; // walkin record + online booking → both
-          map.set(phone, {
-            ...ex,
-            source:      newSource,
-            visitCount:  (ex.visitCount ?? 0) + data.count,
-            totalSpend:  (ex.totalSpend  ?? 0) + data.spend,
-            lastVisit:   data.lastVisit > (ex.lastVisit ?? '') ? data.lastVisit : ex.lastVisit,
-          });
+          const ex = map.get(phone);
+          map.set(phone, { ...ex, name: data.name || ex.name });
         } else {
           map.set(phone, {
-            phone,
-            name:       data.name || '—',
-            visitCount: data.count,
-            totalSpend: data.spend,
-            firstVisit: data.lastVisit,
-            lastVisit:  data.lastVisit,
-            source:     'online',
+            ...data,
+            visitCount: 0,
+            totalSpend: 0,
+            source:     data.source ?? 'walkin',
           });
         }
       });
@@ -1685,7 +1686,7 @@ Your uid is: ${user.uid}
       </div>
 
       {/* ── Top Bar ── */}
-      <header className="sticky top-0 z-50 bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-white/8">
+      <header className="sticky top-0 z-50 bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-white/12">
         <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 shrink-0">
             <div className="w-8 h-8 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center">
@@ -1693,7 +1694,7 @@ Your uid is: ${user.uid}
             </div>
             <div className="hidden sm:block">
               <p className="text-white font-black uppercase tracking-[0.15em] text-xs leading-none">Hair Tech</p>
-              <p className="text-gray-600 text-[9px] uppercase tracking-widest">
+              <p className="text-gray-400 text-[9px] uppercase tracking-widest">
                 {isStaffMode ? 'Staff Portal' : 'Admin'}
               </p>
             </div>
@@ -1707,7 +1708,7 @@ Your uid is: ${user.uid}
           </div>
 
           {/* ── Module navigation — filtered by role ── */}
-          <nav className="flex items-center gap-1 bg-white/[0.03] border border-white/8 rounded-xl p-1">
+          <nav className="flex items-center gap-1 bg-white/[0.03] border border-white/12 rounded-xl p-1">
             {(isStaffMode ? [
               { id: 'bookings',   label: 'Bookings',  icon: <CalendarDays size={13} /> },
               { id: 'billing',    label: 'Billing',   icon: <Receipt      size={13} /> },
@@ -1745,7 +1746,7 @@ Your uid is: ${user.uid}
                 className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-xs font-bold transition-all ${
                   notifPermission === 'granted'
                     ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 cursor-default'
-                    : 'bg-white/5 border-white/10 text-gray-400 hover:border-amber-500/30 hover:text-amber-400'
+                    : 'bg-white/8 border-white/10 text-gray-400 hover:border-amber-500/30 hover:text-amber-400'
                 }`}
               >
                 {notifPermission === 'granted'
@@ -1758,7 +1759,7 @@ Your uid is: ${user.uid}
             <button
               onClick={handleSignOut}
               disabled={signOutLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-white/8 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all"
             >
               {signOutLoading ? <Loader2 size={13} className="animate-spin" /> : <LogOut size={13} />}
               <span className="hidden sm:inline">Sign Out</span>
@@ -1821,14 +1822,14 @@ Your uid is: ${user.uid}
             {!isStaffMode && (view === 'bookings' || view === 'insights') && (
               <div className="flex items-center gap-2">
                 {lastRefreshedMs > 0 && (
-                  <span className="text-[9px] text-gray-600 font-bold hidden lg:block">
+                  <span className="text-[9px] text-gray-400 font-bold hidden lg:block">
                     Showing last 90 days
                   </span>
                 )}
                 <button
                   onClick={() => { setIsRefreshing(true); setRefreshKey(k => k + 1); }}
                   disabled={isRefreshing}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-xl text-[10px] font-bold text-gray-400 hover:text-white hover:bg-white/8 transition-all disabled:opacity-40"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/8 border border-white/10 rounded-xl text-[10px] font-bold text-gray-400 hover:text-white hover:bg-white/8 transition-all disabled:opacity-40"
                   title="Refresh booking data"
                 >
                   <RefreshCw size={11} className={isRefreshing ? 'animate-spin text-gold' : ''}/>
@@ -1848,7 +1849,7 @@ Your uid is: ${user.uid}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
           <div>
             <h2 className="text-white font-black text-lg uppercase tracking-tight">Overview</h2>
-            <p className="text-gray-600 text-xs">
+            <p className="text-gray-400 text-xs">
               {insightsFrom && insightsTo
                 ? `Custom range: ${new Date(insightsFrom).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} – ${new Date(insightsTo).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}`
                 : 'All metrics computed for the selected period'}
@@ -1856,7 +1857,7 @@ Your uid is: ${user.uid}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {/* Preset period pills */}
-            <div className="flex items-center gap-1 bg-zinc-900 border border-white/8 rounded-xl p-1">
+            <div className="flex items-center gap-1 bg-zinc-900 border border-white/12 rounded-xl p-1">
               {([
                 { id: 'today', label: 'Today'       },
                 { id: 'week',  label: 'This Week'   },
@@ -1874,14 +1875,14 @@ Your uid is: ${user.uid}
               ))}
             </div>
             {/* Custom date range */}
-            <div className="flex items-center gap-1.5 bg-zinc-900 border border-white/8 rounded-xl px-3 py-1.5">
-              <Calendar size={11} className={insightsFrom ? 'text-gold' : 'text-gray-600'} />
+            <div className="flex items-center gap-1.5 bg-zinc-900 border border-white/12 rounded-xl px-3 py-1.5">
+              <Calendar size={11} className={insightsFrom ? 'text-gold' : 'text-gray-400'} />
               <input
                 type="date" value={insightsFrom}
                 onChange={e => setInsightsFrom(e.target.value)}
                 className="bg-transparent text-[10px] text-white focus:outline-none w-24 [color-scheme:dark]"
               />
-              <span className="text-gray-600 text-[10px]">–</span>
+              <span className="text-gray-400 text-[10px]">–</span>
               <input
                 type="date" value={insightsTo} min={insightsFrom}
                 onChange={e => setInsightsTo(e.target.value)}
@@ -1889,7 +1890,7 @@ Your uid is: ${user.uid}
               />
               {insightsFrom && (
                 <button onClick={() => { setInsightsFrom(''); setInsightsTo(''); }}
-                  className="text-gray-600 hover:text-white transition-colors ml-1">
+                  className="text-gray-400 hover:text-white transition-colors ml-1">
                   <X size={11} />
                 </button>
               )}
@@ -1968,13 +1969,13 @@ Your uid is: ${user.uid}
               sub: 'On active days', icon: <BarChart3 size={16} />, color: 'text-blue-400' },
           ].map(({ label, value, sub, icon, color }) => (
             <motion.div key={label} initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-              className="bg-zinc-900 border border-white/8 rounded-2xl p-4 flex items-center gap-3"
+              className="bg-zinc-900 border border-white/12 rounded-2xl p-4 flex items-center gap-3"
             >
-              <div className={`p-2 bg-white/5 rounded-xl ${color} shrink-0`}>{icon}</div>
+              <div className={`p-2 bg-white/8 rounded-xl ${color} shrink-0`}>{icon}</div>
               <div className="min-w-0">
                 <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 truncate">{label}</p>
                 <p className="text-xl font-black text-white leading-none">{value}</p>
-                <p className="text-[9px] text-gray-600 mt-0.5 truncate">{sub}</p>
+                <p className="text-[9px] text-gray-400 mt-0.5 truncate">{sub}</p>
               </div>
             </motion.div>
           ))}
@@ -1984,7 +1985,7 @@ Your uid is: ${user.uid}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
 
           {/* Revenue bar chart */}
-          <div className="lg:col-span-2 bg-zinc-900 border border-white/8 rounded-2xl p-6">
+          <div className="lg:col-span-2 bg-zinc-900 border border-white/12 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
                 <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Revenue Trend</p>
@@ -2045,7 +2046,7 @@ Your uid is: ${user.uid}
                     ))}
                   </div>
                   {/* Y-axis reference */}
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/5">
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/10">
                     <span className="text-[9px] text-gray-700 font-bold">₹0</span>
                     <span className="text-[9px] text-gray-700 font-bold">₹{maxAmt.toLocaleString('en-IN',{maximumFractionDigits:0})}</span>
                   </div>
@@ -2053,18 +2054,18 @@ Your uid is: ${user.uid}
               );
             })() : (
               <div className="h-36 flex items-center justify-center">
-                <p className="text-gray-600 text-xs">Not enough data for this period</p>
+                <p className="text-gray-400 text-xs">Not enough data for this period</p>
               </div>
             )}
           </div>
 
           {/* Status breakdown donut + collection rate */}
-          <div className="bg-zinc-900 border border-white/8 rounded-2xl p-6 flex flex-col gap-5">
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 flex flex-col gap-5">
             {/* Donut chart — pure SVG */}
             <div>
               <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-3">Booking Breakdown</p>
               {stats.statusBreakdown.length === 0 ? (
-                <p className="text-gray-600 text-xs text-center py-4">No data</p>
+                <p className="text-gray-400 text-xs text-center py-4">No data</p>
               ) : (() => {
                 const total = stats.statusBreakdown.reduce((a, s) => a + s.count, 0);
                 const r = 36; const cx = 56; const cy = 56;
@@ -2113,14 +2114,14 @@ Your uid is: ${user.uid}
             </div>
 
             {/* Collection rate */}
-            <div className="pt-4 border-t border-white/5">
+            <div className="pt-4 border-t border-white/10">
               <div className="flex items-center justify-between mb-2">
                 <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Collection Rate</p>
                 <span className={`text-sm font-black ${stats.collectionRate >= 80 ? 'text-emerald-400' : stats.collectionRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                   {stats.collectionRate}%
                 </span>
               </div>
-              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-2 bg-white/8 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${stats.collectionRate}%` }}
@@ -2128,18 +2129,18 @@ Your uid is: ${user.uid}
                   className={`h-full rounded-full ${stats.collectionRate >= 80 ? 'bg-emerald-500' : stats.collectionRate >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
                 />
               </div>
-              <p className="text-[9px] text-gray-600 mt-1.5">
+              <p className="text-[9px] text-gray-400 mt-1.5">
                 ₹{stats.collectedAmount.toLocaleString('en-IN')} collected of ₹{stats.totalRevenue.toLocaleString('en-IN')}
               </p>
             </div>
 
             {/* Return customer rate */}
-            <div className="pt-3 border-t border-white/5">
+            <div className="pt-3 border-t border-white/10">
               <div className="flex items-center justify-between mb-1">
                 <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Returning Customers</p>
                 <span className="text-sm font-black text-purple-400">{stats.returnRate}%</span>
               </div>
-              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-2 bg-white/8 rounded-full overflow-hidden">
                 <motion.div
                   initial={{ width: 0 }}
                   animate={{ width: `${stats.returnRate}%` }}
@@ -2147,7 +2148,7 @@ Your uid is: ${user.uid}
                   className="h-full rounded-full bg-purple-500"
                 />
               </div>
-              <p className="text-[9px] text-gray-600 mt-1.5">
+              <p className="text-[9px] text-gray-400 mt-1.5">
                 {stats.returningCustomers} of {stats.totalCustomers} customers visited 2+ times
               </p>
             </div>
@@ -2158,14 +2159,14 @@ Your uid is: ${user.uid}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-8">
 
           {/* Top services — interactive drill-down */}
-          <div className="bg-zinc-900 border border-white/8 rounded-2xl p-6 overflow-hidden">
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 overflow-hidden">
             <div className="flex items-center justify-between mb-4">
               <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Top Services</p>
               <span className="text-[8px] text-gray-700 font-bold uppercase tracking-wider">Tap to drill down</span>
             </div>
 
             {stats.topServices.length === 0 ? (
-              <p className="text-gray-600 text-xs text-center py-8">No data for this period</p>
+              <p className="text-gray-400 text-xs text-center py-8">No data for this period</p>
             ) : (
               <div className="space-y-1">
                 {stats.topServices.map(({ name, count, revenue }, i) => {
@@ -2180,16 +2181,16 @@ Your uid is: ${user.uid}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className={`text-[9px] font-black w-3 ${isOpen ? 'text-gold' : 'text-gray-600'}`}>{i + 1}</span>
+                            <span className={`text-[9px] font-black w-3 ${isOpen ? 'text-gold' : 'text-gray-400'}`}>{i + 1}</span>
                             <span className={`text-xs font-medium truncate ${isOpen ? 'text-gold' : 'text-gray-300 group-hover:text-white'}`}>{name}</span>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0 ml-2">
                             <span className="text-[10px] font-black text-white">{count}×</span>
-                            <span className="text-[9px] text-gray-600">₹{revenue.toLocaleString('en-IN')}</span>
+                            <span className="text-[9px] text-gray-400">₹{revenue.toLocaleString('en-IN')}</span>
                             <ChevronDown size={11} className={`transition-transform ${isOpen ? 'rotate-180 text-gold' : 'text-gray-700'}`} />
                           </div>
                         </div>
-                        <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                        <div className="h-1 bg-white/8 rounded-full overflow-hidden">
                           <div className={`h-full rounded-full transition-all ${isOpen ? 'bg-gold' : 'bg-gold/40'}`}
                             style={{ width: `${(count / maxCount) * 100}%` }} />
                         </div>
@@ -2212,7 +2213,7 @@ Your uid is: ${user.uid}
                                   <button key={p}
                                     onClick={e => { e.stopPropagation(); setServiceDrillPeriod(p); }}
                                     className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${
-                                      serviceDrillPeriod === p ? 'bg-gold/25 text-gold' : 'text-gray-600 hover:text-white'
+                                      serviceDrillPeriod === p ? 'bg-gold/25 text-gold' : 'text-gray-400 hover:text-white'
                                     }`}>
                                     {p === 'today' ? 'Today' : p === 'week' ? 'Week' : p === 'month' ? 'Month' : p === 'year' ? 'Year' : 'All'}
                                   </button>
@@ -2228,9 +2229,9 @@ Your uid is: ${user.uid}
                                       { label: 'Revenue',  value: `₹${serviceDrillStats.revenue.toLocaleString('en-IN',{maximumFractionDigits:0})}`, color: 'text-gold' },
                                       { label: 'Avg Bill', value: serviceDrillStats.total > 0 ? `₹${Math.round(serviceDrillStats.revenue/serviceDrillStats.total).toLocaleString('en-IN')}` : '—', color: 'text-emerald-400' },
                                     ].map(({ label, value, color }) => (
-                                      <div key={label} className="text-center p-1.5 bg-white/5 rounded-lg">
+                                      <div key={label} className="text-center p-1.5 bg-white/8 rounded-lg">
                                         <p className={`text-sm font-black ${color}`}>{value}</p>
-                                        <p className="text-[8px] text-gray-600 uppercase tracking-wider">{label}</p>
+                                        <p className="text-[8px] text-gray-400 uppercase tracking-wider">{label}</p>
                                       </div>
                                     ))}
                                   </div>
@@ -2260,7 +2261,7 @@ Your uid is: ${user.uid}
                                       </div>
                                     </div>
                                   ) : (
-                                    <p className="text-[10px] text-gray-600 text-center py-2">No bookings in this period</p>
+                                    <p className="text-[10px] text-gray-400 text-center py-2">No bookings in this period</p>
                                   )}
                                 </>
                               ) : (
@@ -2280,13 +2281,13 @@ Your uid is: ${user.uid}
           </div>
 
           {/* Peak hours heatmap */}
-          <div className="bg-zinc-900 border border-white/8 rounded-2xl p-6">
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
             <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-4">Peak Hours</p>
             <div className="space-y-2">
               {stats.peakHours.map(({ label, count }) => (
                 <div key={label} className="flex items-center gap-2">
-                  <span className="text-[9px] text-gray-600 font-bold w-10 shrink-0">{label}</span>
-                  <div className="flex-1 h-5 bg-white/5 rounded-md overflow-hidden relative">
+                  <span className="text-[9px] text-gray-400 font-bold w-10 shrink-0">{label}</span>
+                  <div className="flex-1 h-5 bg-white/8 rounded-md overflow-hidden relative">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={{ width: count > 0 ? `${(count / stats.maxHourCount) * 100}%` : '0%' }}
@@ -2307,13 +2308,13 @@ Your uid is: ${user.uid}
                 </div>
               ))}
             </div>
-            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5">
+            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/10">
               {[
                 { color: 'bg-red-500/70', label: 'Busy' },
                 { color: 'bg-amber-500/70', label: 'Moderate' },
                 { color: 'bg-emerald-500/50', label: 'Light' },
               ].map(({ color, label }) => (
-                <span key={label} className="flex items-center gap-1 text-[8px] text-gray-600 font-bold">
+                <span key={label} className="flex items-center gap-1 text-[8px] text-gray-400 font-bold">
                   <span className={`w-2 h-2 rounded-sm ${color}`} /> {label}
                 </span>
               ))}
@@ -2321,7 +2322,7 @@ Your uid is: ${user.uid}
           </div>
 
           {/* Today's schedule */}
-          <div className="bg-zinc-900 border border-white/8 rounded-2xl p-6">
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Today's Schedule</p>
               <span className="text-[9px] font-black text-gold px-2 py-0.5 bg-gold/10 border border-gold/20 rounded-full">
@@ -2331,7 +2332,7 @@ Your uid is: ${user.uid}
             {stats.todaySchedule.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 gap-2">
                 <CalendarDays size={24} className="text-gray-700" />
-                <p className="text-gray-600 text-xs">No appointments today</p>
+                <p className="text-gray-400 text-xs">No appointments today</p>
               </div>
             ) : (
               <div className="space-y-2 max-h-[280px] overflow-y-auto pr-1 scrollbar-hide">
@@ -2349,8 +2350,8 @@ Your uid is: ${user.uid}
                         isNow
                           ? 'bg-gold/10 border-gold/30'
                           : b.status === 'completed'
-                          ? 'bg-white/[0.02] border-white/5 opacity-50'
-                          : 'bg-white/[0.03] border-white/5'
+                          ? 'bg-white/[0.02] border-white/10 opacity-50'
+                          : 'bg-white/[0.03] border-white/10'
                       }`}
                     >
                       <div className={`w-1.5 rounded-full shrink-0 mt-1 ${
@@ -2365,7 +2366,7 @@ Your uid is: ${user.uid}
                           <StatusBadge status={b.status ?? 'pending'} />
                         </div>
                         <p className="text-[10px] text-gray-500 truncate mt-0.5">{b.serviceNames ?? '—'}</p>
-                        <p className="text-[9px] text-gray-600 mt-0.5">{b.bookingTime ?? '—'}</p>
+                        <p className="text-[9px] text-gray-400 mt-0.5">{b.bookingTime ?? '—'}</p>
                       </div>
                     </div>
                   );
@@ -2405,7 +2406,7 @@ Your uid is: ${user.uid}
         )}
 
         {/* ── Tabs ── */}
-        <div className="flex items-center gap-1 mb-4 bg-zinc-900 border border-white/8 rounded-2xl p-1.5 w-fit flex-wrap">
+        <div className="flex items-center gap-1 mb-4 bg-zinc-900 border border-white/12 rounded-2xl p-1.5 w-fit flex-wrap">
           {([
             { id: 'active',    label: 'Active',    count: activeBookings.length,      icon: <Clock size={13} />,       activeStyle: 'bg-gold/10 border border-gold/20 text-gold' },
             { id: 'pending',   label: 'Pending',   count: pendingTabBookings.length,  icon: <AlertCircle size={13} />, activeStyle: 'bg-amber-500/20 border border-amber-500/30 text-amber-400' },
@@ -2420,36 +2421,36 @@ Your uid is: ${user.uid}
             >
               {tab.icon} {tab.label}
               <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${
-                activeTab === tab.id ? 'bg-white/10' : 'bg-white/5'
+                activeTab === tab.id ? 'bg-white/10' : 'bg-white/8'
               }`}>{tab.count}</span>
             </button>
           ))}
         </div>
 
         {/* ── Filters & Search ── */}
-        <div className="bg-zinc-900 border border-white/8 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl p-4 mb-4 flex flex-col sm:flex-row gap-3 items-stretch sm:items-center">
           {/* Search */}
           <div className="relative flex-1">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
               type="text"
               placeholder="Search name, phone, email, payment ID…"
               value={search}
               onChange={e => setSearch(e.target.value)}
-              className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-gray-700 focus:outline-none focus:border-gold/40 transition-all"
+              className="w-full bg-white/8 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/40 transition-all"
             />
           </div>
 
           {/* Status Filter — only shown on Active tab */}
           {activeTab === 'active' && (
             <div className="flex items-center gap-2 flex-wrap">
-              <Filter size={13} className="text-gray-600 shrink-0" />
+              <Filter size={13} className="text-gray-400 shrink-0" />
               {(['all', 'paid', 'confirmed', 'pending', 'failed'] as const).map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)}
                   className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
                     statusFilter === s
                       ? s === 'all' ? 'bg-gold/10 border-gold/30 text-gold' : `${STATUS_META[s].color} ${STATUS_META[s].bg}`
-                      : 'bg-white/5 border-white/10 text-gray-500 hover:text-white hover:border-white/20'
+                      : 'bg-white/8 border-white/10 text-gray-500 hover:text-white hover:border-white/20'
                   }`}
                 >
                   {s === 'all' ? 'All' : STATUS_META[s].label}
@@ -2460,7 +2461,7 @@ Your uid is: ${user.uid}
 
           {/* Export */}
           <button onClick={() => exportCSV(filtered)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all shrink-0"
+            className="flex items-center gap-2 px-4 py-2.5 bg-white/8 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all shrink-0"
           >
             <Download size={13} /> Export CSV
           </button>
@@ -2510,7 +2511,7 @@ Your uid is: ${user.uid}
 
             <button
               onClick={() => window.location.reload()}
-              className="mt-4 flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all"
+              className="mt-4 flex items-center gap-2 px-4 py-2 bg-white/8 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all"
             >
               <RefreshCw size={13} /> Retry after creating the document
             </button>
@@ -2518,7 +2519,7 @@ Your uid is: ${user.uid}
         )}
 
         {/* ── Bookings Table ── */}
-        <div className="bg-zinc-900 border border-white/8 rounded-2xl overflow-hidden">
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-24 gap-4">
               <Loader2 size={32} className="animate-spin text-gold" />
@@ -2543,7 +2544,7 @@ Your uid is: ${user.uid}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/8 bg-white/[0.02]">
+                  <tr className="border-b border-white/12 bg-white/[0.02]">
                     {[
                       { label: 'Customer',  key: 'customerName'  as SortKey, always: true },
                       { label: 'Date',      key: 'bookingDate'   as SortKey, hidden: 'md' },
@@ -2555,7 +2556,7 @@ Your uid is: ${user.uid}
                       <th
                         key={i}
                         onClick={() => key && toggleSort(key)}
-                        className={`py-3 px-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-600 select-none
+                        className={`py-3 px-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-400 select-none
                           ${key ? 'cursor-pointer hover:text-gray-400 transition-colors' : ''}
                           ${hidden === 'md' ? 'hidden md:table-cell' : ''}
                           ${hidden === 'lg' ? 'hidden lg:table-cell' : ''}
@@ -2577,7 +2578,7 @@ Your uid is: ${user.uid}
                 </tbody>
               </table>
 
-              <div className="px-5 py-3 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+              <div className="px-5 py-3 border-t border-white/10 flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                 <span>Showing {filtered.length} of {bookings.length} bookings</span>
                 <span>₹{filtered.reduce((a, b) => a + (b.totalAmount ?? 0), 0).toLocaleString('en-IN')} filtered total</span>
               </div>
@@ -2598,7 +2599,7 @@ Your uid is: ${user.uid}
           <div className="flex flex-col gap-3">
             {/* Period + date range row */}
             <div className="flex flex-wrap items-center gap-2">
-              <div className="flex items-center gap-1 bg-zinc-900 border border-white/8 rounded-xl p-1">
+              <div className="flex items-center gap-1 bg-zinc-900 border border-white/12 rounded-xl p-1">
                 {(['today','week','month','all'] as const).map(p => (
                   <button key={p}
                     onClick={() => { setBillingPeriod(p); setBillingFrom(''); setBillingTo(''); }}
@@ -2610,14 +2611,14 @@ Your uid is: ${user.uid}
                 ))}
               </div>
               {/* Custom date range */}
-              <div className="flex items-center gap-1.5 bg-zinc-900 border border-white/8 rounded-xl px-3 py-1.5">
-                <Calendar size={11} className={billingFrom ? 'text-gold' : 'text-gray-600'} />
+              <div className="flex items-center gap-1.5 bg-zinc-900 border border-white/12 rounded-xl px-3 py-1.5">
+                <Calendar size={11} className={billingFrom ? 'text-gold' : 'text-gray-400'} />
                 <input
                   type="date" value={billingFrom}
                   onChange={e => setBillingFrom(e.target.value)}
                   className="bg-transparent text-[10px] text-white focus:outline-none w-24 [color-scheme:dark]"
                 />
-                <span className="text-gray-600 text-[10px]">–</span>
+                <span className="text-gray-400 text-[10px]">–</span>
                 <input
                   type="date" value={billingTo} min={billingFrom}
                   onChange={e => setBillingTo(e.target.value)}
@@ -2625,7 +2626,7 @@ Your uid is: ${user.uid}
                 />
                 {billingFrom && (
                   <button onClick={() => { setBillingFrom(''); setBillingTo(''); }}
-                    className="text-gray-600 hover:text-white transition-colors ml-1">
+                    className="text-gray-400 hover:text-white transition-colors ml-1">
                     <X size={11} />
                   </button>
                 )}
@@ -2640,11 +2641,11 @@ Your uid is: ${user.uid}
             <div className="flex items-center gap-2">
               {/* Search */}
               <div className="relative flex-1 sm:flex-none">
-                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600" />
+                <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type="text" placeholder="Search invoice / customer…"
                   value={billingSearch} onChange={e => setBillingSearch(e.target.value)}
-                  className="w-full sm:w-56 bg-zinc-900 border border-white/10 rounded-xl py-2 pl-8 pr-3 text-white text-xs focus:outline-none focus:border-gold/40 transition-all placeholder:text-gray-700"
+                  className="w-full sm:w-56 bg-zinc-900 border border-white/10 rounded-xl py-2 pl-8 pr-3 text-white text-xs focus:outline-none focus:border-gold/40 transition-all placeholder:text-gray-500"
                 />
               </div>
               {/* Refresh */}
@@ -2654,7 +2655,7 @@ Your uid is: ${user.uid}
                   .then(snap => setBillingInvoices(snap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice & { id: string }))))
                   .catch(console.error)
                   .finally(() => setBillingLoading(false));
-              }} className="p-2 rounded-xl bg-white/5 border border-white/10 text-gray-500 hover:text-white transition-all">
+              }} className="p-2 rounded-xl bg-white/8 border border-white/10 text-gray-500 hover:text-white transition-all">
                 <RefreshCw size={14} />
               </button>
               {/* New bill */}
@@ -2680,14 +2681,14 @@ Your uid is: ${user.uid}
                 <div className={`absolute top-0 left-0 right-0 h-[2px] ${bar} rounded-t-2xl`} />
                 <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">{label}</p>
                 <p className="text-2xl font-black text-white leading-none mb-1">{value}</p>
-                <p className="text-[10px] text-gray-600">{sub}</p>
+                <p className="text-[10px] text-gray-400">{sub}</p>
               </div>
             ))}
           </div>
 
           {/* ── Payment method breakdown ── */}
           {Object.keys(billingStats.pmRevenue).length > 0 && (
-            <div className="bg-zinc-900 border border-white/8 rounded-2xl p-5">
+            <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
               <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-4">Revenue by Payment Method</p>
               <div className="space-y-2.5">
                 {Object.entries(billingStats.pmRevenue)
@@ -2702,11 +2703,11 @@ Your uid is: ${user.uid}
                     return (
                       <div key={pm} className="flex items-center gap-3">
                         <span className="text-[10px] font-black text-gray-400 uppercase w-16 shrink-0">{pm}</span>
-                        <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+                        <div className="flex-1 h-2 bg-white/8 rounded-full overflow-hidden">
                           <div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%`, transition: 'width 0.6s ease' }} />
                         </div>
                         <span className="text-xs font-black text-white w-20 text-right shrink-0">₹{(amt as number).toLocaleString('en-IN',{maximumFractionDigits:0})}</span>
-                        <span className="text-[10px] text-gray-600 w-8 text-right shrink-0">{pct}%</span>
+                        <span className="text-[10px] text-gray-400 w-8 text-right shrink-0">{pct}%</span>
                       </div>
                     );
                   })}
@@ -2715,7 +2716,7 @@ Your uid is: ${user.uid}
           )}
 
           {/* ── Invoice list ── */}
-          <div className="bg-zinc-900 border border-white/8 rounded-2xl overflow-hidden">
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
             {billingLoading ? (
               <div className="flex items-center justify-center py-16 gap-3 text-gray-500">
                 <Loader2 size={22} className="animate-spin text-gold" /> Loading invoices…
@@ -2730,9 +2731,9 @@ Your uid is: ${user.uid}
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-white/8 bg-white/[0.02]">
+                      <tr className="border-b border-white/12 bg-white/[0.02]">
                         {['Invoice #', 'Customer', 'Date', 'Services', 'Amount', 'Payment', 'Source', ''].map(h => (
-                          <th key={h} className="py-3 px-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-600">{h}</th>
+                          <th key={h} className="py-3 px-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-400">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -2757,14 +2758,14 @@ Your uid is: ${user.uid}
                           <>
                             <tr key={(inv as any).id}
                               onClick={() => setExpandedInv(isExpanded ? null : (inv as any).id)}
-                              className="border-b border-white/5 hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                              className="border-b border-white/10 hover:bg-white/[0.02] transition-colors cursor-pointer group"
                             >
                               <td className="py-3 px-4">
                                 <p className="text-gold text-[10px] font-black font-mono">{inv.invoiceNumber}</p>
                               </td>
                               <td className="py-3 px-4">
                                 <p className="text-white text-xs font-bold">{inv.customerName}</p>
-                                <p className="text-gray-600 text-[9px]">{inv.customerPhone}</p>
+                                <p className="text-gray-400 text-[9px]">{inv.customerPhone}</p>
                               </td>
                               <td className="py-3 px-4 text-gray-400 text-xs">{invDate}</td>
                               <td className="py-3 px-4 hidden lg:table-cell">
@@ -2794,7 +2795,7 @@ Your uid is: ${user.uid}
                                 <div className="flex items-center gap-1">
                                   <button
                                     onClick={e => { e.stopPropagation(); setInvoiceModalId((inv as any).id); }}
-                                    className="p-1.5 rounded-lg text-gray-600 hover:text-gold hover:bg-gold/10 transition-all"
+                                    className="p-1.5 rounded-lg text-gray-400 hover:text-gold hover:bg-gold/10 transition-all"
                                     title="View invoice"
                                   >
                                     <Eye size={13} />
@@ -2809,19 +2810,19 @@ Your uid is: ${user.uid}
                             {isExpanded && (
                               <tr key={`${(inv as any).id}-exp`}>
                                 <td colSpan={8} className="p-0">
-                                  <div className="px-6 py-4 bg-white/[0.015] border-b border-white/5 space-y-2">
-                                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-600 mb-2">Line Items</p>
+                                  <div className="px-6 py-4 bg-white/[0.015] border-b border-white/10 space-y-2">
+                                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-2">Line Items</p>
                                     {inv.items?.map((it: BillItem, i: number) => (
                                       <div key={i} className="flex items-center justify-between gap-3 text-xs">
                                         <div className="flex-1 min-w-0">
                                           <span className="text-gray-300">{it.serviceName}</span>
-                                          {it.staffName && <span className="text-gray-600 ml-2">— {it.staffName} ({it.commissionRate}%)</span>}
+                                          {it.staffName && <span className="text-gray-400 ml-2">— {it.staffName} ({it.commissionRate}%)</span>}
                                         </div>
                                         <span className="text-white font-bold shrink-0">₹{it.price.toLocaleString('en-IN')}</span>
                                       </div>
                                     ))}
                                     {inv.discountAmount > 0 && (
-                                      <div className="flex justify-between text-xs text-red-400 pt-1 border-t border-white/5">
+                                      <div className="flex justify-between text-xs text-red-400 pt-1 border-t border-white/10">
                                         <span>Discount ({inv.discountPercent}%)</span>
                                         <span>-₹{inv.discountAmount.toLocaleString('en-IN')}</span>
                                       </div>
@@ -2836,7 +2837,7 @@ Your uid is: ${user.uid}
                     </tbody>
                   </table>
                 </div>
-                <div className="px-5 py-3 border-t border-white/5 flex items-center justify-between text-[10px] text-gray-600 font-bold uppercase tracking-widest">
+                <div className="px-5 py-3 border-t border-white/10 flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase tracking-widest">
                   <span>{billingStats.displayed.length} invoices shown</span>
                   <span>₹{billingStats.totalRevenue.toLocaleString('en-IN',{maximumFractionDigits:0})} total</span>
                 </div>
@@ -2854,7 +2855,7 @@ Your uid is: ${user.uid}
 
           {/* Sub-view toggle — admin only (staff mode shows profile directly) */}
           {!isStaffMode && (
-            <div className="flex items-center gap-1 bg-zinc-800 border border-white/8 rounded-xl p-1 w-fit">
+            <div className="flex items-center gap-1 bg-zinc-800 border border-white/12 rounded-xl p-1 w-fit">
               <button onClick={() => setStaffSubView('list')}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                   staffSubView === 'list'
@@ -2883,7 +2884,7 @@ Your uid is: ${user.uid}
           {(isStaffMode || staffSubView === 'list') && (
           <>{/* Staff mode: show own profile only */}
           {isStaffMode && staffMember && (
-            <div className="bg-zinc-900 border border-white/8 rounded-2xl p-6 space-y-4">
+            <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 space-y-4">
               <p className="text-[10px] uppercase tracking-widest font-black text-gold">My Profile</p>
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-black text-xl">
@@ -2895,13 +2896,13 @@ Your uid is: ${user.uid}
                   {staffMember.phone && <p className="text-gray-500 text-xs mt-0.5">{staffMember.phone}</p>}
                 </div>
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-white/5">
-                <div className="text-center p-3 bg-white/5 rounded-xl">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10">
+                <div className="text-center p-3 bg-white/8 rounded-xl">
                   <p className="text-gold font-black text-xl">{staffMember.commissionRate}%</p>
                   <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">My Commission Rate</p>
                 </div>
                 {(staffMember as any).salary > 0 && (
-                  <div className="text-center p-3 bg-white/5 rounded-xl">
+                  <div className="text-center p-3 bg-white/8 rounded-xl">
                     <p className="text-white font-black text-lg">₹{((staffMember as any).salary ?? 0).toLocaleString('en-IN')}</p>
                     <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Monthly Salary</p>
                   </div>
@@ -2911,7 +2912,7 @@ Your uid is: ${user.uid}
                   const salary = (staffMember as any).salary ?? 0;
                   return (
                     <>
-                      <div className="text-center p-3 bg-white/5 rounded-xl">
+                      <div className="text-center p-3 bg-white/8 rounded-xl">
                         <p className="text-white font-black text-lg">{stat.services}</p>
                         <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Services Done</p>
                       </div>
@@ -2932,7 +2933,25 @@ Your uid is: ${user.uid}
 
           {/* Admin only: add staff + manage all staff */}
           {!isStaffMode && (<>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+            {/* Search */}
+            <div className="relative flex-1 max-w-xs">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name, role or phone…"
+                value={staffSearch}
+                onChange={e => setStaffSearch(e.target.value)}
+                className="w-full bg-zinc-900 border border-white/10 rounded-xl py-2 pl-9 pr-8 text-white text-xs focus:outline-none focus:border-gold/40 transition-all placeholder:text-gray-500"
+              />
+              {staffSearch && (
+                <button onClick={() => setStaffSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+            {/* Count + add button */}
+            <div className="flex items-center justify-between sm:justify-end gap-3 flex-1">
             <p className="text-gray-400 text-sm">{staff.length} staff member{staff.length !== 1 ? 's' : ''}</p>
             <button
               onClick={() => setStaffForm({ name: '', phone: '', role: '', commissionRate: 5, salary: 0, isActive: true } as any)}
@@ -2940,7 +2959,8 @@ Your uid is: ${user.uid}
             >
               <Plus size={13} /> Add Staff
             </button>
-          </div>
+            </div>{/* /count+button */}
+          </div>{/* /search+header row */}
 
           {/* Add / Edit form */}
           <AnimatePresence>
@@ -2959,7 +2979,7 @@ Your uid is: ${user.uid}
                     <input key={key} type={type} placeholder={placeholder}
                       value={(staffForm as any)[key] ?? ''}
                       onChange={e => setStaffForm(f => ({ ...f, [key]: e.target.value }))}
-                      className="bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
+                      className="bg-white/8 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
                     />
                   ))}
                   <div className="flex items-center gap-3">
@@ -2967,7 +2987,7 @@ Your uid is: ${user.uid}
                     <input type="number" min={0} max={100}
                       value={staffForm.commissionRate ?? 5}
                       onChange={e => setStaffForm(f => ({ ...f, commissionRate: Number(e.target.value) }))}
-                      className="flex-1 bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-gold/50 transition-all"
+                      className="flex-1 bg-white/8 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-gold/50 transition-all"
                     />
                   </div>
                   <div className="flex items-center gap-3">
@@ -2975,7 +2995,7 @@ Your uid is: ${user.uid}
                     <input type="number" min={0}
                       value={(staffForm as any).salary ?? 0}
                       onChange={e => setStaffForm(f => ({ ...f, salary: Number(e.target.value) } as any))}
-                      className="flex-1 bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-gold/50 transition-all"
+                      className="flex-1 bg-white/8 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-gold/50 transition-all"
                       placeholder="e.g. 15000"
                     />
                   </div>
@@ -2985,9 +3005,9 @@ Your uid is: ${user.uid}
                       placeholder="staff@example.com"
                       value={(staffForm as any).email ?? ''}
                       onChange={e => setStaffForm(f => ({ ...f, email: e.target.value.trim() } as any))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
+                      className="w-full bg-white/8 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
                     />
-                    <p className="text-[9px] text-gray-600 mt-1">Staff logs in at /admin with this email + a password you set in Firebase Console.</p>
+                    <p className="text-[9px] text-gray-400 mt-1">Staff logs in at /admin with this email + a password you set in Firebase Console.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -3000,7 +3020,7 @@ Your uid is: ${user.uid}
                   </label>
                   <div className="ml-auto flex gap-2">
                     <button onClick={() => setStaffForm(null)}
-                      className="px-4 py-2 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-gray-400 hover:bg-white/10 transition-all">
+                      className="px-4 py-2 bg-white/8 border border-white/10 rounded-xl text-xs font-bold text-gray-400 hover:bg-white/10 transition-all">
                       Cancel
                     </button>
                     <button onClick={saveStaff} disabled={staffSaving || !staffForm.name?.trim()}
@@ -3024,30 +3044,41 @@ Your uid is: ${user.uid}
               <UserCheck size={36} className="text-gray-700 mx-auto mb-3" />
               <p className="text-gray-500 text-sm">No staff added yet.</p>
             </div>
-          ) : (
+          ) : (() => {
+            const sq = staffSearch.toLowerCase().trim();
+            const filteredStaff = sq
+              ? staff.filter(s =>
+                  s.name.toLowerCase().includes(sq) ||
+                  (s.role ?? '').toLowerCase().includes(sq) ||
+                  (s.phone ?? '').includes(sq)
+                )
+              : staff;
+            return filteredStaff.length === 0 ? (
+              <p className="text-gray-500 text-sm text-center py-8">No staff match "{staffSearch}"</p>
+            ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {staff.map(s => (
-                <div key={s.id} className={`bg-zinc-900 border rounded-2xl p-5 transition-all ${s.isActive ? 'border-white/8' : 'border-white/4 opacity-60'}`}>
+              {filteredStaff.map(s => (
+                <div key={s.id} className={`bg-zinc-900 border rounded-2xl p-5 transition-all ${s.isActive ? 'border-white/12' : 'border-white/4 opacity-60'}`}>
                   <div className="flex items-start justify-between mb-3">
                     <div className="w-10 h-10 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-black text-sm">
                       {s.name.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex gap-1">
                       <button onClick={() => setStaffForm(s)}
-                        className="p-1.5 rounded-lg hover:bg-white/10 text-gray-600 hover:text-white transition-colors">
+                        className="p-1.5 rounded-lg hover:bg-white/10 text-gray-400 hover:text-white transition-colors">
                         <Edit2 size={13} />
                       </button>
                       <button onClick={() => deleteStaff(s.id)}
-                        className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-600 hover:text-red-400 transition-colors">
+                        className="p-1.5 rounded-lg hover:bg-red-500/10 text-gray-400 hover:text-red-400 transition-colors">
                         <Trash2 size={13} />
                       </button>
                     </div>
                   </div>
                   <p className="text-white font-bold text-sm">{s.name}</p>
                   {s.role && <p className="text-gray-500 text-[10px] mt-0.5">{s.role}</p>}
-                  {s.phone && <p className="text-gray-600 text-[10px]">{s.phone}</p>}
+                  {s.phone && <p className="text-gray-400 text-[10px]">{s.phone}</p>}
                   {/* Salary + commission row */}
-                  <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/5 flex-wrap">
+                  <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/10 flex-wrap">
                     <span className="flex items-center gap-1 text-[10px] text-gold font-black">
                       <Percent size={9} /> {s.commissionRate}% commission
                     </span>
@@ -3057,7 +3088,7 @@ Your uid is: ${user.uid}
                       </span>
                     )}
                     {!s.isActive && (
-                      <span className="ml-auto text-[9px] text-gray-600 font-black uppercase">Inactive</span>
+                      <span className="ml-auto text-[9px] text-gray-400 font-black uppercase">Inactive</span>
                     )}
                   </div>
                   {/* Commission breakdown from invoices */}
@@ -3068,13 +3099,13 @@ Your uid is: ${user.uid}
                     return (
                     <div className="mt-3 space-y-2">
                       <div className="grid grid-cols-3 gap-2">
-                        <div className="text-center p-2 bg-white/5 rounded-xl">
+                        <div className="text-center p-2 bg-white/8 rounded-xl">
                           <p className="text-white font-black text-sm">{stat.services}</p>
-                          <p className="text-[9px] text-gray-600 uppercase">Services</p>
+                          <p className="text-[9px] text-gray-400 uppercase">Services</p>
                         </div>
-                        <div className="text-center p-2 bg-white/5 rounded-xl">
+                        <div className="text-center p-2 bg-white/8 rounded-xl">
                           <p className="text-gold font-black text-sm">₹{stat.commission.toLocaleString('en-IN')}</p>
-                          <p className="text-[9px] text-gray-600 uppercase">Commission</p>
+                          <p className="text-[9px] text-gray-400 uppercase">Commission</p>
                         </div>
                         <div className="text-center p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                           <p className="text-emerald-400 font-black text-sm">₹{totalPayable.toLocaleString('en-IN')}</p>
@@ -3092,7 +3123,7 @@ Your uid is: ${user.uid}
                 </div>
               ))}
             </div>
-          )}
+          );})()}
           </>)}{/* /!isStaffMode admin section */}
           </>)}{/* /(isStaffMode || list) wrapper */}
         </div>
@@ -3105,7 +3136,7 @@ Your uid is: ${user.uid}
         <div className="space-y-4">
 
           {/* Sub-view toggle */}
-          <div className="flex items-center gap-1 bg-zinc-800 border border-white/8 rounded-xl p-1 w-fit">
+          <div className="flex items-center gap-1 bg-zinc-800 border border-white/12 rounded-xl p-1 w-fit">
             <button onClick={() => setCustomerSubView('list')}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                 customerSubView === 'list'
@@ -3129,21 +3160,45 @@ Your uid is: ${user.uid}
 
           {/* Customer list */}
           {customerSubView === 'list' && (<>
-          {/* Summary chips */}
-          <div className="flex items-center gap-3 flex-wrap">
-            <p className="text-gray-400 text-sm font-bold">{customers.length} customers</p>
-            {[
-              { src: 'online',  label: '🌐 Online',   cls: 'bg-blue-500/10 border-blue-500/20 text-blue-400'   },
-              { src: 'walkin',  label: '🏪 Walk-in',  cls: 'bg-purple-500/10 border-purple-500/20 text-purple-400' },
-              { src: 'both',    label: '⭐ Both',      cls: 'bg-gold/10 border-gold/20 text-gold'               },
-            ].map(({ src, label, cls }) => {
-              const n = customers.filter((c: any) => c.source === src).length;
-              return n > 0 ? (
-                <span key={src} className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase border ${cls}`}>
-                  {n} {label}
-                </span>
-              ) : null;
-            })}
+          {/* Search + source filter chips */}
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            {/* Search box */}
+            <div className="relative flex-1 max-w-xs">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name or phone…"
+                value={customerSearch}
+                onChange={e => setCustomerSearch(e.target.value)}
+                className="w-full bg-zinc-900 border border-white/10 rounded-xl py-2 pl-9 pr-8 text-white text-xs focus:outline-none focus:border-gold/40 transition-all placeholder:text-gray-500"
+              />
+              {customerSearch && (
+                <button onClick={() => setCustomerSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
+                  <X size={12} />
+                </button>
+              )}
+            </div>
+
+            {/* Source filter chips */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {([
+                { src: 'all',    label: 'All',       cls: 'bg-white/8 border-white/15 text-gray-300',                     activeCls: 'bg-white/15 border-white/30 text-white'           },
+                { src: 'online', label: '🌐 Online',  cls: 'bg-blue-500/10 border-blue-500/25 text-blue-300',                activeCls: 'bg-blue-500/20 border-blue-500/40 text-blue-300'  },
+                { src: 'walkin', label: '🏪 Walk-in', cls: 'bg-purple-500/10 border-purple-500/25 text-purple-300',          activeCls: 'bg-purple-500/20 border-purple-500/40 text-purple-300' },
+                { src: 'both',   label: '⭐ Both',    cls: 'bg-gold/10 border-gold/25 text-gold/90',                         activeCls: 'bg-gold/20 border-gold/40 text-gold'              },
+              ] as const).map(({ src, label, cls, activeCls }) => {
+                const count = src === 'all' ? customers.length : customers.filter((c: any) => c.source === src).length;
+                if (src !== 'all' && count === 0) return null;
+                const active = customerSourceFilter === src;
+                return (
+                  <button key={src} onClick={() => setCustomerSourceFilter(src)}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border transition-all ${active ? activeCls : cls}`}>
+                    {label}
+                    <span className={`${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {customersLoading ? (
@@ -3155,18 +3210,31 @@ Your uid is: ${user.uid}
               <Users size={36} className="text-gray-700 mx-auto mb-3" />
               <p className="text-gray-500 text-sm">No customers yet. Customers appear here from online bookings and manual billing.</p>
             </div>
-          ) : (
-            <div className="bg-zinc-900 border border-white/8 rounded-2xl overflow-hidden">
+          ) : (() => {
+            // Apply search + source filter
+            const q = customerSearch.toLowerCase().trim();
+            const filtered = customers.filter((c: any) => {
+              const matchSearch = !q || (c.name ?? '').toLowerCase().includes(q) || (c.phone ?? '').includes(q);
+              const matchSource = customerSourceFilter === 'all' || c.source === customerSourceFilter;
+              return matchSearch && matchSource;
+            });
+            return (
+            <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
+              {filtered.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 text-sm">
+                  No customers match "{customerSearch || customerSourceFilter}"
+                </div>
+              ) : (
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/8 bg-white/[0.02]">
+                  <tr className="border-b border-white/12 bg-white/[0.02]">
                     {['Customer', 'Phone', 'Visits', 'Total Spend', 'Last Visit', 'Source', 'Status'].map(h => (
-                      <th key={h} className="py-3 px-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-600">{h}</th>
+                      <th key={h} className="py-3 px-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-400">{h}</th>
                     ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {customers.map((c: any) => {
+                  {filtered.map((c: any) => {
                     const isReturning = (c.visitCount ?? 0) >= 2;
                     const srcMeta: Record<string, { label: string; cls: string }> = {
                       online: { label: '🌐 Online',  cls: 'bg-blue-500/10 border-blue-500/20 text-blue-400'       },
@@ -3175,7 +3243,7 @@ Your uid is: ${user.uid}
                     };
                     const sm = srcMeta[c.source] ?? srcMeta.online;
                     return (
-                      <tr key={c.phone} className="border-b border-white/5 hover:bg-white/[0.02] transition-colors">
+                      <tr key={c.phone} className="border-b border-white/10 hover:bg-white/[0.02] transition-colors">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center text-gold text-xs font-black shrink-0">
@@ -3209,11 +3277,12 @@ Your uid is: ${user.uid}
                   })}
                 </tbody>
               </table>
-              <div className="px-5 py-3 border-t border-white/5 text-[10px] text-gray-600 font-bold uppercase tracking-widest">
-                {customers.length} total · ₹{customers.reduce((a: number, c: any) => a + (c.totalSpend ?? 0), 0).toLocaleString('en-IN')} combined spend
+              )}
+              <div className="px-5 py-3 border-t border-white/10 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                {filtered.length} of {customers.length} · ₹{customers.reduce((a: number, c: any) => a + (c.totalSpend ?? 0), 0).toLocaleString('en-IN')} combined spend
               </div>
             </div>
-          )}
+          );})()}
           </>)}{/* /list sub-view */}
         </div>
       )}
@@ -3224,11 +3293,11 @@ Your uid is: ${user.uid}
       {view === 'tools' && (
         <div className="space-y-12">
           <BannerManager />
-          <div className="border-t border-white/8 pt-10">
+          <div className="border-t border-white/12 pt-10">
             <GalleryManager />
           </div>
           {!isStaffMode && (
-            <div className="border-t border-white/8 pt-10">
+            <div className="border-t border-white/12 pt-10">
               <CouponManager />
             </div>
           )}
@@ -3389,7 +3458,7 @@ export default function AdminDashboard() {
           <p className="text-gray-500 text-sm">Your account is not authorised for this portal. Please contact the salon administrator.</p>
           <button
             onClick={() => signOut(auth)}
-            className="flex items-center gap-2 mx-auto px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-sm font-bold text-gray-300 hover:bg-white/10 transition-all"
+            className="flex items-center gap-2 mx-auto px-5 py-2.5 bg-white/8 border border-white/10 rounded-xl text-sm font-bold text-gray-300 hover:bg-white/10 transition-all"
           >
             <LogOut size={14} /> Sign Out
           </button>
@@ -3400,3 +3469,4 @@ export default function AdminDashboard() {
 
   return <Dashboard user={user} staffMember={staffMember ?? undefined} />;
 }
+

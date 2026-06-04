@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+﻿import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   Tag, Plus, Trash2, Loader2, AlertCircle, CheckCircle2,
   ToggleLeft, ToggleRight, Percent, IndianRupee, Copy, RefreshCw,
+  Search, X,
 } from 'lucide-react';
 import {
   collection, getDocs, setDoc, deleteDoc,
@@ -63,6 +64,7 @@ export default function CouponManager() {
   const [saving,   setSaving]   = useState(false);
   const [codeErr,  setCodeErr]  = useState('');
   const [toast,    setToast]    = useState<{ ok: boolean; text: string } | null>(null);
+  const [search,   setSearch]   = useState('');
 
   const showToast = (ok: boolean, text: string) => {
     setToast({ ok, text });
@@ -146,7 +148,7 @@ export default function CouponManager() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={load} className="p-2 rounded-xl bg-white/5 border border-white/10 text-gray-500 hover:text-white transition-all" title="Refresh">
+          <button onClick={load} className="p-2 rounded-xl bg-white/8 border border-white/10 text-gray-500 hover:text-white transition-all" title="Refresh">
             <RefreshCw size={14} />
           </button>
           <button
@@ -195,11 +197,11 @@ export default function CouponManager() {
                   value={form.code}
                   onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '') }))}
                   maxLength={20}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white font-mono text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700 uppercase tracking-wider"
+                  className="flex-1 bg-white/8 border border-white/10 rounded-xl py-3 px-4 text-white font-mono text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500 uppercase tracking-wider"
                 />
                 <button
                   onClick={() => setForm(f => ({ ...f, code: randomCode() }))}
-                  className="flex items-center gap-1.5 px-3 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-gray-400 hover:bg-white/10 hover:text-white transition-all shrink-0"
+                  className="flex items-center gap-1.5 px-3 py-2.5 bg-white/8 border border-white/10 rounded-xl text-xs font-bold text-gray-400 hover:bg-white/10 hover:text-white transition-all shrink-0"
                 >
                   <RefreshCw size={12} /> Auto
                 </button>
@@ -219,7 +221,7 @@ export default function CouponManager() {
                       className={`flex-1 flex items-center justify-center gap-1.5 py-3 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${
                         form.type === v
                           ? 'bg-gold/20 border-gold/40 text-gold'
-                          : 'bg-white/5 border-white/10 text-gray-500 hover:text-white'
+                          : 'bg-white/8 border-white/10 text-gray-500 hover:text-white'
                       }`}
                     >
                       <Icon size={12} /> {l}
@@ -235,7 +237,7 @@ export default function CouponManager() {
                   type="number" min={1} max={form.type === 'percent' ? 90 : 99999}
                   value={form.value}
                   onChange={e => setForm(f => ({ ...f, value: Number(e.target.value) }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
+                  className="w-full bg-white/8 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
                 />
               </div>
             </div>
@@ -248,7 +250,7 @@ export default function CouponManager() {
                   type="number" min={0}
                   value={form.minOrder}
                   onChange={e => setForm(f => ({ ...f, minOrder: Number(e.target.value) }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
+                  className="w-full bg-white/8 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
                 />
                 <p className="text-[9px] text-gray-700 mt-1">Set 0 for no minimum</p>
               </div>
@@ -258,7 +260,7 @@ export default function CouponManager() {
                   type="number" min={0}
                   value={form.maxUses}
                   onChange={e => setForm(f => ({ ...f, maxUses: Number(e.target.value) }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
+                  className="w-full bg-white/8 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
                 />
                 <p className="text-[9px] text-gray-700 mt-1">Set 0 for unlimited</p>
               </div>
@@ -272,7 +274,7 @@ export default function CouponManager() {
                 value={form.expiresAt ?? ''}
                 onChange={e => setForm(f => ({ ...f, expiresAt: e.target.value || null }))}
                 min={new Date().toISOString().slice(0, 10)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
+                className="w-full bg-white/8 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
               />
             </div>
 
@@ -306,7 +308,7 @@ export default function CouponManager() {
             <div className="flex gap-3 pt-1">
               <button
                 onClick={() => { setShowForm(false); setForm(BLANK_FORM); setCodeErr(''); }}
-                className="px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-gray-400 hover:bg-white/10 transition-all"
+                className="px-5 py-2.5 bg-white/8 border border-white/10 rounded-xl text-xs font-bold text-gray-400 hover:bg-white/10 transition-all"
               >
                 Cancel
               </button>
@@ -323,20 +325,44 @@ export default function CouponManager() {
         )}
       </AnimatePresence>
 
+      {/* Search */}
+      {coupons.length > 0 && (
+        <div className="relative max-w-xs">
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Search by code…"
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-full bg-zinc-900 border border-white/10 rounded-xl py-2 pl-9 pr-8 text-white text-xs focus:outline-none focus:border-gold/40 transition-all placeholder:text-gray-500"
+          />
+          {search && (
+            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white transition-colors">
+              <X size={12} />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Coupon list */}
       {loading ? (
         <div className="flex items-center justify-center py-14 gap-3 text-gray-500">
           <Loader2 size={20} className="animate-spin text-gold" /> Loading coupons…
         </div>
       ) : coupons.length === 0 ? (
-        <div className="text-center py-14 bg-zinc-900 border border-white/8 rounded-2xl space-y-3">
+        <div className="text-center py-14 bg-zinc-900 border border-white/12 rounded-2xl space-y-3">
           <Tag size={36} className="text-gray-700 mx-auto" />
           <p className="text-gray-400 font-bold">No coupons yet</p>
-          <p className="text-gray-600 text-sm">Create your first discount code for customers to use at checkout.</p>
+          <p className="text-gray-400 text-sm">Create your first discount code for customers to use at checkout.</p>
         </div>
-      ) : (
+      ) : (() => {
+        const q = search.toUpperCase().trim();
+        const filtered = q ? coupons.filter(c => c.code.includes(q)) : coupons;
+        return filtered.length === 0 ? (
+          <p className="text-gray-500 text-sm text-center py-8">No coupons match "{search}"</p>
+        ) : (
         <div className="space-y-3">
-          {coupons.map(c => {
+          {filtered.map(c => {
             const { label, color } = statusOf(c);
             const usesDisplay = c.maxUses > 0 ? `${c.usedCount}/${c.maxUses}` : `${c.usedCount}/∞`;
             return (
@@ -345,7 +371,7 @@ export default function CouponManager() {
                 layout
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 bg-zinc-900 border border-white/8 rounded-2xl px-4 py-4"
+                className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4 bg-zinc-900 border border-white/12 rounded-2xl px-4 py-4"
               >
                 {/* Code + type */}
                 <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -377,21 +403,21 @@ export default function CouponManager() {
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => copyCode(c.code)}
-                    className="p-2 rounded-lg text-gray-600 hover:text-white hover:bg-white/10 transition-all"
+                    className="p-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-all"
                     title="Copy code"
                   >
                     <Copy size={14} />
                   </button>
                   <button
                     onClick={() => handleToggle(c)}
-                    className={`p-2 rounded-lg transition-all ${c.active ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-gray-600 hover:text-white hover:bg-white/10'}`}
+                    className={`p-2 rounded-lg transition-all ${c.active ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
                     title={c.active ? 'Deactivate' : 'Activate'}
                   >
                     {c.active ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
                   </button>
                   <button
                     onClick={() => handleDelete(c)}
-                    className="p-2 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all"
+                    className="p-2 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all"
                     title="Delete coupon"
                   >
                     <Trash2 size={14} />
@@ -401,7 +427,9 @@ export default function CouponManager() {
             );
           })}
         </div>
-      )}
+        );
+      })()}
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * BookingSystem.tsx
  * Zomato-style salon booking — full-screen, self-contained.
  *
@@ -606,7 +606,7 @@ function SlotScreen({ totalMins, onBack, onSelect }: {
                 <button key={d.toString()} onClick={()=>{setSelDate(d);}}
                   className={`flex-shrink-0 w-14 h-16 rounded-2xl flex flex-col items-center justify-center transition-all border-2 ${
                     active ? 'bg-[#D4AF37] border-[#D4AF37] text-black shadow-md'
-                           : 'bg-white border-gray-100 text-gray-600 hover:border-[#D4AF37]/40'
+                           : 'bg-white border-gray-100 text-gray-400 hover:border-[#D4AF37]/40'
                   }`}>
                   <span className={`text-[10px] font-bold ${active?'text-black/70':'text-gray-400'}`}>{format(d,'EEE')}</span>
                   <span className="text-lg font-black">{format(d,'d')}</span>
@@ -627,7 +627,7 @@ function SlotScreen({ totalMins, onBack, onSelect }: {
           ) : !hasSlots ? (
             <div className="text-center py-16 space-y-3">
               <CalendarX size={36} className="text-gray-300 mx-auto" />
-              <p className="font-bold text-gray-600">No slots available</p>
+              <p className="font-bold text-gray-400">No slots available</p>
               <p className="text-sm text-gray-400">{isToday?'No slots left today.':'Fully booked.'} Try another date.</p>
               <button onClick={()=>setSelDate(addDays(selDate,1))}
                 className="mt-2 px-5 py-2.5 bg-[#D4AF37] rounded-xl text-black font-bold text-sm">
@@ -903,11 +903,11 @@ export default function BookingSystem() {
         <h2 className="text-2xl font-black text-gray-900 mb-2">Booking Confirmed!</h2>
         <p className="text-gray-500 text-sm mb-1">We'll see you at the salon</p>
         <p className="text-[#D4AF37] font-bold text-sm mb-1">{format(selDate,'EEE, MMM d, yyyy')}</p>
-        <p className="text-gray-600 text-sm mb-6">{selSlot?.label}</p>
+        <p className="text-gray-400 text-sm mb-6">{selSlot?.label}</p>
         <div className="bg-gray-50 rounded-2xl p-4 mb-6 text-left space-y-2">
           {cart.map(({service,qty})=>(
             <div key={service.id} className="flex justify-between text-sm">
-              <span className="text-gray-600">{service.name}{qty>1&&` ×${qty}`}</span>
+              <span className="text-gray-400">{service.name}{qty>1&&` ×${qty}`}</span>
               <span className="font-bold text-gray-900">₹{(service.priceValue*qty).toLocaleString('en-IN')}</span>
             </div>
           ))}
@@ -1028,7 +1028,7 @@ export default function BookingSystem() {
             <p className="text-sm font-bold text-gray-800">{format(selDate,'EEEE, MMMM d, yyyy')}</p>
           </div>
           <div className="px-4 py-3">
-            <p className="text-sm text-gray-600">{selSlot?.label}</p>
+            <p className="text-sm text-gray-400">{selSlot?.label}</p>
             <p className="text-xs text-gray-400 mt-0.5">~{totalMins} min · {info.name} · {info.phone}</p>
           </div>
         </div>
@@ -1108,7 +1108,7 @@ export default function BookingSystem() {
             <p className="text-sm font-bold text-gray-800">Bill Details</p>
           </div>
           <div className="px-4 py-4 space-y-3">
-            <div className="flex justify-between text-sm text-gray-600">
+            <div className="flex justify-between text-sm text-gray-400">
               <span>Services total</span>
               <span>₹{totalAmount.toLocaleString('en-IN')}</span>
             </div>
@@ -1130,7 +1130,7 @@ export default function BookingSystem() {
           <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">Accepted Payments</p>
           <div className="flex flex-wrap gap-2">
             {['UPI','Cards','Net Banking','Wallets','PhonePe','GPay'].map(m=>(
-              <span key={m} className="px-2.5 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-600">{m}</span>
+              <span key={m} className="px-2.5 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-400">{m}</span>
             ))}
           </div>
         </div>
@@ -1172,7 +1172,7 @@ export default function BookingSystem() {
               </div>
             </div>
           </div>
-          <Link to="/" className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-600 text-xs font-bold hover:bg-gray-200 transition-colors">
+          <Link to="/" className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-100 text-gray-400 text-xs font-bold hover:bg-gray-200 transition-colors">
             <X size={14}/> Close
           </Link>
         </div>

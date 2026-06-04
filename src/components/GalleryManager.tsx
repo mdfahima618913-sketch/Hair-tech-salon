@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+﻿import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   ImagePlus, Trash2, Eye, EyeOff, Loader2,
@@ -230,7 +230,7 @@ export default function GalleryManager() {
                 >
                   {uploading
                     ? <Loader2 size={28} className="animate-spin text-gold" />
-                    : <Upload size={28} className="text-gray-600 group-hover:text-gold transition-colors" />}
+                    : <Upload size={28} className="text-gray-400 group-hover:text-gold transition-colors" />}
                   <div>
                     <p className="text-sm font-bold text-white/60 group-hover:text-white transition-colors">
                       {uploading ? 'Processing image…' : 'Tap to upload from phone or computer'}
@@ -248,13 +248,13 @@ export default function GalleryManager() {
                   Image URL
                 </label>
                 <div className="relative">
-                  <Link size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-600 pointer-events-none" />
+                  <Link size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   <input
                     type="url"
                     placeholder="https://..."
                     value={formUrl}
                     onChange={e => { setFormUrl(e.target.value); setPreviewOk(null); }}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
+                    className="w-full bg-white/5 border border-white/10 rounded-xl py-3 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
                   />
                 </div>
               </div>
@@ -294,7 +294,7 @@ export default function GalleryManager() {
                 placeholder="e.g. My bridal look was absolutely stunning! Best salon in Araria!"
                 value={formCaption}
                 onChange={e => setFormCaption(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all resize-none placeholder:text-gray-700"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all resize-none placeholder:text-gray-500"
               />
             </div>
 
@@ -308,7 +308,7 @@ export default function GalleryManager() {
                 placeholder="e.g. — Priya Sharma, Araria"
                 value={formName}
                 onChange={e => setFormName(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
               />
             </div>
 
@@ -342,7 +342,7 @@ export default function GalleryManager() {
         <div className="text-center py-14 bg-zinc-900 border border-white/8 rounded-2xl space-y-3">
           <Images size={36} className="text-gray-700 mx-auto" />
           <p className="text-gray-400 font-bold">No gallery images yet</p>
-          <p className="text-gray-600 text-sm">3 default photos are shown on the homepage until you add your own.</p>
+          <p className="text-gray-400 text-sm">3 default photos are shown on the homepage until you add your own.</p>
           <button
             onClick={() => setShowForm(true)}
             className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 bg-gold/10 border border-gold/30 rounded-xl text-gold text-xs font-black uppercase tracking-wider hover:bg-gold/20 transition-all"
@@ -352,7 +352,7 @@ export default function GalleryManager() {
         </div>
       ) : (
         <div>
-          <p className="text-gray-600 text-[10px] uppercase tracking-wider font-bold mb-3">
+          <p className="text-gray-400 text-[10px] uppercase tracking-wider font-bold mb-3">
             {items.filter(i => i.active).length} active · {items.length} total
           </p>
           <div className="space-y-3">
@@ -395,22 +395,22 @@ export default function GalleryManager() {
                 <div className="flex flex-col items-center justify-between py-2 pr-2 gap-1">
                   <div className="flex flex-col gap-0.5">
                     <button onClick={() => reorder(idx, 'up')} disabled={idx === 0}
-                      className="p-1 rounded text-gray-600 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all">
+                      className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all">
                       <ChevronUp size={13} />
                     </button>
                     <button onClick={() => reorder(idx, 'down')} disabled={idx === items.length - 1}
-                      className="p-1 rounded text-gray-600 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all">
+                      className="p-1 rounded text-gray-400 hover:text-white hover:bg-white/10 disabled:opacity-20 transition-all">
                       <ChevronDown size={13} />
                     </button>
                   </div>
                   <div className="flex flex-col gap-1">
                     <button onClick={() => handleToggle(img)}
-                      className={`p-1.5 rounded-lg transition-all ${img.active ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-gray-600 hover:text-white hover:bg-white/10'}`}
+                      className={`p-1.5 rounded-lg transition-all ${img.active ? 'text-emerald-400 hover:bg-emerald-500/10' : 'text-gray-400 hover:text-white hover:bg-white/10'}`}
                       title={img.active ? 'Hide' : 'Show'}>
                       {img.active ? <Eye size={13} /> : <EyeOff size={13} />}
                     </button>
                     <button onClick={() => handleDelete(img)}
-                      className="p-1.5 rounded-lg text-gray-600 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                      className="p-1.5 rounded-lg text-gray-400 hover:text-red-400 hover:bg-red-500/10 transition-all">
                       <Trash2 size={13} />
                     </button>
                   </div>
@@ -426,3 +426,4 @@ export default function GalleryManager() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react';
+﻿import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Link } from 'react-router-dom';
 import {
@@ -161,7 +161,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
           <p className="text-xs font-black text-gray-700 uppercase tracking-wider">Invoice</p>
           <div className="flex items-center gap-2">
             {data && (
-              <button onClick={handlePrint} className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 text-[10px] font-bold text-gray-600 hover:bg-gray-100 transition-all">
+              <button onClick={handlePrint} className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 text-[10px] font-bold text-gray-400 hover:bg-gray-100 transition-all">
                 <Download size={11} /> Print / Download
               </button>
             )}
@@ -198,7 +198,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
               ))}
             </div>
             <div className="border-t border-dashed border-gray-300 pt-2 space-y-1">
-              <div className="flex justify-between text-xs text-gray-600"><span>Subtotal</span><span>₹{data.subtotal?.toLocaleString('en-IN')}</span></div>
+              <div className="flex justify-between text-xs text-gray-400"><span>Subtotal</span><span>₹{data.subtotal?.toLocaleString('en-IN')}</span></div>
               {data.discountAmount > 0 && <div className="flex justify-between text-xs text-red-500"><span>Discount ({data.discountPercent}%)</span><span>-₹{data.discountAmount?.toLocaleString('en-IN')}</span></div>}
               <div className="flex justify-between font-black text-sm pt-1 border-t border-dashed border-gray-300">
                 <span>TOTAL</span><span style={{ color: '#B8941F' }}>₹{data.total?.toLocaleString('en-IN')}</span>
@@ -388,9 +388,9 @@ export default function MyAppointments() {
   return (
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
-      <div className="bg-black/90 backdrop-blur-xl border-b border-white/8 sticky top-0 z-40">
+      <div className="bg-black/90 backdrop-blur-xl border-b border-white/12 sticky top-0 z-40">
         <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-3">
-          <Link to="/" className="p-2 rounded-xl hover:bg-white/5 text-gray-500 hover:text-white transition-all">
+          <Link to="/" className="p-2 rounded-xl hover:bg-white/8 text-gray-500 hover:text-white transition-all">
             <ChevronLeft size={20} />
           </Link>
           <div className="flex items-center gap-2.5">
@@ -399,7 +399,7 @@ export default function MyAppointments() {
             </div>
             <div>
               <p className="text-white font-black text-sm leading-none">My Appointments</p>
-              <p className="text-gray-600 text-[10px] mt-0.5">Hair Tech Salon, Araria</p>
+              <p className="text-gray-400 text-[10px] mt-0.5">Hair Tech Salon, Araria</p>
             </div>
           </div>
         </div>
@@ -416,7 +416,7 @@ export default function MyAppointments() {
               type="tel" placeholder="Enter your 10-digit number"
               value={phone} onChange={e => setPhone(e.target.value)}
               maxLength={13}
-              className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-4 pl-11 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700"
+              className="w-full bg-zinc-900 border border-white/10 rounded-2xl py-4 pl-11 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
             />
             {loading && <Loader2 size={15} className="absolute right-4 top-1/2 -translate-y-1/2 text-gold animate-spin" />}
           </div>
@@ -443,7 +443,7 @@ export default function MyAppointments() {
               <div className="text-center py-16 space-y-3">
                 <CalendarX size={40} className="text-gray-700 mx-auto" />
                 <p className="text-gray-400 font-bold">No bookings found</p>
-                <p className="text-gray-600 text-sm">No appointments found for this number.</p>
+                <p className="text-gray-400 text-sm">No appointments found for this number.</p>
                 <Link to="/booking" className="inline-flex items-center gap-2 mt-2 px-5 py-2.5 rounded-xl bg-gold text-black font-black text-xs uppercase tracking-wider">
                   Book Now <ArrowRight size={13}/>
                 </Link>
@@ -451,7 +451,7 @@ export default function MyAppointments() {
             ) : (
               <>
                 {/* Tabs */}
-                <div className="flex items-center gap-1 bg-zinc-900 border border-white/8 rounded-2xl p-1.5">
+                <div className="flex items-center gap-1 bg-zinc-900 border border-white/12 rounded-2xl p-1.5">
                   {([
                     { id: 'upcoming',  label: 'Upcoming',  count: grouped.upcoming.length,  cls: 'bg-gold/15 border border-gold/30 text-gold' },
                     { id: 'pending',   label: 'Pending',   count: grouped.pending.length,   cls: 'bg-amber-500/15 border border-amber-500/30 text-amber-400' },
@@ -461,7 +461,7 @@ export default function MyAppointments() {
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${activeTab === tab.id ? tab.cls : 'text-gray-500 hover:text-white'}`}
                     >
                       {tab.label}
-                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${activeTab === tab.id ? 'bg-white/20' : 'bg-white/5'}`}>{tab.count}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${activeTab === tab.id ? 'bg-white/20' : 'bg-white/8'}`}>{tab.count}</span>
                     </button>
                   ))}
                 </div>
@@ -492,7 +492,7 @@ export default function MyAppointments() {
                           className={`rounded-3xl overflow-hidden border ${
                             activeTab === 'upcoming' ? 'border-gold/20 bg-zinc-900' :
                             activeTab === 'pending'  ? 'border-amber-500/20 bg-zinc-900' :
-                                                       'border-white/8 bg-zinc-900'
+                                                       'border-white/12 bg-zinc-900'
                           }`}
                         >
                           {/* Card top accent */}
@@ -508,7 +508,7 @@ export default function MyAppointments() {
                                     <div className={`text-[10px] font-black uppercase tracking-wider rounded-t-lg px-1 py-0.5 ${activeTab === 'upcoming' ? 'bg-gold/20 text-gold' : activeTab === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                       {format(bDate, 'MMM')}
                                     </div>
-                                    <div className="bg-white/5 rounded-b-lg pb-1.5 pt-1">
+                                    <div className="bg-white/8 rounded-b-lg pb-1.5 pt-1">
                                       <p className="text-2xl font-black text-white leading-none">{format(bDate, 'd')}</p>
                                       <p className="text-[9px] text-gray-500 font-bold">{format(bDate, 'EEE')}</p>
                                     </div>
@@ -521,7 +521,7 @@ export default function MyAppointments() {
                                     {isToday(bDate ?? new Date()) && <span className="px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase bg-emerald-500/20 text-emerald-400 animate-pulse">Today</span>}
                                   </div>
                                   <div className="flex items-center gap-1.5">
-                                    <MapPin size={10} className="text-gray-600 shrink-0" />
+                                    <MapPin size={10} className="text-gray-400 shrink-0" />
                                     <span className="text-gray-500 text-xs">Hair Tech Salon, Araria</span>
                                   </div>
                                 </div>
@@ -554,12 +554,12 @@ export default function MyAppointments() {
                             </div>
 
                             {/* Payment row */}
-                            <div className="flex items-center justify-between pt-3 border-t border-white/5">
+                            <div className="flex items-center justify-between pt-3 border-t border-white/10">
                               <div className="flex items-center gap-1.5">
                                 <IndianRupee size={14} className="text-gold" />
                                 <span className="text-gold font-black text-base">{(b.finalAmount ?? b.totalAmount ?? 0).toLocaleString('en-IN')}</span>
                                 {b.paymentMethod && (
-                                  <span className="text-gray-600 text-[10px] ml-1 uppercase">{b.paymentMethod}</span>
+                                  <span className="text-gray-400 text-[10px] ml-1 uppercase">{b.paymentMethod}</span>
                                 )}
                               </div>
                               {(b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed') && (
@@ -578,7 +578,7 @@ export default function MyAppointments() {
 
                             {/* PENDING: retry payment */}
                             {activeTab === 'pending' && (
-                              <div className="space-y-2 pt-2 border-t border-white/5">
+                              <div className="space-y-2 pt-2 border-t border-white/10">
                                 <button
                                   onClick={() => { setPayError(null); retryPayment(b); }}
                                   disabled={!!payingId}
@@ -598,7 +598,7 @@ export default function MyAppointments() {
                                   </div>
                                 )}
 
-                                <p className="text-[10px] text-gray-600 text-center">
+                                <p className="text-[10px] text-gray-400 text-center">
                                   If payment was already deducted, your booking is being verified.{' '}
                                   <a href="tel:+918789603343" className="text-gold underline">Contact salon</a>
                                 </p>
@@ -607,7 +607,7 @@ export default function MyAppointments() {
 
                             {/* UPCOMING: reschedule */}
                             {activeTab === 'upcoming' && (
-                              <div className="pt-2 border-t border-white/5 space-y-2">
+                              <div className="pt-2 border-t border-white/10 space-y-2">
                                 <div className="flex gap-2">
                                   <button
                                     onClick={() => {
@@ -658,7 +658,7 @@ export default function MyAppointments() {
                                                 <Loader2 size={13} className="animate-spin text-gold"/>Checking availability…
                                               </div>
                                             ) : editSlots.length === 0 ? (
-                                              <p className="text-gray-600 text-xs text-center py-2">Select a date above to see slots</p>
+                                              <p className="text-gray-400 text-xs text-center py-2">Select a date above to see slots</p>
                                             ) : (
                                               <div className="space-y-2">
                                                 {(['morning','afternoon','evening'] as const).filter(sess => editSlots.some(s => s.session === sess)).map(sess => {
@@ -695,7 +695,7 @@ export default function MyAppointments() {
 
                             {/* COMPLETED: invoice (formal) or booking receipt (fallback) */}
                             {activeTab === 'completed' && (
-                              <div className="pt-2 border-t border-white/5 space-y-2">
+                              <div className="pt-2 border-t border-white/10 space-y-2">
                                 {b.invoiceId ? (
                                   /* Full invoice from billing module */
                                   <>
@@ -788,10 +788,10 @@ export default function MyAppointments() {
             </div>
             <div>
               <p className="text-gray-400 font-bold text-base">Track Your Appointments</p>
-              <p className="text-gray-600 text-sm mt-1">Enter your mobile number above to view your booking history</p>
+              <p className="text-gray-400 text-sm mt-1">Enter your mobile number above to view your booking history</p>
             </div>
-            <div className="pt-4 border-t border-white/5">
-              <p className="text-gray-600 text-xs mb-3">Don't have a booking yet?</p>
+            <div className="pt-4 border-t border-white/10">
+              <p className="text-gray-400 text-xs mb-3">Don't have a booking yet?</p>
               <Link to="/booking" className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-gold text-black font-black text-sm uppercase tracking-wider shadow-[0_4px_20px_-4px_rgba(212,175,55,0.4)]">
                 <Scissors size={14}/> Book an Appointment
               </Link>
@@ -801,17 +801,17 @@ export default function MyAppointments() {
 
         {/* Salon info footer */}
         <div className="flex items-center justify-center gap-4 pt-4 pb-8 flex-wrap">
-          <div className="flex items-center gap-1.5 text-gray-600 text-xs">
+          <div className="flex items-center gap-1.5 text-gray-400 text-xs">
             <Star size={11} className="text-gold fill-gold"/>
             <span>4.9 rating</span>
           </div>
           <div className="w-px h-3 bg-white/10" />
-          <div className="flex items-center gap-1.5 text-gray-600 text-xs">
+          <div className="flex items-center gap-1.5 text-gray-400 text-xs">
             <MapPin size={11}/>
             <span>Araria, Bihar</span>
           </div>
           <div className="w-px h-3 bg-white/10" />
-          <div className="flex items-center gap-1.5 text-gray-600 text-xs">
+          <div className="flex items-center gap-1.5 text-gray-400 text-xs">
             <Clock size={11}/>
             <span>10AM – 10PM daily</span>
           </div>
@@ -820,3 +820,5 @@ export default function MyAppointments() {
     </div>
   );
 }
+
+

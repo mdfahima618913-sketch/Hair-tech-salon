@@ -1,4 +1,4 @@
-/**
+﻿/**
  * StaffAnalytics.tsx
  * Staff Performance Analytics Dashboard
  *
@@ -174,7 +174,7 @@ function StatPill({
   color: string;
 }) {
   return (
-    <div className="text-center p-3 rounded-xl bg-white/5">
+    <div className="text-center p-3 rounded-xl bg-white/8">
       <p className={`font-black text-lg ${color}`}>{value}</p>
       <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">{label}</p>
     </div>
@@ -193,7 +193,7 @@ function MiniBar({
 }) {
   const pct = max > 0 ? Math.max(3, (value / max) * 100) : 3;
   return (
-    <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+    <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
       <motion.div
         initial={{ width: 0 }}
         animate={{ width: `${pct}%` }}
@@ -430,7 +430,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
             Performance insights · {PERIOD_LABELS[period]}
           </p>
         </div>
-        <div className="flex items-center gap-1 bg-zinc-800 border border-white/8 rounded-xl p-1">
+        <div className="flex items-center gap-1 bg-zinc-800 border border-white/12 rounded-xl p-1">
           {(['week', 'month', 'year', 'all'] as Period[]).map(p => (
             <button
               key={p}
@@ -471,7 +471,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
         ].map(({ label, value, color, icon: Icon }) => (
           <div
             key={label}
-            className="bg-zinc-900 border border-white/8 rounded-2xl p-4 text-center"
+            className="bg-zinc-900 border border-white/12 rounded-2xl p-4 text-center"
           >
             <Icon size={18} className={`${color} mx-auto mb-2`} />
             <p className={`font-black text-xl ${color}`}>{value}</p>
@@ -541,7 +541,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
           </div>
         </motion.div>
       ) : (
-        <div className="bg-zinc-900 border border-white/8 rounded-2xl p-6 text-center">
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 text-center">
           <Crown size={28} className="text-gray-700 mx-auto mb-2" />
           <p className="text-gray-500 text-xs">No activity yet this month</p>
           <p className="text-gray-700 text-[10px] mt-1">
@@ -601,7 +601,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                 {title}
               </p>
               {active.length === 0 && (
-                <p className="text-gray-600 text-xs text-center py-4">
+                <p className="text-gray-400 text-xs text-center py-4">
                   No data for this period
                 </p>
               )}
@@ -633,7 +633,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                     className="flex items-center justify-between gap-2 opacity-30"
                   >
                     <span className="text-xs text-gray-500 truncate">{s.name}</span>
-                    <span className="text-[10px] text-gray-600">—</span>
+                    <span className="text-[10px] text-gray-400">—</span>
                   </div>
                 ))}
             </div>
@@ -643,13 +643,13 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
 
       {/* ── Trending this week ──────────────────────────────────────────── */}
       {trending.length > 0 && (
-        <div className="bg-zinc-900 border border-white/8 rounded-2xl p-5">
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <Flame size={16} className="text-orange-400" />
             <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">
               Trending This Week
             </p>
-            <span className="text-[9px] text-gray-600 ml-auto">
+            <span className="text-[9px] text-gray-400 ml-auto">
               vs previous 7 days
             </span>
           </div>
@@ -661,7 +661,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-xs font-bold truncate">{s.name}</p>
-                  <p className="text-gray-600 text-[9px]">
+                  <p className="text-gray-400 text-[9px]">
                     ₹{s.thisWeek.toLocaleString('en-IN')} this week
                     {s.prevWeek > 0 && (
                       <> · ₹{s.prevWeek.toLocaleString('en-IN')} last week</>
@@ -674,7 +674,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                       ? 'bg-emerald-500/15 text-emerald-400'
                       : s.pct < 0
                       ? 'bg-red-500/15 text-red-400'
-                      : 'bg-white/5 text-gray-500'
+                      : 'bg-white/8 text-gray-500'
                   }`}
                 >
                   {s.pct > 0 ? (
@@ -695,13 +695,13 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
 
       {/* ── Revenue Trend mini-bars (last 4 weeks per staff) ─────────────── */}
       {revenueTrend.length > 0 && (
-        <div className="bg-zinc-900 border border-white/8 rounded-2xl p-5">
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-1">
             <BarChart3 size={14} className="text-purple-400" />
             <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">
               Revenue Trend
             </p>
-            <span className="text-[9px] text-gray-600 ml-auto">
+            <span className="text-[9px] text-gray-400 ml-auto">
               Last 4 weeks · rightmost bar = current week
             </span>
           </div>
@@ -724,7 +724,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                     {s.name}
                   </p>
                   {s.role && (
-                    <p className="text-gray-600 text-[9px] mt-0.5">{s.role}</p>
+                    <p className="text-gray-400 text-[9px] mt-0.5">{s.role}</p>
                   )}
                 </div>
                 {/* Current-week revenue */}
@@ -743,27 +743,27 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
 
       {/* ── Full staff performance table ─────────────────────────────────── */}
       {stats.filter(s => s.services > 0).length > 0 && (
-        <div className="bg-zinc-900 border border-white/8 rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-white/8 flex items-center justify-between">
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-white/12 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users size={13} className="text-gray-500" />
               <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">
                 Full Performance Overview
               </p>
             </div>
-            <p className="text-[9px] text-gray-600">
+            <p className="text-[9px] text-gray-400">
               {stats.filter(s => s.services > 0).length} active staff
             </p>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/5 bg-white/[0.02]">
+                <tr className="border-b border-white/10 bg-white/[0.02]">
                   {['Staff', 'Services', 'Revenue', 'Avg / Service', 'Commission', 'Rev Share'].map(
                     h => (
                       <th
                         key={h}
-                        className="py-2.5 px-4 text-left text-[9px] font-black uppercase tracking-widest text-gray-600"
+                        className="py-2.5 px-4 text-left text-[9px] font-black uppercase tracking-widest text-gray-400"
                       >
                         {h}
                       </th>
@@ -782,7 +782,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                     return (
                       <tr
                         key={s.id}
-                        className="border-b border-white/5 hover:bg-white/[0.02] transition-colors"
+                        className="border-b border-white/10 hover:bg-white/[0.02] transition-colors"
                       >
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
@@ -797,7 +797,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                                 {s.name}
                               </p>
                               {s.role && (
-                                <p className="text-gray-600 text-[9px] mt-0.5">
+                                <p className="text-gray-400 text-[9px] mt-0.5">
                                   {s.role}
                                 </p>
                               )}
@@ -818,7 +818,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                         </td>
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 bg-white/5 rounded-full overflow-hidden">
+                            <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
                               <div
                                 className="h-full bg-gold/50 rounded-full"
                                 style={{ width: `${share}%` }}
@@ -834,7 +834,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                   })}
               </tbody>
             </table>
-            <div className="px-5 py-2.5 border-t border-white/5 bg-white/[0.01] flex justify-between text-[10px] text-gray-600 font-bold">
+            <div className="px-5 py-2.5 border-t border-white/10 bg-white/[0.01] flex justify-between text-[10px] text-gray-400 font-bold">
               <span>Totals</span>
               <span className="flex gap-6">
                 <span>{totals.services} services</span>
@@ -853,8 +853,8 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
 
       {/* ── Service leaderboard (collapsible accordion) ──────────────────── */}
       {serviceLeaderboard.length > 0 && (
-        <div className="bg-zinc-900 border border-white/8 rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-white/8">
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-white/12">
             <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
               <Scissors size={12} />
               Service Performance Leaderboard
@@ -870,14 +870,14 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                     className="w-full flex items-center justify-between px-5 py-3 hover:bg-white/[0.02] transition-all text-left"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-7 h-7 rounded-lg bg-white/5 flex items-center justify-center shrink-0">
+                      <div className="w-7 h-7 rounded-lg bg-white/8 flex items-center justify-center shrink-0">
                         <Scissors size={12} className="text-gray-500" />
                       </div>
                       <div className="min-w-0">
                         <span className="text-white text-sm font-bold truncate block">
                           {service}
                         </span>
-                        <span className="text-gray-600 text-[9px]">
+                        <span className="text-gray-400 text-[9px]">
                           {totalCount} booking{totalCount !== 1 ? 's' : ''} total
                         </span>
                       </div>
@@ -887,9 +887,9 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                         {leaders[0]?.name} · {leaders[0]?.count}×
                       </span>
                       {isOpen ? (
-                        <ChevronUp size={13} className="text-gray-600" />
+                        <ChevronUp size={13} className="text-gray-400" />
                       ) : (
-                        <ChevronDown size={13} className="text-gray-600" />
+                        <ChevronDown size={13} className="text-gray-400" />
                       )}
                     </div>
                   </button>
@@ -938,7 +938,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
         <div className="text-center py-16 space-y-3">
           <Award size={40} className="text-gray-700 mx-auto" />
           <p className="text-gray-400 font-bold">No billing data yet</p>
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-400 text-sm">
             Analytics will appear once invoices are generated for staff members.
           </p>
         </div>
@@ -946,3 +946,5 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
     </div>
   );
 }
+
+
