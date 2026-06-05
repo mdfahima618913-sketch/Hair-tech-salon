@@ -14,6 +14,8 @@ import {
 import BannerManager  from './BannerManager';
 import GalleryManager from './GalleryManager';
 import CouponManager  from './CouponManager';
+import ServiceManager from './ServiceManager';
+import DataIO         from './DataIO';
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -981,6 +983,11 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [staffSaving,   setStaffSaving]   = useState(false);
   const [staffInvoices, setStaffInvoices] = useState<any[]>([]);
   const [staffSubView,  setStaffSubView]  = useState<'list' | 'analytics'>('list');
+  const [toolsTab,      setToolsTab]      = useState<'services' | 'banners' | 'gallery' | 'coupons' | 'data'>('services');
+  // Staff can't see admin-only tools tabs — fall back to banners
+  useEffect(() => {
+    if (isStaffMode && (toolsTab === 'services' || toolsTab === 'coupons')) setToolsTab('banners');
+  }, [isStaffMode, toolsTab]);
 
   // Customers module state
   const [customers, setCustomers]               = useState<any[]>([]);
@@ -3291,16 +3298,33 @@ Your uid is: ${user.uid}
           TOOLS VIEW
       ════════════════════════════════════════════════════════════════ */}
       {view === 'tools' && (
-        <div className="space-y-12">
-          <BannerManager />
-          <div className="border-t border-white/12 pt-10">
-            <GalleryManager />
+        <div className="space-y-5">
+          {/* Sub-tab bar */}
+          <div className="flex items-center gap-1 flex-wrap bg-zinc-800 border border-white/10 rounded-2xl p-1.5">
+            {([
+              { id: 'services', label: 'Services',    icon: <Scissors  size={12}/>, adminOnly: true  },
+              { id: 'banners',  label: 'Banners',     icon: <Wrench    size={12}/>, adminOnly: false },
+              { id: 'gallery',  label: 'Gallery',     icon: <BarChart  size={12}/>, adminOnly: false },
+              { id: 'coupons',  label: 'Coupons',     icon: <Percent   size={12}/>, adminOnly: true  },
+              { id: 'data',     label: 'Import/Export', icon: <Download  size={12}/>, adminOnly: true  },
+            ] as const).filter(t => !t.adminOnly || !isStaffMode).map(t => (
+              <button key={t.id} onClick={() => setToolsTab(t.id)}
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                  toolsTab === t.id
+                    ? 'bg-gold/15 border border-gold/25 text-gold'
+                    : 'text-gray-400 hover:text-white hover:bg-white/8'
+                }`}>
+                {t.icon} {t.label}
+              </button>
+            ))}
           </div>
-          {!isStaffMode && (
-            <div className="border-t border-white/12 pt-10">
-              <CouponManager />
-            </div>
-          )}
+
+          {/* Tab content */}
+          {toolsTab === 'services' && !isStaffMode && <ServiceManager />}
+          {toolsTab === 'banners'  && <BannerManager />}
+          {toolsTab === 'gallery'  && <GalleryManager />}
+          {toolsTab === 'coupons'  && !isStaffMode && <CouponManager />}
+          {toolsTab === 'data'     && !isStaffMode && <DataIO />}
         </div>
       )}
 

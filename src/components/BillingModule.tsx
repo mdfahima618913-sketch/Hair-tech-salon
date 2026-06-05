@@ -422,6 +422,41 @@ function ServiceStep({
   const [openCat,       setOpenCat]       = useState<string | null>(SERVICE_CATEGORIES[0]);
   const [showCatalogue, setShowCatalogue] = useState(true);
 
+  // ── Quick-add new service inline ──────────────────────────────────────────
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm,     setAddForm]     = useState({ name: '', category: SERVICE_CATEGORIES[0] ?? '', newCat: '', price: '', time: '30 min' });
+  const [addSaving,   setAddSaving]   = useState(false);
+  const [addErr,      setAddErr]      = useState('');
+
+  const handleQuickAdd = async () => {
+    const name     = addForm.name.trim();
+    const category = addForm.newCat.trim() || addForm.category.trim();
+    const price    = Number(addForm.price);
+    if (!name)     { setAddErr('Service name is required.'); return; }
+    if (!category) { setAddErr('Category is required.'); return; }
+    if (!price || price <= 0) { setAddErr('Price must be greater than 0.'); return; }
+
+    setAddSaving(true); setAddErr('');
+    try {
+      const id  = `${category.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 14)}-${Date.now().toString(36)}`;
+      const svc: Service = {
+        id, name,
+        price:      `₹${price}`,
+        priceValue: price,
+        time:       addForm.time.trim() || '30 min',
+        category,
+      };
+      await setDoc(doc(db, 'services', id), { ...svc, active: true, updatedAt: new Date() }, { merge: true });
+      onAdd(svc);
+      setShowAddForm(false);
+      setAddForm({ name: '', category: SERVICE_CATEGORIES[0] ?? '', newCat: '', price: '', time: '30 min' });
+    } catch (e: any) {
+      setAddErr(e.message ?? 'Failed to save service.');
+    } finally {
+      setAddSaving(false);
+    }
+  };
+
   const filtered = useMemo(() => {
     if (!search.trim()) return servicesData;
     const q = search.toLowerCase();
@@ -573,23 +608,138 @@ function ServiceStep({
               className="overflow-hidden"
             >
               <div className="pt-3 space-y-2">
-                {/* Search */}
-                <div className="relative">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search services…"
-                    value={search}
-                    onChange={e => setSearch(e.target.value)}
-                    className="w-full bg-white/8 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
-                  />
-                  {search && (
-                    <button onClick={() => setSearch('')}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
-                      <X size={13} />
-                    </button>
-                  )}
+                {/* Search + quick-add row */}
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search services…"
+                      value={search}
+                      onChange={e => setSearch(e.target.value)}
+                      className="w-full bg-white/8 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
+                    />
+                    {search && (
+                      <button onClick={() => setSearch('')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white">
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => { setShowAddForm(v => !v); setAddErr(''); }}
+                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider border transition-all shrink-0 ${
+                      showAddForm
+                        ? 'bg-gold/20 border-gold/40 text-gold'
+                        : 'bg-white/8 border-white/12 text-gray-300 hover:text-white hover:border-white/20'
+                    }`}
+                    title="Add a new service to the catalogue"
+                  >
+                    <Plus size={12} /> New
+                  </button>
                 </div>
+
+                {/* Inline quick-add form */}
+                <AnimatePresence>
+                  {showAddForm && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
+                      className="bg-zinc-950 border border-gold/25 rounded-2xl p-4 space-y-3"
+                    >
+                      <p className="text-[10px] font-black uppercase tracking-widest text-gold flex items-center gap-1.5">
+                        <Plus size={11} /> Add New Service to Catalogue
+                      </p>
+
+                      <div className="grid grid-cols-2 gap-2">
+                        {/* Name */}
+                        <div className="col-span-2">
+                          <input
+                            type="text" placeholder="Service name *"
+                            value={addForm.name}
+                            onChange={e => setAddForm(f => ({ ...f, name: e.target.value }))}
+                            className="w-full bg-white/8 border border-white/12 rounded-xl py-2 px-3 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
+                          />
+                        </div>
+
+                        {/* Category */}
+                        <div>
+                          {addForm.newCat.trim().length === 0 ? (
+                            <select
+                              value={addForm.category}
+                              onChange={e => {
+                                if (e.target.value === '__new__') {
+                                  setAddForm({ ...addForm, newCat: '\x01' });
+                                } else {
+                                  setAddForm({ ...addForm, category: e.target.value });
+                                }
+                              }}
+                              className="w-full bg-white/8 border border-white/12 rounded-xl py-2 px-3 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
+                            >
+                              {SERVICE_CATEGORIES.map(c => (
+                                <option key={c} value={c} className="bg-zinc-900">{c}</option>
+                              ))}
+                              <option value="__new__" className="bg-zinc-900">＋ New category…</option>
+                            </select>
+                          ) : (
+                            <div className="flex gap-1">
+                              <input
+                                autoFocus type="text" placeholder="New category name"
+                                value={addForm.newCat === '\x01' ? '' : addForm.newCat}
+                                onChange={e => setAddForm({ ...addForm, newCat: e.target.value })}
+                                className="flex-1 bg-white/8 border border-gold/30 rounded-xl py-2 px-3 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
+                              />
+                              <button onClick={() => setAddForm({ ...addForm, newCat: '', category: SERVICE_CATEGORIES[0] ?? '' })}
+                                className="px-2 text-gray-400 hover:text-white">
+                                <X size={12}/>
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Price */}
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₹</span>
+                          <input
+                            type="number" min={0} placeholder="Price *"
+                            value={addForm.price}
+                            onChange={e => setAddForm(f => ({ ...f, price: e.target.value }))}
+                            className="w-full bg-white/8 border border-white/12 rounded-xl py-2 pl-7 pr-3 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
+                          />
+                        </div>
+
+                        {/* Duration */}
+                        <div className="col-span-2">
+                          <input
+                            type="text" placeholder="Duration (e.g. 30 min)"
+                            value={addForm.time}
+                            onChange={e => setAddForm(f => ({ ...f, time: e.target.value }))}
+                            className="w-full bg-white/8 border border-white/12 rounded-xl py-2 px-3 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
+                          />
+                        </div>
+                      </div>
+
+                      {addErr && (
+                        <p className="flex items-center gap-1.5 text-red-400 text-xs font-bold">
+                          <AlertCircle size={11}/> {addErr}
+                        </p>
+                      )}
+
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={handleQuickAdd} disabled={addSaving}
+                          className="flex-1 flex items-center justify-center gap-2 py-2 bg-gold/15 border border-gold/30 rounded-xl text-gold text-xs font-black uppercase tracking-wider hover:bg-gold/25 transition-all disabled:opacity-50"
+                        >
+                          {addSaving ? <Loader2 size={12} className="animate-spin"/> : <Plus size={12}/>}
+                          {addSaving ? 'Saving…' : 'Add to Catalogue & Bill'}
+                        </button>
+                        <button onClick={() => { setShowAddForm(false); setAddErr(''); }}
+                          className="px-4 py-2 rounded-xl text-gray-400 hover:text-white text-xs font-bold uppercase tracking-wider transition-colors">
+                          Cancel
+                        </button>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Catalogue */}
                 <div className="space-y-2 max-h-56 overflow-y-auto pr-1 scrollbar-hide">
