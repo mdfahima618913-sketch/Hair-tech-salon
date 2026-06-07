@@ -229,11 +229,22 @@ function CustomerStep({
     setShowDrop(matches.length > 0);
   }, [phone, customerList, found]);
 
-  // Firestore exact lookup once 10 digits are present
+  // Resolve customer once 10 digits are present.
+  // If the local list is already loaded, it's authoritative — no DB call needed.
+  // The list was fetched on mount; if the customer existed they would have appeared as a suggestion.
   useEffect(() => {
     const clean = normalisePhone(phone);
     if (clean.length < 10) { setFound(null); setError(null); return; }
     setShowDrop(false);
+
+    // Local list is loaded → trust it, skip the network roundtrip
+    if (customerList.length > 0) {
+      const localMatch = customerList.find((c: Customer) => c.phone === clean);
+      setFound(localMatch ?? 'not-found');
+      return;
+    }
+
+    // Local list not yet loaded (still fetching) → fall back to Firestore
     const t = setTimeout(async () => {
       setSearching(true); setError(null);
       try {
@@ -255,14 +266,13 @@ function CustomerStep({
       finally { setSearching(false); }
     }, 400);
     return () => clearTimeout(t);
-  }, [phone]);
+  }, [phone, customerList]);
 
+  // Clicking a dropdown suggestion auto-advances — no extra "Select" click needed
   const pickSuggestion = (c: Customer) => {
-    setPhone(c.phone);
-    setName(c.name);
-    setFound(c);
     setShowDrop(false);
     setSuggestions([]);
+    onSelect(c, false);
   };
 
   const handleCreate = async () => {
@@ -1397,25 +1407,25 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 20 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="relative w-full max-w-2xl bg-[#0f0f0f] border border-white/15 rounded-[28px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-[#111] border border-white/15 rounded-[28px] shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-7 py-5 border-b border-white/12 shrink-0">
+        <div className="flex items-center justify-between px-7 py-4 border-b border-white/15 shrink-0 bg-zinc-900/60">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-gold/15 border border-gold/30 flex items-center justify-center">
               <Receipt size={15} className="text-gold" />
             </div>
             <div>
               <p className="text-white font-black uppercase tracking-tight text-sm leading-none">
                 {isOnlineFlow ? 'Online Booking Bill' : 'Express Billing'}
               </p>
-              {customer && <p className="text-gray-400 text-[10px] mt-0.5">{customer.name} · {customer.phone}</p>}
+              {customer && <p className="text-gold/70 text-[10px] mt-0.5">{customer.name} · {customer.phone}</p>}
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             <Steps current={displayStep} steps={STEPS} />
             {onClose && (
-              <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-colors">
+              <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/12 text-white hover:bg-white/15 hover:border-white/20 transition-all shrink-0">
                 <X size={16} />
               </button>
             )}
@@ -1473,15 +1483,20 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
 
         {/* Footer navigation */}
         {step < (isOnlineFlow ? 3 : 4) && !invoice && (
-          <div className="px-7 py-5 border-t border-white/12 shrink-0 flex items-center justify-between gap-4">
-            {/* Bill summary pill */}
-            {items.length > 0 && (
+          <div className="px-7 py-4 border-t border-white/12 shrink-0 flex items-center justify-between gap-4">
+            {/* Left: bill summary or customer hint */}
+            {step === 0 && !isOnlineFlow ? (
+              <p className="text-[10px] text-gray-500 flex items-center gap-1.5">
+                <User size={11}/> Search above to find or create a customer
+              </p>
+            ) : items.length > 0 ? (
               <div className="flex items-center gap-2 text-xs text-gray-400">
                 <ShoppingBag size={13} className="text-gold" />
                 <span>{items.length} service{items.length !== 1 ? 's' : ''}</span>
                 <span className="text-gold font-black">₹{total.toLocaleString('en-IN')}</span>
               </div>
-            )}
+            ) : <div />}
+
             <div className="flex items-center gap-3 ml-auto">
               {step > (isOnlineFlow ? 1 : 0) && (
                 <button onClick={() => setStep(s => s - 1)}
@@ -1493,9 +1508,12 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
               {/* Next / Generate */}
               {step < 2 ? (
                 <button
-                  disabled={step === 1 && !canProceedFromServices}
+                  disabled={
+                    (step === 0 && !isOnlineFlow && !customer) ||  // must select customer first
+                    (step === 1 && !canProceedFromServices)
+                  }
                   onClick={() => setStep(s => s + 1)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] rounded-xl text-black font-black text-xs uppercase tracking-wider disabled:opacity-40 disabled:grayscale transition-all"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] rounded-xl text-black font-black text-xs uppercase tracking-wider disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed transition-all"
                 >
                   Continue →
                 </button>
@@ -1524,4 +1542,5 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
     </div>
   );
 }
+
 

@@ -176,21 +176,31 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
   const totalMins = useMemo(() => cart.reduce((a, i) => a + parseMins(i.service.time) * i.qty, 0), [cart]);
   const totalAmt  = useMemo(() => cart.reduce((a, i) => a + i.service.priceValue * i.qty, 0), [cart]);
 
-  // Phone auto-fill
+  // Phone auto-fill — local list is authoritative when loaded, no server call needed
   useEffect(() => {
     const digits = customerPhone.replace(/\D/g, '').slice(-10);
-    if (digits.length < 10) return;
+    if (digits.length < 10) { setAutoFilled(false); return; }
+
+    // Local list loaded → look up instantly, skip the network roundtrip entirely
+    if (customerList.length > 0) {
+      const match = customerList.find((c: { phone: string; name: string }) => c.phone === digits);
+      if (match?.name && !customerName) {
+        setCustomerName(match.name);
+        setAutoFilled(true);
+      }
+      // No match = new customer — name field stays empty for manual entry
+      return;
+    }
+
+    // Local list not yet loaded → fall back to Firestore
     const t = setTimeout(async () => {
       setPhoneLoading(true);
       try {
-        // 1. Check customers collection first — instant O(1) lookup by normalized phone (doc ID)
         const custSnap = await getDoc(doc(db, 'customers', digits));
         if (custSnap.exists()) {
           const name = (custSnap.data().name ?? '').trim();
           if (name && !customerName) { setCustomerName(name); setAutoFilled(true); return; }
         }
-
-        // 2. Fall back to bookings collection (covers customers not yet in customers collection)
         const snaps = await Promise.all(
           [digits, `+91${digits}`, `+91 ${digits}`, `91${digits}`, `0${digits}`].map(
             fmt => getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt)))
@@ -206,7 +216,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
       finally { setPhoneLoading(false); }
     }, 400);
     return () => clearTimeout(t);
-  }, [customerPhone]);
+  }, [customerPhone, customerList]);
 
   // Load customer list once for live suggestions
   useEffect(() => {
@@ -347,20 +357,20 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.96, y: 20 }}
         transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="relative w-full max-w-2xl bg-[#0f0f0f] border border-white/15 rounded-[28px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-[#111] border border-white/15 rounded-[28px] shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-7 py-5 border-b border-white/12 shrink-0">
+        <div className="flex items-center justify-between px-7 py-4 border-b border-white/15 shrink-0 bg-zinc-900/60">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center">
               <CalendarCheck size={15} className="text-teal-400" />
             </div>
             <div>
               <p className="text-white font-black uppercase tracking-tight text-sm leading-none">Walk-In Booking</p>
-              <p className="text-gray-400 text-[10px] mt-0.5">Creating on behalf of customer · Pay at Salon</p>
+              <p className="text-teal-400/70 text-[10px] mt-0.5">Pay at Salon</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-white/10 text-gray-300 hover:text-white transition-colors">
+          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/12 text-white hover:bg-white/15 hover:border-white/20 transition-all shrink-0">
             <X size={16}/>
           </button>
         </div>
@@ -718,5 +728,6 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
     </div>
   );
 }
+
 
 

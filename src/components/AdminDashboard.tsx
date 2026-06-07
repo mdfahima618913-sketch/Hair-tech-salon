@@ -559,7 +559,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
     <>
       <tr
         onClick={() => setExpanded(v => !v)}
-        className="border-b border-white/10 hover:bg-white/[0.02] transition-colors cursor-pointer group"
+        className="border-b border-white/10 hover:bg-white/[0.06] transition-colors cursor-pointer group"
       >
         <td className="py-4 px-5">
           <div className="flex items-center gap-3">
@@ -600,7 +600,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden bg-white/[0.015] border-b border-white/10"
+                className="overflow-hidden bg-zinc-800/60 border-b border-white/10"
               >
                 <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
@@ -629,7 +629,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                       </p>
 
                       {/* Add Payment ID */}
-                      <div className="p-4 bg-amber-500/8 border border-amber-500/20 rounded-2xl space-y-3">
+                      <div className="p-4 bg-amber-500/8 border border-amber-500/30 rounded-2xl space-y-3">
                         <p className="text-[10px] text-amber-400 font-bold">Option 1 — Confirm with Razorpay Payment ID</p>
                         <div className="flex gap-2">
                           <input
@@ -661,7 +661,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                       </div>
 
                       {/* Pay at Salon */}
-                      <div className="p-4 bg-blue-500/8 border border-blue-500/20 rounded-2xl space-y-2">
+                      <div className="p-4 bg-blue-500/8 border border-blue-500/30 rounded-2xl space-y-2">
                         <p className="text-[10px] text-blue-400 font-bold">Option 2 — Mark as Pay at Salon</p>
                         <p className="text-[9px] text-gray-500">Customer will pay in person. Booking moves to confirmed — collect payment before billing.</p>
                         <button
@@ -839,7 +839,7 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
   return (
     <div className="fixed inset-0 z-[350] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-[#0f0f0f] border border-white/15 rounded-[24px] shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-md bg-[#111] border border-white/15 rounded-[24px] shadow-2xl overflow-hidden max-h-[92vh] flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/12 shrink-0">
           <div className="flex items-center gap-3">
@@ -856,7 +856,7 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
               </button>
             )}
             <button onClick={onClose}
-              className="p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/8 transition-all">
+              className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/12 text-white hover:bg-white/15 hover:border-white/20 transition-all">
               <X size={16} />
             </button>
           </div>
@@ -1693,14 +1693,14 @@ Your uid is: ${user.uid}
       </div>
 
       {/* ── Top Bar ── */}
-      <header className="sticky top-0 z-50 bg-[#0A0A0A]/90 backdrop-blur-xl border-b border-white/12">
+      <header className="sticky top-0 z-50 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-white/15">
         <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 shrink-0">
-            <div className="w-8 h-8 rounded-lg bg-gold/10 border border-gold/20 flex items-center justify-center">
-              <Scissors size={14} className="text-gold" />
+            <div className="w-9 h-9 rounded-xl bg-gold/15 border border-gold/30 flex items-center justify-center shadow-[0_0_16px_rgba(212,175,55,0.2)]">
+              <Scissors size={15} className="text-gold" />
             </div>
             <div className="hidden sm:block">
-              <p className="text-white font-black uppercase tracking-[0.15em] text-xs leading-none">Hair Tech</p>
+              <p className="text-white font-black uppercase tracking-[0.15em] text-sm leading-none">Hair Tech</p>
               <p className="text-gray-400 text-[9px] uppercase tracking-widest">
                 {isStaffMode ? 'Staff Portal' : 'Admin'}
               </p>
@@ -1715,7 +1715,7 @@ Your uid is: ${user.uid}
           </div>
 
           {/* ── Module navigation — filtered by role ── */}
-          <nav className="flex items-center gap-1 bg-white/[0.03] border border-white/12 rounded-xl p-1">
+          <nav className="flex items-center gap-0.5 bg-zinc-900 border border-white/15 rounded-xl p-1">
             {(isStaffMode ? [
               { id: 'bookings',   label: 'Bookings',  icon: <CalendarDays size={13} /> },
               { id: 'billing',    label: 'Billing',   icon: <Receipt      size={13} /> },
@@ -1730,10 +1730,10 @@ Your uid is: ${user.uid}
               { id: 'tools',      label: 'Tools',     icon: <Wrench       size={13} /> },
             ]).map(tab => (
               <button key={tab.id} onClick={() => setView(tab.id as any)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                   view === tab.id
-                    ? 'bg-gold/20 border border-gold/30 text-gold'
-                    : 'text-gray-500 hover:text-white'
+                    ? 'bg-gold text-black shadow-sm'
+                    : 'text-gray-400 hover:text-white hover:bg-white/8'
                 }`}
               >
                 {tab.icon}
@@ -1790,9 +1790,9 @@ Your uid is: ${user.uid}
       <main className="max-w-7xl mx-auto px-5 py-8 relative z-10">
 
         {/* ── Page Title + Express Bill ── */}
-        <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
+        <div className="mb-8 flex items-start justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-4xl font-black uppercase tracking-tighter text-white leading-none">
+            <h1 className="text-3xl sm:text-4xl font-black uppercase tracking-tighter text-white leading-none">
               {view === 'bookings'  ? 'Bookings'
               : view === 'insights' ? 'Insights'
               : view === 'billing'  ? 'Billing'
@@ -1800,7 +1800,8 @@ Your uid is: ${user.uid}
               : view === 'customers'? 'Customers'
               : 'Tools'}
             </h1>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-gray-400 text-sm mt-1.5 flex items-center gap-2">
+              <span className="w-1 h-1 rounded-full bg-gold inline-block"></span>
               {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </div>
@@ -1909,10 +1910,10 @@ Your uid is: ${user.uid}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
           {/* Total Revenue */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-            className="bg-zinc-900 border border-emerald-500/20 rounded-2xl p-5 relative overflow-hidden"
+            className="bg-zinc-900 border border-emerald-500/30 rounded-2xl p-5 relative overflow-hidden"
           >
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-emerald-500/60 rounded-t-2xl" />
-            <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">Total Revenue</p>
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-emerald-500 rounded-t-2xl" />
+            <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Total Revenue</p>
             <p className="text-2xl font-black text-white leading-none mb-1">
               ₹{stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </p>
@@ -1927,10 +1928,10 @@ Your uid is: ${user.uid}
 
           {/* Bill Amount Received */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-            className="bg-zinc-900 border border-blue-500/20 rounded-2xl p-5 relative overflow-hidden"
+            className="bg-zinc-900 border border-blue-500/30 rounded-2xl p-5 relative overflow-hidden"
           >
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-blue-500/60 rounded-t-2xl" />
-            <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">Collected</p>
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-blue-500 rounded-t-2xl" />
+            <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Collected</p>
             <p className="text-2xl font-black text-white leading-none mb-1">
               ₹{(stats.totalRevenue - stats.amountDue).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </p>
@@ -1939,10 +1940,10 @@ Your uid is: ${user.uid}
 
           {/* Avg Bill */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
-            className="bg-zinc-900 border border-amber-500/20 rounded-2xl p-5 relative overflow-hidden"
+            className="bg-zinc-900 border border-amber-500/30 rounded-2xl p-5 relative overflow-hidden"
           >
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-amber-500/60 rounded-t-2xl" />
-            <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">Avg Bill</p>
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-amber-500 rounded-t-2xl" />
+            <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Avg Bill</p>
             <p className="text-2xl font-black text-white leading-none mb-1">
               ₹{Math.round(stats.avgBill).toLocaleString('en-IN')}
             </p>
@@ -1951,10 +1952,10 @@ Your uid is: ${user.uid}
 
           {/* Amount Due */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-            className="bg-zinc-900 border border-red-500/20 rounded-2xl p-5 relative overflow-hidden"
+            className="bg-zinc-900 border border-red-500/30 rounded-2xl p-5 relative overflow-hidden"
           >
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-red-500/60 rounded-t-2xl" />
-            <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">Amount Due</p>
+            <div className="absolute top-0 left-0 right-0 h-[3px] bg-red-500 rounded-t-2xl" />
+            <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Amount Due</p>
             <p className="text-2xl font-black text-white leading-none mb-1">
               ₹{stats.amountDue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </p>
@@ -2184,7 +2185,7 @@ Your uid is: ${user.uid}
                       {/* Service row — clickable */}
                       <button
                         onClick={() => setExpandedService(isOpen ? null : name)}
-                        className={`w-full text-left group transition-all rounded-xl px-2 py-2 ${isOpen ? 'bg-gold/8' : 'hover:bg-white/[0.03]'}`}
+                        className={`w-full text-left group transition-all rounded-xl px-2 py-2 ${isOpen ? 'bg-gold/8' : 'hover:bg-zinc-800/40'}`}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2 min-w-0">
@@ -2357,8 +2358,8 @@ Your uid is: ${user.uid}
                         isNow
                           ? 'bg-gold/10 border-gold/30'
                           : b.status === 'completed'
-                          ? 'bg-white/[0.02] border-white/10 opacity-50'
-                          : 'bg-white/[0.03] border-white/10'
+                          ? 'bg-white/[0.05] border-white/10 opacity-50'
+                          : 'bg-zinc-800/40 border-white/10'
                       }`}
                     >
                       <div className={`w-1.5 rounded-full shrink-0 mt-1 ${
@@ -2394,7 +2395,7 @@ Your uid is: ${user.uid}
         {stats.pendingCount > 0 && (
           <motion.div
             initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-            className="mb-6 flex items-center gap-4 p-4 bg-amber-500/10 border border-amber-500/20 rounded-2xl"
+            className="mb-6 flex items-center gap-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl"
           >
             <div className="flex items-center gap-2 flex-1">
               <Clock size={15} className="text-amber-400 shrink-0" />
@@ -2476,7 +2477,7 @@ Your uid is: ${user.uid}
 
         {/* ── Listener Error: missing admin doc or rules issue ── */}
         {listenerError && (
-          <div className="mb-4 bg-red-500/10 border border-red-500/20 rounded-2xl p-6">
+          <div className="mb-4 bg-red-500/10 border border-red-500/30 rounded-2xl p-6">
             <div className="flex items-start gap-3 mb-4">
               <AlertCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
               <div>
@@ -2551,7 +2552,7 @@ Your uid is: ${user.uid}
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/12 bg-white/[0.02]">
+                  <tr className="border-b border-white/12 bg-white/[0.05]">
                     {[
                       { label: 'Customer',  key: 'customerName'  as SortKey, always: true },
                       { label: 'Date',      key: 'bookingDate'   as SortKey, hidden: 'md' },
@@ -2563,7 +2564,7 @@ Your uid is: ${user.uid}
                       <th
                         key={i}
                         onClick={() => key && toggleSort(key)}
-                        className={`py-3 px-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-400 select-none
+                        className={`py-3 px-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-300 select-none
                           ${key ? 'cursor-pointer hover:text-gray-400 transition-colors' : ''}
                           ${hidden === 'md' ? 'hidden md:table-cell' : ''}
                           ${hidden === 'lg' ? 'hidden lg:table-cell' : ''}
@@ -2686,7 +2687,7 @@ Your uid is: ${user.uid}
             ].map(({ label, value, sub, color, bar }) => (
               <div key={label} className={`bg-zinc-900 border ${color} rounded-2xl p-5 relative overflow-hidden`}>
                 <div className={`absolute top-0 left-0 right-0 h-[2px] ${bar} rounded-t-2xl`} />
-                <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-1">{label}</p>
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">{label}</p>
                 <p className="text-2xl font-black text-white leading-none mb-1">{value}</p>
                 <p className="text-[10px] text-gray-400">{sub}</p>
               </div>
@@ -2738,7 +2739,7 @@ Your uid is: ${user.uid}
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-white/12 bg-white/[0.02]">
+                      <tr className="border-b border-white/12 bg-white/[0.05]">
                         {['Invoice #', 'Customer', 'Date', 'Services', 'Amount', 'Payment', 'Source', ''].map(h => (
                           <th key={h} className="py-3 px-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-400">{h}</th>
                         ))}
@@ -2765,7 +2766,7 @@ Your uid is: ${user.uid}
                           <>
                             <tr key={(inv as any).id}
                               onClick={() => setExpandedInv(isExpanded ? null : (inv as any).id)}
-                              className="border-b border-white/10 hover:bg-white/[0.02] transition-colors cursor-pointer group"
+                              className="border-b border-white/10 hover:bg-white/[0.06] transition-colors cursor-pointer group"
                             >
                               <td className="py-3 px-4">
                                 <p className="text-gold text-[10px] font-black font-mono">{inv.invoiceNumber}</p>
@@ -2817,7 +2818,7 @@ Your uid is: ${user.uid}
                             {isExpanded && (
                               <tr key={`${(inv as any).id}-exp`}>
                                 <td colSpan={8} className="p-0">
-                                  <div className="px-6 py-4 bg-white/[0.015] border-b border-white/10 space-y-2">
+                                  <div className="px-6 py-4 bg-zinc-800/60 border-b border-white/10 space-y-2">
                                     <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-2">Line Items</p>
                                     {inv.items?.map((it: BillItem, i: number) => (
                                       <div key={i} className="flex items-center justify-between gap-3 text-xs">
@@ -2974,7 +2975,7 @@ Your uid is: ${user.uid}
             {staffForm !== null && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                className="bg-zinc-900 border border-gold/20 rounded-2xl p-6 space-y-4"
+                className="bg-zinc-900 border border-gold/30 rounded-2xl p-6 space-y-4"
               >
                 <p className="text-[10px] uppercase font-black tracking-widest text-gold">{staffForm.id ? 'Edit Staff' : 'New Staff Member'}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -3234,7 +3235,7 @@ Your uid is: ${user.uid}
               ) : (
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/12 bg-white/[0.02]">
+                  <tr className="border-b border-white/12 bg-white/[0.05]">
                     {['Customer', 'Phone', 'Visits', 'Total Spend', 'Last Visit', 'Source', 'Status'].map(h => (
                       <th key={h} className="py-3 px-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-400">{h}</th>
                     ))}
@@ -3250,7 +3251,7 @@ Your uid is: ${user.uid}
                     };
                     const sm = srcMeta[c.source] ?? srcMeta.online;
                     return (
-                      <tr key={c.phone} className="border-b border-white/10 hover:bg-white/[0.02] transition-colors">
+                      <tr key={c.phone} className="border-b border-white/10 hover:bg-white/[0.06] transition-colors">
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
                             <div className="w-8 h-8 rounded-full bg-gold/10 flex items-center justify-center text-gold text-xs font-black shrink-0">
@@ -3493,4 +3494,8 @@ export default function AdminDashboard() {
 
   return <Dashboard user={user} staffMember={staffMember ?? undefined} />;
 }
+
+
+
+
 
