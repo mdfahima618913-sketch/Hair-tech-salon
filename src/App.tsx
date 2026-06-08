@@ -22,6 +22,7 @@ import AdminDashboard  from './components/AdminDashboard';
 import MyAppointments  from './components/MyAppointments';
 
 import { seedServicesIfEmpty } from './lib/firebase';
+import { LanguageProvider } from './lib/LanguageContext';
 
 function LandingPage({ scaleX }: { scaleX: any }) {
   return (
@@ -62,15 +63,16 @@ export default function App() {
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 
   return (
+    <LanguageProvider>
     <Router>
       <Routes>
         <Route path="/"        element={<LandingPage scaleX={scaleX} />} />
-        {/* Booking opens as a full-screen page — completely isolated from landing */}
         <Route path="/booking"         element={<BookingSystem />} />
         <Route path="/my-appointments" element={<MyAppointments />} />
         <Route path="/admin"           element={<AdminDashboard />} />
         <Route path="*"                element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
+    </LanguageProvider>
   );
 }

@@ -31,6 +31,7 @@ import BillingModule, { type OnlineBookingPrefill, type StaffMember, type Custom
 import WalkInBooking    from './WalkInBooking';
 import StaffAnalytics    from './StaffAnalytics';
 import CustomerAnalytics from './CustomerAnalytics';
+import StaffPortal       from './StaffPortal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -3383,6 +3384,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async u => {
+      console.log(u, "u")
       setUser(u);
       if (!u) {
         setIsAdminUser(false);
@@ -3411,6 +3413,7 @@ export default function AdminDashboard() {
         const adminData = adminSnap.data();
         // Default to 'super_admin' for existing docs that don't have a role field yet
         const role: string = adminData?.role ?? 'super_admin';
+        console.log(role, "role")
         if (role === 'super_admin') {
           setIsAdminUser(true);
           setStaffMember(null);
@@ -3418,18 +3421,20 @@ export default function AdminDashboard() {
         } else if (role === 'staff') {
           setIsAdminUser(false);
           // Use the logged-in email to find the matching staff document.
-          // No staffId needed in the admins doc — just { role: 'staff' } is enough.
-          // The staff document must have email matching u.email.
+          // The staff document must have email matching u.email and isActive: true.
           if (u.email) {
+            console.log(u.email, "u email")
             const staffQuery = await getDocs(
               query(collection(db, 'staff'),
                 where('email', '==', u.email),
                 where('isActive', '==', true)
               )
             );
+            console.log(staffQuery, "staffQuery")
             if (!staffQuery.empty) {
               const sd = staffQuery.docs[0];
               setStaffMember({ id: sd.id, ...(sd.data() as Omit<StaffMember, 'id'>) });
+              console.log(staffMember, "sd", sd)
             } else {
               setStaffMember(null);
             }
@@ -3470,6 +3475,7 @@ export default function AdminDashboard() {
   if (!user) {
     return <LoginScreen onLogin={() => {}} />;
   }
+  console.log(isAdminUser, staffMember)
 
   if (!isAdminUser && !staffMember) {
     // Signed in but not recognised as admin or staff
@@ -3492,7 +3498,13 @@ export default function AdminDashboard() {
     );
   }
 
-  return <Dashboard user={user} staffMember={staffMember ?? undefined} />;
+  // Staff member → dedicated staff portal
+  if (!isAdminUser && staffMember) {
+    return <StaffPortal staffMember={staffMember} onSignOut={() => signOut(auth)} />;
+  }
+
+  // Admin → full dashboard
+  return <Dashboard user={user} staffMember={undefined} />;
 }
 
 

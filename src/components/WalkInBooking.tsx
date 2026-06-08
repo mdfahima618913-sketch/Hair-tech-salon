@@ -21,6 +21,7 @@ import { User as FirebaseUser } from 'firebase/auth';
 import { db } from '../lib/firebase';
 import { servicesData, Service } from '../constants/services';
 import { format, addDays, isSameDay, startOfDay } from 'date-fns';
+import { useLanguage } from '../lib/LanguageContext';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -107,26 +108,27 @@ async function fetchSlots(date: Date, totalMins: number): Promise<SlotOption[]> 
 // ─── Step indicator ─────────────────────────────────────────────────────────────
 
 const STEPS: Step[] = ['customer', 'services', 'slot', 'confirm'];
-const STEP_LABELS = ['Customer', 'Services', 'Date & Time', 'Confirm'];
 
 function StepBar({ current }: { current: Step }) {
+  const { t } = useLanguage();
+  const stepLabels = [t('customer'), t('services'), t('dateAndTime'), t('confirm')];
   const idx = STEPS.indexOf(current);
   return (
     <div className="flex items-center gap-0 mb-6">
-      {STEP_LABELS.map((label, i) => (
+      {stepLabels.map((label, i) => (
         <div key={label} className="flex items-center">
           <div className="flex items-center gap-1.5">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black transition-all ${
-              i < idx  ? 'bg-emerald-500 text-white'
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
+              i < idx    ? 'bg-emerald-500 text-white'
               : i === idx ? 'bg-gold text-black scale-110'
               : 'bg-white/8 text-gray-400 border border-white/10'
             }`}>
-              {i < idx ? <CheckCircle2 size={12}/> : i + 1}
+              {i < idx ? <CheckCircle2 size={13}/> : i + 1}
             </div>
-            <span className={`text-[10px] font-black uppercase tracking-wider hidden sm:inline ${i === idx ? 'text-gold' : i < idx ? 'text-emerald-400' : 'text-gray-400'}`}>{label}</span>
+            <span className={`text-[10px] font-black uppercase tracking-wider ${i === idx ? 'text-gold' : i < idx ? 'text-emerald-400' : 'text-gray-500'}`}>{label}</span>
           </div>
-          {i < STEP_LABELS.length - 1 && (
-            <div className={`w-6 sm:w-10 h-px mx-1 ${i < idx ? 'bg-emerald-500/50' : 'bg-white/8'}`}/>
+          {i < stepLabels.length - 1 && (
+            <div className={`w-3 sm:w-8 h-px mx-1 ${i < idx ? 'bg-emerald-500/50' : 'bg-white/8'}`}/>
           )}
         </div>
       ))}
@@ -150,6 +152,7 @@ interface Props {
 }
 
 export default function WalkInBooking({ onClose, onCreated, user, staffMember, createdBy = 'admin', staffName }: Props) {
+  const { t } = useLanguage();
   const [step,         setStep]         = useState<Step>('customer');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone,setCustomerPhone]= useState('');
@@ -366,8 +369,8 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
               <CalendarCheck size={15} className="text-teal-400" />
             </div>
             <div>
-              <p className="text-white font-black uppercase tracking-tight text-sm leading-none">Walk-In Booking</p>
-              <p className="text-teal-400/70 text-[10px] mt-0.5">Pay at Salon</p>
+              <p className="text-white font-black text-sm leading-none">{t('walkInBooking')}</p>
+              <p className="text-teal-400/70 text-[10px] mt-0.5">{t('bookingNote')}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/12 text-white hover:bg-white/15 hover:border-white/20 transition-all shrink-0">
@@ -385,19 +388,19 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
             {step === 'customer' && (
               <motion.div key="customer" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className="space-y-5">
                 <div>
-                  <h3 className="text-white font-black text-lg uppercase tracking-tight mb-1">Customer Details</h3>
-                  <p className="text-gray-500 text-xs">Enter customer information. Phone auto-fills name from previous visits.</p>
+                  <h3 className="text-white font-black text-xl mb-1">{t('customer')}</h3>
+                  <p className="text-gray-500 text-sm">{t('phoneHint')}</p>
                 </div>
 
                 {/* Phone first */}
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-300 block mb-2">Mobile Number <span className="text-red-400">*</span></label>
+                  <label className="text-xs font-black uppercase tracking-widest text-gray-300 block mb-2">{t('customerPhone')} <span className="text-red-400">*</span></label>
                   <div ref={phoneWrapRef} className="relative">
-                    <Phone size={15} className="absolute left-3 top-3.5 text-gray-400 z-10"/>
-                    <input type="tel" placeholder="Phone number or name…" value={customerPhone}
+                    <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 z-10"/>
+                    <input type="tel" inputMode="numeric" placeholder={t('searchCustomer')} value={customerPhone}
                       onChange={e => { setCustomerPhone(e.target.value); setAutoFilled(false); }}
                       onFocus={() => suggestions.length > 0 && setShowDrop(true)}
-                      className="w-full bg-white/8 border border-white/10 rounded-xl py-3 pl-9 pr-10 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
+                      className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 pl-12 pr-10 text-white text-base focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
                     />
                     {phoneLoading && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gold animate-spin"/>}
 
@@ -439,20 +442,20 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
 
                 {/* Name */}
                 <div>
-                  <label className="text-[10px] font-black uppercase tracking-widest text-gray-300 block mb-2">Full Name <span className="text-red-400">*</span></label>
+                  <label className="text-xs font-black uppercase tracking-widest text-gray-300 block mb-2">{t('customerName')} <span className="text-red-400">*</span></label>
                   {autoFilled && (
-                    <div className="flex items-center gap-2 mb-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-bold">
-                      <CheckCircle2 size={13}/> Returning customer — name auto-filled
+                    <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm font-bold">
+                      <CheckCircle2 size={14}/> Returning — name auto-filled
                       <button onClick={() => { setAutoFilled(false); setCustomerName(''); }} className="ml-auto">
-                        <X size={12}/>
+                        <X size={13}/>
                       </button>
                     </div>
                   )}
                   <div className="relative">
-                    <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                    <input type="text" placeholder="Customer full name" value={customerName}
+                    <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"/>
+                    <input type="text" placeholder={t('customerName')} value={customerName}
                       onChange={e => { setCustomerName(e.target.value); setAutoFilled(false); }}
-                      className={`w-full bg-white/8 border rounded-xl py-3 pl-9 pr-4 text-white text-sm focus:outline-none transition-all placeholder:text-gray-500 ${autoFilled ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 focus:border-gold/50'}`}
+                      className={`w-full bg-white/8 border rounded-2xl py-4 pl-12 pr-4 text-white text-base focus:outline-none transition-all placeholder:text-gray-500 ${autoFilled ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-white/10 focus:border-gold/50'}`}
                     />
                   </div>
                 </div>
@@ -463,16 +466,16 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
             {step === 'services' && (
               <motion.div key="services" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className="space-y-4">
                 <div>
-                  <h3 className="text-white font-black text-lg uppercase tracking-tight mb-1">Select Services</h3>
-                  <p className="text-gray-500 text-xs">Add services for {customerName}.</p>
+                  <h3 className="text-white font-black text-xl mb-1">{t('selectServices')}</h3>
+                  <p className="text-gray-500 text-sm">{customerName} {t('customer')}</p>
                 </div>
 
                 {/* Search */}
                 <div className="relative">
-                  <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
-                  <input type="text" placeholder="Search services…" value={search}
+                  <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"/>
+                  <input type="text" placeholder={t('searchServices')} value={search}
                     onChange={e => setSearch(e.target.value)}
-                    className="w-full bg-white/8 border border-white/10 rounded-xl py-2.5 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
+                    className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-base focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
                   />
                 </div>
 
@@ -490,7 +493,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                 )}
 
                 {/* Catalogue */}
-                <div className="space-y-2 max-h-72 overflow-y-auto pr-1 scrollbar-hide">
+                <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1 scrollbar-hide">
                   {(search ? Object.entries(grouped) : CATEGORIES.filter(c => grouped[c]?.length).map(c => [c, grouped[c]] as [string, Service[]])).map(([cat, svcs]) => (
                     <div key={cat} className="border border-white/12 rounded-xl overflow-hidden">
                       <button onClick={() => setOpenCat(openCat === cat ? null : cat)}
@@ -508,21 +511,20 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                               {(svcs as Service[]).map(svc => {
                                 const q = qty(svc.id);
                                 return (
-                                  <div key={svc.id} className={`flex items-center justify-between px-4 py-2 ${q > 0 ? 'bg-gold/5' : 'hover:bg-white/[0.03]'} transition-all`}>
+                                  <div key={svc.id} className={`flex items-center justify-between px-4 py-3 ${q > 0 ? 'bg-gold/5' : 'hover:bg-white/[0.03]'} transition-all`}>
                                     <div className="min-w-0 flex-1">
-                                      <p className={`text-xs font-medium truncate ${q > 0 ? 'text-gold' : 'text-gray-300'}`}>{svc.name}</p>
-                                      <p className="text-[9px] text-gray-400">{svc.time}</p>
+                                      <p className={`text-sm font-medium truncate ${q > 0 ? 'text-gold' : 'text-gray-300'}`}>{svc.name}</p>
+                                      <p className="text-xs text-gray-400">{svc.price} · {svc.time}</p>
                                     </div>
                                     <div className="flex items-center gap-2 shrink-0 ml-3">
-                                      <span className="text-xs font-black text-white">{svc.price}</span>
                                       {q > 0 ? (
-                                        <div className="flex items-center gap-0 border border-gold/40 rounded-lg overflow-hidden">
-                                          <button onClick={() => setQty(svc.id, -1)} className="px-2 py-1 text-gold hover:bg-gold/10 transition-colors"><Minus size={9}/></button>
-                                          <span className="px-2 text-[10px] font-black text-gold">{q}</span>
-                                          <button onClick={() => setQty(svc.id, 1)} className="px-2 py-1 text-gold hover:bg-gold/10 transition-colors"><Plus size={9}/></button>
+                                        <div className="flex items-center gap-0 border border-gold/40 rounded-xl overflow-hidden">
+                                          <button onClick={() => setQty(svc.id, -1)} className="w-10 h-10 flex items-center justify-center text-gold hover:bg-gold/10 transition-colors"><Minus size={14}/></button>
+                                          <span className="px-3 text-sm font-black text-gold">{q}</span>
+                                          <button onClick={() => setQty(svc.id, 1)} className="w-10 h-10 flex items-center justify-center text-gold hover:bg-gold/10 transition-colors"><Plus size={14}/></button>
                                         </div>
                                       ) : (
-                                        <button onClick={() => setQty(svc.id, 1)} className="w-7 h-7 rounded-full bg-gold/20 border border-gold/30 text-gold hover:bg-gold/30 flex items-center justify-center transition-all"><Plus size={10}/></button>
+                                        <button onClick={() => setQty(svc.id, 1)} className="w-10 h-10 rounded-full bg-gold/20 border border-gold/30 text-gold hover:bg-gold/30 flex items-center justify-center transition-all"><Plus size={16}/></button>
                                       )}
                                     </div>
                                   </div>
@@ -542,22 +544,22 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
             {step === 'slot' && (
               <motion.div key="slot" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }} className="space-y-5">
                 <div>
-                  <h3 className="text-white font-black text-lg uppercase tracking-tight mb-1">Date & Time</h3>
-                  <p className="text-gray-500 text-xs">~{totalMins} min session needed</p>
+                  <h3 className="text-white font-black text-xl mb-1">{t('dateAndTime')}</h3>
+                  <p className="text-gray-500 text-sm">~{totalMins} min {t('duration')}</p>
                 </div>
 
                 {/* Date strip */}
                 <div>
-                  <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-3">Choose Date</p>
+                  <p className="text-xs font-black uppercase tracking-wider text-gray-400 mb-3">{t('selectDate')}</p>
                   <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
                     {dateStrip.map(d => {
                       const active = isSameDay(d, selDate);
                       return (
                         <button key={d.toString()} onClick={() => setSelDate(d)}
-                          className={`shrink-0 w-14 h-16 rounded-2xl flex flex-col items-center justify-center transition-all border-2 ${active ? 'bg-gold border-gold text-black' : 'bg-white/[0.03] border-white/12 text-gray-400 hover:border-gold/30'}`}>
-                          <span className={`text-[9px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{format(d,'EEE')}</span>
-                          <span className="text-lg font-black">{format(d,'d')}</span>
-                          {isSameDay(d, new Date()) && <span className={`text-[8px] font-black ${active ? 'text-black/60' : 'text-gold'}`}>Today</span>}
+                          className={`shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center transition-all border-2 ${active ? 'bg-gold border-gold text-black' : 'bg-white/[0.03] border-white/12 text-gray-400 hover:border-gold/30'}`}>
+                          <span className={`text-[10px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{format(d,'EEE')}</span>
+                          <span className="text-xl font-black">{format(d,'d')}</span>
+                          {isSameDay(d, new Date()) && <span className={`text-[9px] font-black ${active ? 'text-black/60' : 'text-gold'}`}>{t('today')}</span>}
                         </button>
                       );
                     })}
@@ -567,13 +569,13 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                 {/* Slots */}
                 {slotsLoading ? (
                   <div className="flex items-center justify-center gap-3 py-10 text-gray-500">
-                    <Loader2 size={18} className="animate-spin text-gold"/> Checking availability…
+                    <Loader2 size={20} className="animate-spin text-gold"/> {t('loadingSlots')}
                   </div>
                 ) : slots.length === 0 ? (
                   <div className="text-center py-10 text-gray-500">
-                    <Calendar size={32} className="mx-auto mb-2 text-gray-700"/>
-                    <p className="text-sm font-bold">No slots available</p>
-                    <p className="text-xs mt-1">Try a different date</p>
+                    <Calendar size={36} className="mx-auto mb-3 text-gray-700"/>
+                    <p className="text-base font-bold">{t('noSlots')}</p>
+                    <p className="text-sm mt-1">Doosra din try karo</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -582,25 +584,26 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                       if (!list.length) return null;
                       const Icon = sess === 'morning' ? Sun : sess === 'afternoon' ? CloudSun : Moon;
                       const iconCls = sess === 'morning' ? 'text-amber-400' : sess === 'afternoon' ? 'text-orange-400' : 'text-indigo-400';
+                      const sessLabel = sess === 'morning' ? t('morning') : sess === 'afternoon' ? t('afternoon') : t('evening');
                       return (
                         <div key={sess}>
                           <div className="flex items-center gap-2 mb-2">
-                            <Icon size={13} className={iconCls}/>
-                            <span className="text-xs font-bold text-gray-400 capitalize">{sess}</span>
-                            <span className="ml-auto text-[10px] text-emerald-500 font-bold">{list.length} available</span>
+                            <Icon size={15} className={iconCls}/>
+                            <span className="text-sm font-bold text-gray-300">{sessLabel}</span>
+                            <span className="ml-auto text-xs text-emerald-500 font-bold">{list.length} {t('slotsAvailable')}</span>
                           </div>
-                          <div className="grid grid-cols-3 gap-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                             {list.map(slot => (
                               <button key={slot.startISO} onClick={() => setSelSlot(slot)}
-                                className={`py-3 px-2 rounded-xl border-2 text-[11px] font-bold text-center transition-all ${
+                                className={`py-4 px-2 rounded-2xl border-2 text-xs font-bold text-center transition-all ${
                                   selSlot?.startISO === slot.startISO
                                     ? 'bg-gold border-gold text-black'
                                     : slot.available === 1
                                       ? 'border-orange-400/40 bg-orange-500/8 text-orange-300 hover:border-orange-400'
                                       : 'border-white/10 bg-white/[0.03] text-gray-400 hover:border-gold/30 hover:text-white'
                                 }`}>
-                                <div>{slot.label.split('–')[0].trim()}</div>
-                                {slot.available === 1 && <div className="text-[9px] text-orange-400 mt-0.5">1 spot left</div>}
+                                <div className="text-sm">{slot.label.split('–')[0].trim()}</div>
+                                {slot.available === 1 && <div className="text-[10px] text-orange-400 mt-0.5">1 spot left</div>}
                               </button>
                             ))}
                           </div>
@@ -672,8 +675,8 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                   <CheckCircle2 size={40} className="text-white"/>
                 </motion.div>
                 <div>
-                  <h3 className="text-white font-black text-2xl mb-1">Booking Confirmed!</h3>
-                  <p className="text-gray-500 text-sm">{customerName} is booked for {format(selDate,'MMM d')} · {selSlot?.label}</p>
+                  <h3 className="text-white font-black text-2xl mb-1">{t('bookingConfirmed')} 🎉</h3>
+                  <p className="text-gray-500 text-sm">{customerName} · {format(selDate,'MMM d')} · {selSlot?.label}</p>
                 </div>
                 <div className="bg-white/[0.03] border border-white/12 rounded-2xl p-4 text-left space-y-2">
                   <div className="flex justify-between text-xs"><span className="text-gray-500">Services</span><span className="text-gray-300 text-right">{cart.map(i=>i.service.name).join(', ')}</span></div>
@@ -681,8 +684,8 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                   <div className="flex justify-between text-xs"><span className="text-gray-500">Payment</span><span className="text-amber-400 font-bold">Pay at Salon</span></div>
                   {savedId && <div className="flex justify-between text-xs"><span className="text-gray-500">Ref ID</span><span className="text-gray-400 font-mono text-[10px]">{savedId.slice(-8)}</span></div>}
                 </div>
-                <button onClick={onClose} className="w-full py-3.5 bg-white/8 border border-white/10 rounded-2xl text-white font-bold text-sm hover:bg-white/10 transition-all">
-                  Done
+                <button onClick={onClose} className="w-full py-4 bg-white/8 border border-white/10 rounded-2xl text-white font-bold text-base hover:bg-white/10 transition-all">
+                  {t('done')}
                 </button>
               </motion.div>
             )}
@@ -704,21 +707,21 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
             <div className="flex items-center gap-3 ml-auto">
               {STEPS.indexOf(step) > 0 && (
                 <button onClick={() => setStep(STEPS[STEPS.indexOf(step) - 1])}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-white/8 border border-white/10 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/10 transition-all">
-                  <ChevronLeft size={13}/> Back
+                  className="flex items-center gap-2 px-4 py-3 bg-white/8 border border-white/10 rounded-xl text-sm font-bold text-gray-300 hover:bg-white/10 transition-all">
+                  <ChevronLeft size={14}/> {t('back')}
                 </button>
               )}
               {step !== 'confirm' ? (
                 <button disabled={!canGoNext}
                   onClick={() => setStep(STEPS[STEPS.indexOf(step) + 1])}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-black font-black text-xs uppercase tracking-wider disabled:opacity-40 disabled:grayscale transition-all">
-                  Continue →
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-black font-black text-sm disabled:opacity-40 disabled:grayscale transition-all">
+                  {t('next')} →
                 </button>
               ) : (
                 <button onClick={handleConfirm} disabled={saving}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-black font-black text-xs uppercase tracking-wider disabled:opacity-40 transition-all">
-                  {saving ? <Loader2 size={13} className="animate-spin"/> : <CalendarCheck size={13}/>}
-                  {saving ? 'Saving…' : 'Confirm Booking'}
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 rounded-xl text-black font-black text-sm disabled:opacity-40 transition-all">
+                  {saving ? <Loader2 size={14} className="animate-spin"/> : <CalendarCheck size={14}/>}
+                  {saving ? t('loading') : t('confirmBooking')}
                 </button>
               )}
             </div>

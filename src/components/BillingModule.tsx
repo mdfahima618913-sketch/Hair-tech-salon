@@ -29,6 +29,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { servicesData, Service } from '../constants/services';
+import { useLanguage } from '../lib/LanguageContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -149,20 +150,20 @@ function Steps({ current, steps }: { current: number; steps: string[] }) {
     <div className="flex items-center gap-0">
       {steps.map((label, i) => (
         <React.Fragment key={i}>
-          <div className="flex items-center gap-2">
-            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-black transition-all ${
-              i < current  ? 'bg-emerald-500 text-white'
+          <div className="flex items-center gap-1.5">
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
+              i < current    ? 'bg-emerald-500 text-white'
               : i === current ? 'bg-gold text-black scale-110 shadow-[0_0_12px_rgba(212,175,55,0.4)]'
               : 'bg-white/8 text-gray-400 border border-white/10'
             }`}>
-              {i < current ? <CheckCircle2 size={12} /> : i + 1}
+              {i < current ? <CheckCircle2 size={13} /> : i + 1}
             </div>
-            <span className={`text-[10px] font-black uppercase tracking-wider hidden sm:inline ${
-              i === current ? 'text-gold' : i < current ? 'text-emerald-400' : 'text-gray-400'
+            <span className={`text-[10px] font-black uppercase tracking-wider ${
+              i === current ? 'text-gold' : i < current ? 'text-emerald-400' : 'text-gray-500'
             }`}>{label}</span>
           </div>
           {i < steps.length - 1 && (
-            <div className={`w-8 h-[1px] mx-1 ${i < current ? 'bg-emerald-500/50' : 'bg-white/8'}`} />
+            <div className={`w-4 sm:w-8 h-[1px] mx-1 ${i < current ? 'bg-emerald-500/50' : 'bg-white/8'}`} />
           )}
         </React.Fragment>
       ))}
@@ -288,23 +289,26 @@ function CustomerStep({
     finally { setCreating(false); }
   };
 
+  const { t } = useLanguage();
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
-        <h3 className="text-white font-black text-lg uppercase tracking-tight mb-1">Find Customer</h3>
-        <p className="text-gray-400 text-xs">Type phone or name — suggestions appear after 3 characters.</p>
+        <h3 className="text-white font-black text-xl mb-1">{t('customer')}</h3>
+        <p className="text-gray-400 text-sm">{t('phoneHint')}</p>
       </div>
 
       <div ref={wrapperRef} className="relative">
-        <Phone size={15} className="absolute left-3 top-3.5 text-gray-400 z-10" />
+        <Phone size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 z-10" />
         <input
           ref={inputRef}
           type="tel"
-          placeholder="Phone number or customer name…"
+          inputMode="numeric"
+          placeholder={t('searchCustomer')}
           value={phone}
           onChange={e => { setPhone(e.target.value); setFound(null); }}
           onFocus={() => suggestions.length > 0 && setShowDrop(true)}
-          className="w-full bg-white/8 border border-white/10 rounded-xl py-3 pl-9 pr-10 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
+          className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 pl-12 pr-10 text-white text-base focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
         />
         {searching && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-gold animate-spin" />}
 
@@ -381,28 +385,28 @@ function CustomerStep({
             className="p-5 bg-white/8 border border-white/10 rounded-2xl space-y-4"
           >
             <div className="flex items-center gap-2 text-amber-400">
-              <UserPlus size={15} />
-              <p className="text-xs font-bold">No customer found — add new customer</p>
+              <UserPlus size={16} />
+              <p className="text-sm font-bold">{t('noCustomerFound')} — {t('addNewCustomer')}</p>
             </div>
             <div className="relative">
-              <User size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <User size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder="Customer full name"
+                placeholder={t('customerName')}
                 value={name}
                 onChange={e => { setName(e.target.value); setError(null); }}
                 onKeyDown={e => e.key === 'Enter' && handleCreate()}
                 autoFocus
-                className="w-full bg-white/8 border border-white/10 rounded-xl py-3 pl-9 pr-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
+                className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 pl-12 pr-4 text-white text-base focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
               />
             </div>
             <button
               onClick={handleCreate}
               disabled={creating || !name.trim()}
-              className="w-full py-3 bg-gold/10 border border-gold/30 rounded-xl text-gold font-black text-xs uppercase tracking-wider hover:bg-gold/20 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
+              className="w-full py-4 bg-gold/10 border border-gold/30 rounded-2xl text-gold font-black text-base hover:bg-gold/20 transition-all disabled:opacity-40 flex items-center justify-center gap-2"
             >
-              {creating ? <Loader2 size={13} className="animate-spin" /> : <UserPlus size={13} />}
-              Create & Continue
+              {creating ? <Loader2 size={16} className="animate-spin" /> : <UserPlus size={16} />}
+              {t('createAndContinue')}
             </button>
           </motion.div>
         )}
@@ -481,6 +485,7 @@ function ServiceStep({
     return g;
   }, [filtered]);
 
+  const { t } = useLanguage();
   const addedIds    = new Set(items.map(i => i.serviceId));
   const activeStaff = staff.filter(s => s.isActive);
   const assignedStaff = activeStaff.find(s => s.id === selectedStaffId);
@@ -494,7 +499,7 @@ function ServiceStep({
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <UserCheck size={14} className="text-gold shrink-0" />
-            <p className="text-gold text-xs font-black uppercase tracking-wider">Staff for this Bill</p>
+            <p className="text-gold text-sm font-black">{t('assignStaff')}</p>
           </div>
           {selectedStaffId && items.length > 0 && (
             <span className="text-[9px] font-black text-emerald-400 flex items-center gap-1">
@@ -515,7 +520,7 @@ function ServiceStep({
             onChange={e => onStaffSelect(e.target.value)}
             className="w-full bg-zinc-900 border border-gold/30 rounded-lg px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold/60 transition-all"
           >
-            <option value="">— Select staff member —</option>
+            <option value="">— {t('selectStaff')} —</option>
             {activeStaff.map(s => (
               <option key={s.id} value={s.id}>
                 {s.name}{s.role ? ` · ${s.role}` : ''} · {s.commissionRate}% commission
@@ -752,7 +757,7 @@ function ServiceStep({
                 </AnimatePresence>
 
                 {/* Catalogue */}
-                <div className="space-y-2 max-h-56 overflow-y-auto pr-1 scrollbar-hide">
+                <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-1 scrollbar-hide">
                   {Object.entries(grouped).map(([cat, services]) => (
                     <div key={cat} className="border border-white/12 rounded-xl overflow-hidden">
                       <button
@@ -773,28 +778,25 @@ function ServiceStep({
                                 const added = addedIds.has(service.id);
                                 return (
                                   <div key={service.id}
-                                    className={`flex items-center justify-between px-4 py-2 transition-all ${added ? 'bg-gold/5' : 'hover:bg-white/[0.03]'}`}
+                                    className={`flex items-center justify-between px-4 py-3 transition-all ${added ? 'bg-gold/5' : 'hover:bg-white/[0.03]'}`}
                                   >
                                     <div className="min-w-0 flex-1">
-                                      <p className={`text-xs font-medium truncate ${added ? 'text-gold' : 'text-gray-300'}`}>{service.name}</p>
-                                      <p className="text-[9px] text-gray-400">{service.time}</p>
+                                      <p className={`text-sm font-medium truncate ${added ? 'text-gold' : 'text-gray-300'}`}>{service.name}</p>
+                                      <p className="text-xs text-gray-400">{service.price} · {service.time}</p>
                                     </div>
-                                    <div className="flex items-center gap-3 shrink-0 ml-3">
-                                      <span className="text-xs font-black text-white">{service.price}</span>
-                                      <button
-                                        onClick={() => added
-                                          ? onRemove(items.findIndex(i => i.serviceId === service.id))
-                                          : onAdd(service)
-                                        }
-                                        className={`w-6 h-6 rounded-full flex items-center justify-center transition-all ${
-                                          added
-                                            ? 'bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30'
-                                            : 'bg-gold/20 border border-gold/30 text-gold hover:bg-gold/30'
-                                        }`}
-                                      >
-                                        {added ? <Minus size={10} /> : <Plus size={10} />}
-                                      </button>
-                                    </div>
+                                    <button
+                                      onClick={() => added
+                                        ? onRemove(items.findIndex(i => i.serviceId === service.id))
+                                        : onAdd(service)
+                                      }
+                                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shrink-0 ml-3 ${
+                                        added
+                                          ? 'bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30'
+                                          : 'bg-gold/20 border border-gold/30 text-gold hover:bg-gold/30'
+                                      }`}
+                                    >
+                                      {added ? <Minus size={16} /> : <Plus size={16} />}
+                                    </button>
                                   </div>
                                 );
                               })}
@@ -835,12 +837,14 @@ function PaymentStep({
   // True only when there's a genuine Razorpay pre-payment AND extra services were added
   const isBalance    = isOnline && alreadyPaidAmount > 0 && balanceDue > 0;
 
+  const { t } = useLanguage();
+
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-white font-black text-lg uppercase tracking-tight mb-1">Payment</h3>
-        <p className="text-gray-500 text-xs">
-          {isOnline && !isPayAtSalon ? 'Already paid online via Razorpay — just confirm.' : 'Select payment method and apply discount if any.'}
+        <h3 className="text-white font-black text-xl mb-1">{t('payment')}</h3>
+        <p className="text-gray-500 text-sm">
+          {isOnline && !isPayAtSalon ? 'Already paid online via Razorpay — just confirm.' : t('paymentMethod')}
         </p>
       </div>
 
@@ -857,12 +861,12 @@ function PaymentStep({
       {/* Bill summary */}
       <div className="bg-white/8 border border-white/12 rounded-2xl p-5 space-y-3">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-400">Subtotal</span>
+          <span className="text-gray-400">{t('subtotal')}</span>
           <span className="text-white font-bold">₹{subtotal.toLocaleString('en-IN')}</span>
         </div>
         {!isOnline && (
           <div className="flex items-center justify-between">
-            <span className="text-gray-400 text-sm">Discount</span>
+            <span className="text-gray-400 text-sm">{t('discount')}</span>
             <div className="flex items-center gap-2">
               <input
                 type="number" min={0} max={100}
@@ -875,9 +879,9 @@ function PaymentStep({
             </div>
           </div>
         )}
-        <div className="pt-3 border-t border-white/10 flex justify-between">
-          <span className="text-white font-black uppercase tracking-wide">Total</span>
-          <span className="text-gold text-2xl font-black">₹{total.toLocaleString('en-IN')}</span>
+        <div className="pt-3 border-t border-white/10 flex justify-between items-center">
+          <span className="text-white font-black text-lg">{t('total')}</span>
+          <span className="text-gold text-3xl font-black">₹{total.toLocaleString('en-IN')}</span>
         </div>
         {/* Razorpay pre-paid balance breakdown */}
         {alreadyPaidAmount > 0 && (
@@ -931,13 +935,14 @@ function PaymentStep({
               <button
                 key={m.id}
                 onClick={() => onPaymentChange(m.id)}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${
+                className={`flex flex-col items-center justify-center gap-1.5 px-2 py-4 rounded-2xl border font-black text-xs transition-all ${
                   paymentMethod === m.id
-                    ? 'bg-gold/20 border-gold/40 text-gold'
-                    : 'bg-white/8 border-white/10 text-gray-500 hover:border-white/20 hover:text-white'
+                    ? 'bg-gold/20 border-gold/40 text-gold scale-[1.02]'
+                    : 'bg-white/8 border-white/10 text-gray-400 hover:border-white/20 hover:text-white'
                 }`}
               >
-                {m.icon} {m.label}
+                <span className="[&>svg]:w-5 [&>svg]:h-5">{m.icon}</span>
+                <span>{t(m.id as any) ?? m.label}</span>
               </button>
             ))}
           </div>
@@ -953,6 +958,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
   customer: Customer;
   onClose: () => void;
 }) {
+  const { t } = useLanguage();
   const printRef = useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
@@ -1037,15 +1043,15 @@ function InvoicePreview({ invoice, customer, onClose }: {
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h3 className="text-white font-black text-lg uppercase tracking-tight">Invoice Generated</h3>
+        <h3 className="text-white font-black text-lg">{t('billCreated')} 🎉</h3>
         <div className="flex items-center gap-2">
           <button onClick={handlePrint}
-            className="flex items-center gap-2 px-3 py-2 bg-white/8 border border-white/10 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/10 transition-all">
-            <Printer size={13} /> Print
+            className="flex items-center gap-2 px-4 py-2.5 bg-white/8 border border-white/10 rounded-xl text-sm font-bold text-gray-300 hover:bg-white/10 transition-all">
+            <Printer size={15} /> {t('printBill')}
           </button>
           <button onClick={onClose}
-            className="flex items-center gap-2 px-3 py-2 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-xs font-bold text-emerald-400 hover:bg-emerald-500/30 transition-all">
-            Done ✓
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/20 border border-emerald-500/30 rounded-xl text-sm font-bold text-emerald-400 hover:bg-emerald-500/30 transition-all">
+            {t('done')}
           </button>
         </div>
       </div>
@@ -1160,6 +1166,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
 
 export default function BillingModule({ prefill, onClose, onInvoiceCreated }: BillingModuleProps) {
   const isOnlineFlow = !!prefill;
+  const { t } = useLanguage();
 
   // Wizard step: 0=customer, 1=services, 2=payment, 3=invoice
   const [step, setStep]         = useState(isOnlineFlow ? 1 : 0);
@@ -1186,13 +1193,11 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   const [saveError, setSaveError]     = useState<string | null>(null);
   const [invoice, setInvoice]         = useState<Invoice | null>(null);
 
-  // Amount already paid via Razorpay (online flow only).
-  // pay_at_salon bookings are confirmed but nothing has been collected yet — treat as ₹0 paid.
   const alreadyPaidAmount = (isOnlineFlow && prefill?.paymentMethod !== 'pay_at_salon') ? (prefill?.totalAmount ?? 0) : 0;
 
   const STEPS = isOnlineFlow
-    ? ['Services', 'Payment', 'Invoice']
-    : ['Customer', 'Services', 'Payment', 'Invoice'];
+    ? [t('services'), t('payment'), 'Invoice']
+    : [t('customer'), t('services'), t('payment'), 'Invoice'];
 
   const stepOffset = isOnlineFlow ? 1 : 0; // step index offset
 
@@ -1500,31 +1505,30 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
             <div className="flex items-center gap-3 ml-auto">
               {step > (isOnlineFlow ? 1 : 0) && (
                 <button onClick={() => setStep(s => s - 1)}
-                  className="flex items-center gap-2 px-4 py-2.5 bg-white/8 border border-white/10 rounded-xl text-xs font-bold text-gray-300 hover:bg-white/10 transition-all">
-                  <ArrowLeft size={13} /> Back
+                  className="flex items-center gap-2 px-4 py-3 bg-white/8 border border-white/10 rounded-xl text-sm font-bold text-gray-300 hover:bg-white/10 transition-all">
+                  <ArrowLeft size={14} /> {t('back')}
                 </button>
               )}
 
-              {/* Next / Generate */}
               {step < 2 ? (
                 <button
                   disabled={
-                    (step === 0 && !isOnlineFlow && !customer) ||  // must select customer first
+                    (step === 0 && !isOnlineFlow && !customer) ||
                     (step === 1 && !canProceedFromServices)
                   }
                   onClick={() => setStep(s => s + 1)}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] rounded-xl text-black font-black text-xs uppercase tracking-wider disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed transition-all"
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] rounded-xl text-black font-black text-sm disabled:opacity-30 disabled:grayscale disabled:cursor-not-allowed transition-all"
                 >
-                  Continue →
+                  {t('next')} →
                 </button>
               ) : (
                 <button
                   onClick={handleGenerateInvoice}
                   disabled={saving || !canProceedFromPayment}
-                  className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] rounded-xl text-black font-black text-xs uppercase tracking-wider disabled:opacity-40 disabled:grayscale transition-all"
+                  className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] rounded-xl text-black font-black text-sm disabled:opacity-40 disabled:grayscale transition-all"
                 >
-                  {saving ? <Loader2 size={13} className="animate-spin" /> : <Receipt size={13} />}
-                  Generate Invoice
+                  {saving ? <Loader2 size={14} className="animate-spin" /> : <Receipt size={14} />}
+                  {t('generateBill')}
                 </button>
               )}
             </div>
