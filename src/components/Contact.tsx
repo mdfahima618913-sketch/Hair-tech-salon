@@ -4,14 +4,35 @@ import { MapPin, Clock, Instagram, Youtube, Facebook, Phone } from 'lucide-react
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
+function fmtHour(h: number): string {
+  if (h === 0)  return '12:00 AM';
+  if (h === 12) return '12:00 PM';
+  return h < 12 ? `${h}:00 AM` : `${h - 12}:00 PM`;
+}
+
 export default function Contact() {
-  const [address, setAddress] = useState('Haji Seraj Market, Bhagat Singh Rd, near Bus Stand, Araria, Bihar 854311');
+  const [address,   setAddress]   = useState('Haji Seraj Market, Bhagat Singh Rd, near Bus Stand, Araria, Bihar 854311');
+  const [openHour,  setOpenHour]  = useState(10);
+  const [closeHour, setCloseHour] = useState(22);
 
   useEffect(() => {
     getDoc(doc(db, 'website_config', 'main')).then(snap => {
       if (snap.exists() && snap.data().contactAddress) setAddress(snap.data().contactAddress);
     }).catch(() => {});
+
+    getDoc(doc(db, 'settings', 'salon')).then(snap => {
+      if (!snap.exists()) return;
+      const d = snap.data();
+      if (typeof d.openHour  === 'number') setOpenHour(d.openHour);
+      if (typeof d.closeHour === 'number') setCloseHour(d.closeHour);
+    }).catch(() => {});
   }, []);
+
+  const isOpenNow = (() => {
+    const now  = new Date();
+    const mins = now.getHours() * 60 + now.getMinutes();
+    return mins >= openHour * 60 && mins < closeHour * 60;
+  })();
 
   const socials = [
     { icon: Instagram, label: 'Instagram', href: 'https://www.instagram.com/hairtech111/'                          },
@@ -49,7 +70,7 @@ export default function Contact() {
               icon: Clock,
               title: 'Hours',
               content: 'Mon – Sun',
-              sub: '10:00 AM – 8:30 PM',
+              sub: `${fmtHour(openHour)} – ${fmtHour(closeHour)}`,
             },
             {
               icon: Phone,
@@ -73,8 +94,12 @@ export default function Contact() {
               <p className="text-white text-sm font-medium leading-relaxed">{content}</p>
               {sub && <p className="text-gray-500 text-xs mt-1">{sub}</p>}
               {title === 'Hours' && (
-                <span className="mt-3 px-2.5 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/20 text-emerald-400 text-[9px] font-black uppercase tracking-wider">
-                  Open Now
+                <span className={`mt-3 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                  isOpenNow
+                    ? 'bg-emerald-500/15 border-emerald-500/20 text-emerald-400'
+                    : 'bg-red-500/15 border-red-500/20 text-red-400'
+                }`}>
+                  {isOpenNow ? 'Open Now' : 'Closed'}
                 </span>
               )}
             </motion.div>

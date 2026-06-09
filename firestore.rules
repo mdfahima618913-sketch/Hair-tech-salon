@@ -98,6 +98,15 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ─── Salon settings (slot config, hours, staff count) ─────────────────────
+    // Public read: BookingSystem loads these without auth on the customer booking page
+    // Admin write: only the dashboard can modify
+
+    match /settings/{docId} {
+      allow read:  if true;
+      allow write: if isAdmin();
+    }
+
     match /reviews/{reviewId} {
       allow read:   if true;
       allow create: if isSignedIn();

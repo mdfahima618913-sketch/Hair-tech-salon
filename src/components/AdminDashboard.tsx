@@ -9,13 +9,14 @@ import {
   CheckSquare, ListChecks, PhoneOff,
   TrendingDown, BarChart3, CalendarDays, ChevronRight as ChevronRightIcon,
   Receipt, UserCheck, Plus, Trash2, Edit2, Save, Building2,
-  Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer, CalendarPlus,
+  Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer, CalendarPlus, IndianRupee,
 } from 'lucide-react';
 import BannerManager  from './BannerManager';
 import GalleryManager from './GalleryManager';
 import CouponManager  from './CouponManager';
-import ServiceManager from './ServiceManager';
-import DataIO         from './DataIO';
+import ServiceManager  from './ServiceManager';
+import DataIO          from './DataIO';
+import ExpenseManager  from './ExpenseManager';
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -51,8 +52,12 @@ interface Booking {
   orderId?: string;
   invoiceId?: string;        // set once a bill is generated for this booking
   paymentMethod?: string;
+  advanceAmount?: number;
+  advancePaymentMethod?: string;
+  bookingSource?: string;
   createdAt?: Timestamp;
   startTime?: string;
+  serviceItems?: Array<{ id: string; name: string; qty: number; priceValue: number }>;
 }
 
 type SortKey = 'createdAt' | 'totalAmount' | 'customerName' | 'bookingDate';
@@ -537,18 +542,22 @@ function StatusBadge({ status }: { status: BookingStatus }) {
 
 // ─── Booking Row ──────────────────────────────────────────────────────────────
 
-function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onConfirmPayment, onMarkPayAtSalon }: {
+function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onConfirmPayment, onMarkPayAtSalon, onDelete, isSuperAdmin }: {
   booking: Booking;
   onStatusChange: (id: string, status: BookingStatus) => void;
   onCreateBill?: (booking: Booking) => void;
   onViewInvoice?: (invoiceId: string) => void;
   onConfirmPayment?: (id: string, paymentId: string) => void;
   onMarkPayAtSalon?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  isSuperAdmin?: boolean;
 }) {
-  const [expanded,       setExpanded]       = useState(false);
-  const [pendingPayId,   setPendingPayId]   = useState('');
-  const [confirmingPay,  setConfirmingPay]  = useState(false);
-  const [updating, setUpdating] = useState(false);
+  const [expanded,        setExpanded]        = useState(false);
+  const [pendingPayId,    setPendingPayId]    = useState('');
+  const [confirmingPay,   setConfirmingPay]   = useState(false);
+  const [updating,        setUpdating]        = useState(false);
+  const [deleteConfirm,   setDeleteConfirm]   = useState(false);
+  const [deletingRow,     setDeletingRow]     = useState(false);
 
   const handleStatus = async (status: BookingStatus) => {
     setUpdating(true);
@@ -588,8 +597,44 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
         <td className="py-4 px-5">
           <StatusBadge status={booking.status ?? 'pending'} />
         </td>
-        <td className="py-4 px-5 text-gray-400 group-hover:text-gray-400 transition-colors">
-          {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+        <td className="py-4 px-5">
+          <div className="flex items-center gap-1.5 justify-end">
+            {/* Delete — super admin only, inline confirm */}
+            {isSuperAdmin && (
+              deleteConfirm ? (
+                <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                  <button
+                    onClick={async e => {
+                      e.stopPropagation();
+                      setDeletingRow(true);
+                      try { await onDelete?.(booking.id); } finally { setDeletingRow(false); setDeleteConfirm(false); }
+                    }}
+                    disabled={deletingRow}
+                    className="px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-[9px] font-black hover:bg-red-500/30 transition-all disabled:opacity-50 flex items-center gap-1"
+                  >
+                    {deletingRow && <Loader2 size={9} className="animate-spin" />} Confirm
+                  </button>
+                  <button
+                    onClick={e => { e.stopPropagation(); setDeleteConfirm(false); }}
+                    className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-gray-400 text-[9px] font-black hover:text-white transition-all"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={e => { e.stopPropagation(); setDeleteConfirm(true); }}
+                  className="p-1.5 rounded-lg text-gray-700 hover:text-red-400 hover:bg-red-400/10 transition-all opacity-0 group-hover:opacity-100"
+                  title="Delete booking"
+                >
+                  <Trash2 size={13} />
+                </button>
+              )
+            )}
+            <span className="text-gray-700 group-hover:text-gray-500 transition-colors">
+              {expanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </span>
+          </div>
         </td>
       </tr>
 
@@ -782,9 +827,26 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
     if (!invoice) return;
     const w = window.open('', '_blank');
     if (!w) return;
+    const inv = invoice as any;
+    const invDateStr = inv.createdAt
+      ? inv.createdAt.toDate().toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : new Date().toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
     const disc = invoice.discountAmount > 0
       ? `<div class="row"><span>Discount (${invoice.discountPercent}%)</span><span style="color:#c00">-&#8377;${invoice.discountAmount.toLocaleString('en-IN')}</span></div>`
       : '';
+    const dueLine = (inv.dueSettlementAmount ?? 0) > 0
+      ? `<div class="row" style="color:#c07000"><span>&#9888; Previous Dues Settled</span><span>+&#8377;${inv.dueSettlementAmount.toLocaleString('en-IN')}</span></div>`
+      : '';
+    const effectivePaid = inv.amountPaid ?? (invoice.total - (inv.amountDue ?? 0));
+    const hasDue = (inv.amountDue ?? 0) > 0;
+    const payRows = (invoice.paymentSplits?.length ?? 0) > 0
+      ? `<div class="bold sm" style="margin-top:3px">Payment</div>
+         ${invoice.paymentSplits.map((s: any) => { const lbl = s.method === 'online' ? 'Razorpay' : s.method; return `<div class="row sm"><span style="text-transform:capitalize${s.isAdvance ? ';color:#c07000;font-weight:700' : ''}">${s.isAdvance ? `Advance (${lbl})` : lbl}</span><span>&#8377;${s.amount.toLocaleString('en-IN')}</span></div>`; }).join('')}
+         ${invoice.paymentSplits.length > 1 ? `<div class="row sm"><span>Collected</span><span class="bold">&#8377;${effectivePaid.toLocaleString('en-IN')}</span></div>` : ''}`
+      : `<div class="row sm" style="margin-top:3px"><span style="text-transform:capitalize">${invoice.paymentMethod}</span><span class="bold">&#8377;${effectivePaid.toLocaleString('en-IN')}</span></div>`;
+    const dueRow = hasDue
+      ? `<div class="row sm" style="color:#c00;font-weight:700"><span>Balance Due (&#8377;${invoice.total.toLocaleString('en-IN')} &minus; &#8377;${effectivePaid.toLocaleString('en-IN')})</span><span>&#8377;${inv.amountDue.toLocaleString('en-IN')}</span></div>`
+      : `<div class="row sm" style="color:#007700"><span>&#10003; Fully Paid</span><span>&#8377;${effectivePaid.toLocaleString('en-IN')}</span></div>`;
     const commRows = Object.entries(
       invoice.items.reduce((acc: Record<string, number>, it) => {
         if (it.staffId) acc[it.staffName] = (acc[it.staffName] ?? 0) + it.commissionAmount;
@@ -804,6 +866,7 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
         .row.total{font-size:15px;font-weight:900;padding-top:4px}
         .badge{display:inline-block;background:#eee;padding:1px 5px;border-radius:3px;font-size:9px}
         .staff{font-size:9px;color:#888;margin-left:8px}
+        .qty-hint{font-size:9px;color:#888;margin-left:8px}
       </style></head><body>
       <div class="center" style="margin-bottom:8px">
         <div class="xl">Hair Tech</div><div class="bold">Unisex Salon, Araria</div>
@@ -811,25 +874,28 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
         <div class="sm" style="margin-top:4px"><span class="badge">${invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}</span></div>
       </div>
       <div class="dash"></div>
-      <div class="sm">Invoice: <span class="bold">${invoice.invoiceNumber}</span></div>
-      <div class="sm">${new Date().toLocaleString('en-IN',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}</div>
+      <div class="row sm"><span>Invoice</span><span class="bold" style="color:#000">${invoice.invoiceNumber}</span></div>
+      <div class="row sm"><span>Date</span><span>${invDateStr}</span></div>
       <div class="dash"></div>
       <div class="row"><span>Customer</span><span class="bold">${invoice.customerName}</span></div>
       <div class="row sm"><span>Phone</span><span>${invoice.customerPhone}</span></div>
       <div class="dash"></div>
       <div class="bold sm" style="margin-bottom:4px">SERVICES</div>
-      ${invoice.items.map(it=>`
+      ${invoice.items.map(it => `
         <div style="margin:3px 0">
-          <div class="row"><span>${it.serviceName}</span><span class="bold">&#8377;${it.price.toLocaleString('en-IN')}</span></div>
-          ${it.staffName?`<div class="staff">Staff: ${it.staffName} · ${it.commissionRate}% = &#8377;${it.commissionAmount.toLocaleString('en-IN')}</div>`:''}
+          <div class="row"><span>${it.serviceName}${(it.quantity ?? 1) > 1 ? ` ×${it.quantity}` : ''}</span><span class="bold">&#8377;${it.price.toLocaleString('en-IN')}</span></div>
+          ${(it.quantity ?? 1) > 1 ? `<div class="qty-hint">&#8377;${it.unitPrice.toLocaleString('en-IN')} × ${it.quantity}</div>` : ''}
+          ${it.staffName ? `<div class="staff">Staff: ${it.staffName} · ${it.commissionRate}% = &#8377;${it.commissionAmount.toLocaleString('en-IN')}</div>` : ''}
         </div>`).join('')}
       <div class="dash"></div>
-      <div class="row"><span>Subtotal</span><span>&#8377;${invoice.subtotal.toLocaleString('en-IN')}</span></div>
+      <div class="row sm"><span>Subtotal</span><span>&#8377;${invoice.subtotal.toLocaleString('en-IN')}</span></div>
       ${disc}
+      ${dueLine}
       <div class="row total"><span>TOTAL</span><span>&#8377;${invoice.total.toLocaleString('en-IN')}</span></div>
-      <div class="row sm" style="margin-top:3px"><span>Payment</span><span class="bold" style="text-transform:uppercase">${invoice.paymentMethod}</span></div>
-      ${invoice.paymentId?`<div class="row sm"><span>Razorpay ID</span><span>${invoice.paymentId}</span></div>`:''}
-      ${commRows?`<div class="dash"></div><div class="sm bold">Staff Commission</div>${commRows}`:''}
+      ${payRows}
+      ${dueRow}
+      ${invoice.paymentId ? `<div class="row sm"><span>Razorpay ID</span><span>${invoice.paymentId}</span></div>` : ''}
+      ${commRows ? `<div class="dash"></div><div class="sm bold">Staff Commission</div>${commRows}` : ''}
       <div class="dash"></div>
       <div class="center sm" style="margin-top:6px">Thank you for visiting Hair Tech Salon!<br/>Follow us &#64;hairtech111</div>
     </body></html>`);
@@ -873,60 +939,157 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
             <div className="text-center py-16 text-gray-500">Invoice not found.</div>
           ) : (
             /* Thermal receipt */
-            <div className="bg-white text-black rounded-2xl p-5 font-mono text-xs max-w-[320px] mx-auto shadow border border-gray-200">
-              <div className="text-center mb-4">
-                <p className="font-black text-xl uppercase tracking-tight">Hair Tech</p>
-                <p className="font-bold text-sm">Unisex Salon, Araria</p>
-                <p className="text-gray-400 text-[10px]">+91 87896 03343</p>
-                <span className={`inline-block mt-1.5 text-[9px] px-2 py-0.5 rounded border font-bold ${
-                  invoice.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'
-                }`}>{invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}</span>
-                <div className="mt-2 text-[9px] text-gray-400 space-y-0.5">
-                  <p>Invoice: <span className="font-black text-black">{invoice.invoiceNumber}</span></p>
+            (() => {
+              const inv = invoice as any;
+              const invDate = inv.createdAt
+                ? inv.createdAt.toDate().toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                : '—';
+              return (
+              <div className="bg-white text-black rounded-2xl p-5 font-mono text-xs max-w-[320px] mx-auto shadow border border-gray-200">
+                {/* Header */}
+                <div className="text-center mb-4">
+                  <p className="font-black text-xl uppercase tracking-tight">Hair Tech</p>
+                  <p className="font-bold text-sm">Unisex Salon, Araria</p>
+                  <p className="text-gray-400 text-[10px]">+91 87896 03343</p>
+                  <span className={`inline-block mt-1.5 text-[9px] px-2 py-0.5 rounded border font-bold ${
+                    invoice.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'
+                  }`}>{invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}</span>
                 </div>
-              </div>
-              <div className="border-t border-dashed border-gray-300 pt-3 mb-3 space-y-1">
-                <div className="flex justify-between text-xs"><span className="text-gray-500">Customer</span><span className="font-bold text-black">{invoice.customerName}</span></div>
-                <div className="flex justify-between text-xs"><span className="text-gray-500">Phone</span><span className="text-gray-700">{invoice.customerPhone}</span></div>
-              </div>
-              <div className="border-t border-dashed border-gray-300 pt-3 mb-3 space-y-2">
-                <p className="text-[9px] font-black uppercase tracking-wider text-gray-500">Services</p>
-                {invoice.items.map((item, i) => (
-                  <div key={i} className="space-y-0.5">
-                    <div className="flex justify-between text-xs">
-                      <span className="text-gray-800 flex-1 pr-2 truncate">{item.serviceName}</span>
-                      <span className="font-bold text-black shrink-0">₹{item.price.toLocaleString('en-IN')}</span>
-                    </div>
-                    {item.staffName && <p className="text-[9px] text-gray-400 pl-1">Staff: {item.staffName} · {item.commissionRate}% = ₹{item.commissionAmount.toLocaleString('en-IN')}</p>}
+
+                {/* Invoice meta */}
+                <div className="border-t border-dashed border-gray-300 pt-2.5 mb-3 space-y-1">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-gray-500">Invoice</span>
+                    <span className="font-black text-black">{invoice.invoiceNumber}</span>
                   </div>
-                ))}
-              </div>
-              <div className="border-t border-dashed border-gray-300 pt-3 space-y-1.5">
-                <div className="flex justify-between text-xs text-gray-400"><span>Subtotal</span><span>₹{invoice.subtotal.toLocaleString('en-IN')}</span></div>
-                {invoice.discountAmount > 0 && <div className="flex justify-between text-xs text-red-600"><span>Discount ({invoice.discountPercent}%)</span><span>-₹{invoice.discountAmount.toLocaleString('en-IN')}</span></div>}
-                <div className="flex justify-between font-black text-sm pt-1.5 border-t border-dashed border-gray-300">
-                  <span>TOTAL</span><span style={{ color: '#B8941F' }}>₹{invoice.total.toLocaleString('en-IN')}</span>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-gray-500">Date</span>
+                    <span className="text-gray-700">{invDate}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-[10px] text-gray-400 pt-1"><span>Payment</span><span className="font-bold text-black uppercase">{invoice.paymentMethod}</span></div>
-                {invoice.paymentId && <div className="flex justify-between text-[9px] text-gray-400"><span>ID</span><span className="font-mono truncate max-w-[140px]">{invoice.paymentId}</span></div>}
-              </div>
-              {invoice.items.some(i => i.commissionAmount > 0) && (
-                <div className="border-t border-dashed border-gray-300 pt-2.5 mt-2.5">
-                  <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider mb-1">Staff Commission</p>
-                  {Object.entries(invoice.items.reduce((acc: Record<string,number>, it) => {
-                    if (it.staffId) acc[it.staffName] = (acc[it.staffName] ?? 0) + it.commissionAmount;
-                    return acc;
-                  }, {})).map(([name, amt]) => (
-                    <div key={name} className="flex justify-between text-[10px] text-gray-400">
-                      <span>{name}</span><span>₹{(amt as number).toLocaleString('en-IN')}</span>
+
+                {/* Customer */}
+                <div className="border-t border-dashed border-gray-300 pt-2.5 mb-3 space-y-1">
+                  <div className="flex justify-between text-xs"><span className="text-gray-500">Customer</span><span className="font-bold text-black">{invoice.customerName}</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-gray-500">Phone</span><span className="text-gray-700">{invoice.customerPhone}</span></div>
+                </div>
+
+                {/* Services */}
+                <div className="border-t border-dashed border-gray-300 pt-2.5 mb-3 space-y-2">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-gray-500">Services</p>
+                  {invoice.items.map((item, i) => (
+                    <div key={i} className="space-y-0.5">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-800 flex-1 pr-2">{item.serviceName}{(item.quantity ?? 1) > 1 ? ` ×${item.quantity}` : ''}</span>
+                        <span className="font-bold text-black shrink-0">₹{item.price.toLocaleString('en-IN')}</span>
+                      </div>
+                      {(item.quantity ?? 1) > 1 && (
+                        <p className="text-[9px] text-gray-400 pl-1">₹{item.unitPrice.toLocaleString('en-IN')} × {item.quantity}</p>
+                      )}
+                      {item.lineDiscount > 0 && (
+                        <p className="text-[9px] text-red-500 pl-1">Line discount: {item.lineDiscount}%</p>
+                      )}
+                      {item.staffName && <p className="text-[9px] text-gray-400 pl-1">Staff: {item.staffName} · {item.commissionRate}% = ₹{item.commissionAmount.toLocaleString('en-IN')}</p>}
                     </div>
                   ))}
                 </div>
-              )}
-              <div className="border-t border-dashed border-gray-300 mt-4 pt-3 text-center text-[9px] text-gray-400">
-                Thank you for visiting Hair Tech Salon!
+
+                {/* Totals */}
+                <div className="border-t border-dashed border-gray-300 pt-2.5 space-y-1.5">
+                  <div className="flex justify-between text-xs text-gray-400"><span>Subtotal</span><span>₹{invoice.subtotal.toLocaleString('en-IN')}</span></div>
+                  {invoice.discountAmount > 0 && (
+                    <div className="flex justify-between text-xs text-red-600">
+                      <span>Discount ({invoice.discountPercent}%)</span>
+                      <span>-₹{invoice.discountAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {(inv.dueSettlementAmount ?? 0) > 0 && (
+                    <div className="flex justify-between text-xs text-amber-600 font-bold">
+                      <span>⚠ Previous Dues Settled</span>
+                      <span>+₹{inv.dueSettlementAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between font-black text-sm pt-1.5 border-t border-dashed border-gray-300">
+                    <span>TOTAL</span><span style={{ color: '#B8941F' }}>₹{invoice.total.toLocaleString('en-IN')}</span>
+                  </div>
+
+                  {/* Payment reconciliation */}
+                  {(() => {
+                    const effectivePaid = inv.amountPaid ?? (invoice.total - (inv.amountDue ?? 0));
+                    const hasDue = (inv.amountDue ?? 0) > 0;
+                    return (
+                      <div className="pt-2 space-y-1.5">
+                        <p className="text-[9px] text-gray-500 uppercase tracking-wider font-black">Payment</p>
+                        {(invoice.paymentSplits?.length ?? 0) > 0 ? (
+                          <>
+                            {invoice.paymentSplits.map((s: any, i: number) => {
+                              const label = s.method === 'online' ? 'Razorpay' : s.method;
+                              return (
+                              <div key={i} className="flex justify-between text-xs">
+                                <span className={`capitalize ${s.isAdvance ? 'text-amber-600 font-bold' : 'text-gray-600'}`}>
+                                  {s.isAdvance ? `Advance (${label})` : label}
+                                </span>
+                                <span className="font-bold text-black">₹{s.amount.toLocaleString('en-IN')}</span>
+                              </div>
+                              );
+                            })}
+                            {invoice.paymentSplits.length > 1 && (
+                              <div className="flex justify-between text-xs text-gray-500 border-t border-dashed border-gray-200 pt-0.5">
+                                <span>Collected</span>
+                                <span className="font-bold">₹{effectivePaid.toLocaleString('en-IN')}</span>
+                              </div>
+                            )}
+                          </>
+                        ) : (
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-600 capitalize">{invoice.paymentMethod}</span>
+                            <span className="font-bold text-black">₹{effectivePaid.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        <div className={`flex justify-between text-xs font-black pt-1 border-t border-dashed border-gray-200 ${hasDue ? 'text-red-600' : 'text-emerald-700'}`}>
+                          <span>
+                            {hasDue ? 'Balance Due' : '✓ Fully Paid'}
+                            {hasDue && (
+                              <span className="font-normal text-[9px] text-gray-400 ml-1">
+                                (₹{invoice.total.toLocaleString('en-IN')} − ₹{effectivePaid.toLocaleString('en-IN')})
+                              </span>
+                            )}
+                          </span>
+                          <span>{hasDue ? `₹${inv.amountDue.toLocaleString('en-IN')}` : `₹${effectivePaid.toLocaleString('en-IN')}`}</span>
+                        </div>
+                        {invoice.paymentId && (
+                          <div className="flex justify-between text-[9px] text-gray-400">
+                            <span>Razorpay ID</span>
+                            <span className="font-mono truncate max-w-[140px]">{invoice.paymentId}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* Staff commission */}
+                {invoice.items.some(i => i.commissionAmount > 0) && (
+                  <div className="border-t border-dashed border-gray-300 pt-2.5 mt-2.5">
+                    <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider mb-1">Staff Commission</p>
+                    {Object.entries(invoice.items.reduce((acc: Record<string,number>, it) => {
+                      if (it.staffId) acc[it.staffName] = (acc[it.staffName] ?? 0) + it.commissionAmount;
+                      return acc;
+                    }, {})).map(([name, amt]) => (
+                      <div key={name} className="flex justify-between text-[10px] text-gray-400">
+                        <span>{name}</span><span>₹{(amt as number).toLocaleString('en-IN')}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="border-t border-dashed border-gray-300 mt-4 pt-3 text-center text-[9px] text-gray-400">
+                  Thank you for visiting Hair Tech Salon!<br />
+                  <span className="text-gray-300">@hairtech111</span>
+                </div>
               </div>
-            </div>
+              );
+            })()
           )}
         </div>
       </div>
@@ -976,6 +1139,23 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [expandedInv,     setExpandedInv]        = useState<string | null>(null);
   const [billingFrom,     setBillingFrom]        = useState('');
   const [billingTo,       setBillingTo]          = useState('');
+  const [deleteConfirmId, setDeleteConfirmId]    = useState<string | null>(null);
+  const [deleting,        setDeleting]           = useState(false);
+  const [showDuesDrawer,  setShowDuesDrawer]     = useState(false);
+
+  const handleDeleteInvoice = async (id: string) => {
+    setDeleting(true);
+    try {
+      await deleteDoc(doc(db, 'invoices', id));
+      setBillingInvoices(prev => prev.filter(i => (i as any).id !== id));
+      setDeleteConfirmId(null);
+      if (expandedInv === id) setExpandedInv(null);
+    } catch (e: any) {
+      console.error('Delete invoice failed:', e.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   // Staff module state
   const [staff, setStaff]                 = useState<StaffMember[]>([]);
@@ -984,11 +1164,35 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [staffSaving,   setStaffSaving]   = useState(false);
   const [staffInvoices, setStaffInvoices] = useState<any[]>([]);
   const [staffSubView,  setStaffSubView]  = useState<'list' | 'analytics'>('list');
-  const [toolsTab,      setToolsTab]      = useState<'services' | 'banners' | 'gallery' | 'coupons' | 'data'>('services');
+  const [toolsTab,      setToolsTab]      = useState<'services' | 'banners' | 'gallery' | 'coupons' | 'data' | 'settings' | 'expenses'>('services');
   // Staff can't see admin-only tools tabs — fall back to banners
   useEffect(() => {
-    if (isStaffMode && (toolsTab === 'services' || toolsTab === 'coupons')) setToolsTab('banners');
+    if (isStaffMode && (toolsTab === 'services' || toolsTab === 'coupons' || toolsTab === 'settings')) setToolsTab('banners');
   }, [isStaffMode, toolsTab]);
+
+  // Salon settings (Tools > Settings tab)
+  const [sSettings, setSSettings] = useState({ staffCount: 3, openHour: 10, closeHour: 22, slotStepMins: 15, bufferMins: 30 });
+  const [sSettingsLoaded,  setSSettingsLoaded]  = useState(false);
+  const [sSettingsSaving,  setSSettingsSaving]  = useState(false);
+  const [sSettingsError,   setSSettingsError]   = useState<string | null>(null);
+  const [sSettingsSaved,   setSSettingsSaved]   = useState(false);
+
+  useEffect(() => {
+    if (toolsTab !== 'settings' || sSettingsLoaded) return;
+    getDoc(doc(db, 'settings', 'salon')).then(snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setSSettings({
+          staffCount:   d.staffCount   ?? 3,
+          openHour:     d.openHour     ?? 10,
+          closeHour:    d.closeHour    ?? 22,
+          slotStepMins: d.slotStepMins ?? 15,
+          bufferMins:   d.bufferMins   ?? 30,
+        });
+      }
+      setSSettingsLoaded(true);
+    }).catch(() => setSSettingsLoaded(true));
+  }, [toolsTab, sSettingsLoaded]);
 
   // Customers module state
   const [customers, setCustomers]               = useState<any[]>([]);
@@ -1138,6 +1342,11 @@ Your uid is: ${user.uid}
     await updateDoc(doc(db, 'bookings', id), { status, updatedAt: serverTimestamp() });
   };
 
+  const handleDeleteBooking = async (id: string) => {
+    await deleteDoc(doc(db, 'bookings', id));
+    setBookings(prev => prev.filter(b => b.id !== id));
+  };
+
   // Accept a booking from the notification banner:
   // 1. Mark it confirmed in Firestore
   // 2. Remove from queue → if queue becomes empty, ring stops
@@ -1192,11 +1401,11 @@ Your uid is: ${user.uid}
     return map;
   }, [staffInvoices]);
 
-  // Load invoices when billing view opens
+  // Load invoices when billing or insights view opens
   useEffect(() => {
-    if (view !== 'billing') return;
+    if (view !== 'billing' && view !== 'insights') return;
     setBillingLoading(true);
-    getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(100)))
+    getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(500)))
       .then(snap => {
         setBillingInvoices(snap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice & { id: string })));
       })
@@ -1230,12 +1439,25 @@ Your uid is: ${user.uid}
     const avgBill      = count > 0 ? totalRevenue / count : 0;
     const onlineCount  = periodInvoices.filter(i => i.source === 'online').length;
     const walkinCount  = count - onlineCount;
+    // Outstanding dues across ALL invoices (not just the selected period)
+    const totalDue  = billingInvoices
+      .filter(i => (i as any).status === 'due' && ((i as any).amountDue ?? 0) > 0)
+      .reduce((a, i) => a + ((i as any).amountDue ?? 0), 0);
+    const dueCount  = billingInvoices.filter(i => (i as any).status === 'due').length;
 
-    // Revenue by payment method
+    // Revenue by payment method — distribute across splits for accurate breakdown
     const pmRevenue: Record<string, number> = {};
     periodInvoices.forEach(inv => {
-      const pm = inv.paymentMethod ?? 'cash';
-      pmRevenue[pm] = (pmRevenue[pm] ?? 0) + (inv.total ?? 0);
+      const splits = (inv as any).paymentSplits as Array<{ method: string; amount: number }> | undefined;
+      if (splits?.length) {
+        splits.forEach(s => {
+          const m = s.method ?? 'cash';
+          pmRevenue[m] = (pmRevenue[m] ?? 0) + (s.amount ?? 0);
+        });
+      } else {
+        const pm = inv.paymentMethod ?? 'cash';
+        pmRevenue[pm] = (pmRevenue[pm] ?? 0) + ((inv as any).amountPaid ?? inv.total ?? 0);
+      }
     });
 
     // Search filter
@@ -1249,8 +1471,24 @@ Your uid is: ${user.uid}
         )
       : periodInvoices;
 
-    return { totalRevenue, count, avgBill, onlineCount, walkinCount, pmRevenue, displayed };
+    return { totalRevenue, count, avgBill, onlineCount, walkinCount, pmRevenue, displayed, totalDue, dueCount };
   }, [billingInvoices, billingPeriod, billingFrom, billingTo, billingSearch]);
+
+  // Group all due invoices by customer for the dues drawer
+  const dueCustomers = useMemo(() => {
+    type DueEntry = { name: string; phone: string; totalDue: number; invoices: (Invoice & { id: string })[] };
+    const map = new Map<string, DueEntry>();
+    billingInvoices
+      .filter(i => (i as any).status === 'due' && ((i as any).amountDue ?? 0) > 0)
+      .forEach(inv => {
+        const key = (inv.customerPhone ?? '').replace(/\D/g, '').slice(-10) || inv.customerPhone;
+        if (!map.has(key)) map.set(key, { name: inv.customerName, phone: inv.customerPhone, totalDue: 0, invoices: [] });
+        const e = map.get(key)!;
+        e.totalDue += (inv as any).amountDue ?? 0;
+        e.invoices.push(inv);
+      });
+    return Array.from(map.values()).sort((a, b) => b.totalDue - a.totalDue);
+  }, [billingInvoices]);
 
   // Load customers — stats derived purely from invoices (each invoice = one completed visit)
   useEffect(() => {
@@ -1374,11 +1612,15 @@ Your uid is: ${user.uid}
       bookingId:     booking.id,
       customerName:  booking.customerName ?? '',
       customerPhone: booking.customerPhone ?? '',
-      serviceNames:  booking.serviceNames ?? '',
-      totalAmount:   booking.totalAmount ?? 0,
-      paymentId:     booking.paymentId,
-      bookingTime:   booking.bookingTime,
-      paymentMethod: booking.paymentMethod,
+      serviceNames:          booking.serviceNames ?? '',
+      serviceItems:          booking.serviceItems,
+      totalAmount:           booking.totalAmount ?? 0,
+      paymentId:             booking.paymentId,
+      bookingTime:           booking.bookingTime,
+      paymentMethod:         booking.paymentMethod,
+      advanceAmount:         booking.advanceAmount,
+      advancePaymentMethod:  booking.advancePaymentMethod,
+      bookingSource:         booking.bookingSource,
     });
     setBillingOpen(true);
   }, []);
@@ -1414,11 +1656,10 @@ Your uid is: ${user.uid}
   const [expandedService,    setExpandedService]    = useState<string | null>(null);
   const [serviceDrillPeriod, setServiceDrillPeriod] = useState<'today'|'week'|'month'|'year'|'all'>('month');
 
-  // ── Derived stats — all computed from the selected period ─────────────────
+  // ── Derived stats — invoice-primary, bookings for operational metrics ───────
   const stats = useMemo(() => {
     const now   = new Date();
     const start = new Date();
-    // Custom date range overrides the period preset
     let end: Date | null = null;
     if (insightsFrom && insightsTo) {
       const fromD = new Date(insightsFrom); fromD.setHours(0,0,0,0);
@@ -1434,97 +1675,50 @@ Your uid is: ${user.uid}
       start.setDate(1);
       start.setHours(0, 0, 0, 0);
     } else {
-      start.setFullYear(2000); // 'all' — far past
+      start.setFullYear(2000);
     }
 
-    // Filter bookings that fall within the selected period
-    // Uses createdAt (Firestore Timestamp) as the primary filter
-    const inPeriod = (b: Booking) => {
-      if (!b.createdAt) return period === 'all' && !insightsFrom;
-      const d = b.createdAt.toDate();
+    // ── Invoice-based financial metrics (primary) ───────────────────────────
+    const inPeriodInv = (inv: Invoice) => {
+      if (!inv.createdAt) return period === 'all' && !insightsFrom;
+      const d = inv.createdAt.toDate();
       return d >= start && (end ? d <= end : true);
     };
-
-    const periodBookings = bookings.filter(inPeriod);
-
-    // Revenue bookings = paid or confirmed within period
-    const revenueBookings = periodBookings.filter(
-      b => b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed'
-    );
-    const totalRevenue    = revenueBookings.reduce((a, b) => a + (b.totalAmount ?? 0), 0);
-    const invoiceCount    = revenueBookings.length;
+    const periodInvoices  = billingInvoices.filter(inPeriodInv);
+    const totalRevenue    = periodInvoices.reduce((a, inv) => a + (inv.total ?? 0), 0);
+    const invoiceCount    = periodInvoices.length;
     const avgBill         = invoiceCount > 0 ? totalRevenue / invoiceCount : 0;
+    const collectedAmount = periodInvoices.reduce((a, inv) => a + (inv.amountPaid ?? inv.total ?? 0), 0);
+    const amountDue       = periodInvoices
+      .filter(inv => (inv as any).status === 'due')
+      .reduce((a, inv) => a + (inv.amountDue ?? 0), 0);
+    const discountGiven   = periodInvoices.reduce((a, inv) => a + (inv.discountAmount ?? 0), 0);
+    const collectionRate  = totalRevenue > 0 ? Math.round((collectedAmount / totalRevenue) * 100) : 0;
 
-    // Pending (amount expected but not yet paid)
-    const pendingBookings = periodBookings.filter(b => b.status === 'pending');
-    const amountDue       = pendingBookings.reduce((a, b) => a + (b.totalAmount ?? 0), 0);
+    // ── Online vs Walk-in split ─────────────────────────────────────────────
+    const onlineInvoices = periodInvoices.filter(inv => inv.source === 'online');
+    const walkinInvoices = periodInvoices.filter(inv => inv.source !== 'online');
+    const onlineRevenue  = onlineInvoices.reduce((a, inv) => a + (inv.total ?? 0), 0);
+    const walkinRevenue  = walkinInvoices.reduce((a, inv) => a + (inv.total ?? 0), 0);
+    const onlineCount    = onlineInvoices.length;
+    const walkinCount    = walkinInvoices.length;
+    const onlineAvgBill  = onlineCount > 0 ? Math.round(onlineRevenue / onlineCount) : 0;
+    const walkinAvgBill  = walkinCount > 0 ? Math.round(walkinRevenue / walkinCount) : 0;
+    const onlineCollected = onlineInvoices.reduce((a, inv) => a + (inv.amountPaid ?? inv.total ?? 0), 0);
+    const walkinCollected = walkinInvoices.reduce((a, inv) => a + (inv.amountPaid ?? inv.total ?? 0), 0);
 
-    // Today's bookings (always absolute, regardless of period filter)
-    const todayStr        = now.toDateString();
-    const todayCount      = bookings.filter(
-      b => b.bookingDate && new Date(b.bookingDate).toDateString() === todayStr
-    ).length;
+    // ── Unique customers from invoices ──────────────────────────────────────
+    const uniqueCustomers = new Set(periodInvoices.map(inv => inv.customerPhone).filter(Boolean)).size;
 
-    // Unique customers in period (by phone)
-    const uniqueCustomers = new Set(periodBookings.map(b => b.customerPhone).filter(Boolean)).size;
-
-    // Completed in period
-    const completedCount  = periodBookings.filter(b => b.status === 'completed').length;
-
-    // Previous period for trend comparison
-    const prevStart = new Date(start);
-    const prevEnd   = new Date(start);
-    if (period === 'today') {
-      prevStart.setDate(prevStart.getDate() - 1);
-    } else if (period === 'week') {
-      prevStart.setDate(prevStart.getDate() - 7);
-    } else if (period === 'month') {
-      prevStart.setMonth(prevStart.getMonth() - 1);
-    }
-
-    const prevBookings = period === 'all' ? [] : bookings.filter(b => {
-      if (!b.createdAt) return false;
-      const d = b.createdAt.toDate();
-      return d >= prevStart && d < start;
-    });
-    const prevRevenue = prevBookings
-      .filter(b => b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed')
-      .reduce((a, b) => a + (b.totalAmount ?? 0), 0);
-
-    const revenueTrend = prevRevenue === 0
-      ? null
-      : Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100);
-
-    // Revenue by day (for sparkline — last 7 or 30 days depending on period)
-    const chartDays = period === 'today' ? 1 : period === 'week' ? 7 : 30;
-    const revenueByDay: { label: string; amount: number; bookings: number }[] = [];
-    for (let i = chartDays - 1; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      d.setHours(0, 0, 0, 0);
-      const next = new Date(d); next.setDate(d.getDate() + 1);
-      const dayBookings = bookings.filter(b => {
-        if (!b.createdAt) return false;
-        const bd = b.createdAt.toDate();
-        return bd >= d && bd < next &&
-          (b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed');
-      });
-      revenueByDay.push({
-        label:    period === 'today' ? 'Today' : `${d.getDate()}/${d.getMonth() + 1}`,
-        amount:   dayBookings.reduce((a, b) => a + (b.totalAmount ?? 0), 0),
-        bookings: dayBookings.length,
-      });
-    }
-
-    // Top services — count frequency
+    // ── Top services from invoice line items ────────────────────────────────
     const serviceCounts: Record<string, { count: number; revenue: number }> = {};
-    revenueBookings.forEach(b => {
-      (b.serviceNames ?? '').split(',').forEach(s => {
-        const name = s.trim();
+    periodInvoices.forEach(inv => {
+      inv.items?.forEach((item: BillItem) => {
+        const name = item.serviceName?.trim();
         if (!name) return;
         if (!serviceCounts[name]) serviceCounts[name] = { count: 0, revenue: 0 };
-        serviceCounts[name].count++;
-        serviceCounts[name].revenue += (b.totalAmount ?? 0) / ((b.serviceNames ?? '').split(',').length);
+        serviceCounts[name].count   += (item.quantity ?? 1);
+        serviceCounts[name].revenue += (item.unitPrice ?? 0) * (item.quantity ?? 1) * (1 - ((item.lineDiscount ?? 0) / 100));
       });
     });
     const topServices = Object.entries(serviceCounts)
@@ -1532,74 +1726,228 @@ Your uid is: ${user.uid}
       .slice(0, 5)
       .map(([name, { count, revenue }]) => ({ name, count, revenue: Math.round(revenue) }));
 
-    // ── Collection rate — paid+confirmed+completed / all invoiced ─────────────
-    const collectedAmount  = revenueBookings
-      .filter(b => b.status !== 'pending')
-      .reduce((a, b) => a + (b.totalAmount ?? 0), 0);
-    const collectionRate   = totalRevenue > 0
-      ? Math.round((collectedAmount / totalRevenue) * 100) : 0;
+    // ── Revenue trend from invoices ─────────────────────────────────────────
+    const prevStart = new Date(start);
+    if      (period === 'today') { prevStart.setDate(prevStart.getDate() - 1); }
+    else if (period === 'week')  { prevStart.setDate(prevStart.getDate() - 7); }
+    else if (period === 'month') { prevStart.setMonth(prevStart.getMonth() - 1); }
+    const prevInvoices = period === 'all' ? [] : billingInvoices.filter(inv => {
+      if (!inv.createdAt) return false;
+      const d = inv.createdAt.toDate();
+      return d >= prevStart && d < start;
+    });
+    const prevRevenue  = prevInvoices.reduce((a, inv) => a + (inv.total ?? 0), 0);
+    const revenueTrend = (insightsFrom && insightsTo) ? null
+      : prevRevenue === 0 ? null
+      : Math.round(((totalRevenue - prevRevenue) / prevRevenue) * 100);
+
+    // ── Revenue by day from invoices (sparkline) ────────────────────────────
+    const chartDays = period === 'today' ? 1 : period === 'week' ? 7 : 30;
+    const revenueByDay: { label: string; amount: number; invoices: number }[] = [];
+    for (let i = chartDays - 1; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
+      const next = new Date(d); next.setDate(d.getDate() + 1);
+      const dayInv = billingInvoices.filter(inv => {
+        if (!inv.createdAt) return false;
+        const bd = inv.createdAt.toDate();
+        return bd >= d && bd < next;
+      });
+      revenueByDay.push({
+        label:    period === 'today' ? 'Today' : `${d.getDate()}/${d.getMonth() + 1}`,
+        amount:   dayInv.reduce((a, inv) => a + (inv.total ?? 0), 0),
+        invoices: dayInv.length,
+      });
+    }
+
+    // ── Return rate — phones with 2+ invoices all time ──────────────────────
+    const allPhoneCounts: Record<string, number> = {};
+    billingInvoices.forEach(inv => {
+      const p = inv.customerPhone ?? ''; if (p) allPhoneCounts[p] = (allPhoneCounts[p] ?? 0) + 1;
+    });
+    const returningCustomers = Object.values(allPhoneCounts).filter(c => c >= 2).length;
+    const totalCustomers     = Object.keys(allPhoneCounts).length;
+    const returnRate         = totalCustomers > 0 ? Math.round((returningCustomers / totalCustomers) * 100) : 0;
+
+    // ── Booking-based operational metrics ────────────────────────────────────
+    const inPeriod = (b: Booking) => {
+      if (!b.createdAt) return period === 'all' && !insightsFrom;
+      const d = b.createdAt.toDate();
+      return d >= start && (end ? d <= end : true);
+    };
+    const periodBookings  = bookings.filter(inPeriod);
+    const pendingBookings = periodBookings.filter(b => b.status === 'pending');
+    const completedCount  = periodBookings.filter(b => b.status === 'completed').length;
+    const todayStr        = now.toDateString();
+    const todayCount      = bookings.filter(
+      b => b.bookingDate && new Date(b.bookingDate).toDateString() === todayStr
+    ).length;
 
     // ── Status breakdown for donut chart ────────────────────────────────────
     const statusBreakdown: { status: BookingStatus; count: number; color: string }[] = [
-      { status: 'confirmed',  count: periodBookings.filter(b => b.status === 'confirmed').length,  color: '#3b82f6' },
-      { status: 'paid',       count: periodBookings.filter(b => b.status === 'paid').length,       color: '#10b981' },
-      { status: 'completed',  count: periodBookings.filter(b => b.status === 'completed').length,  color: '#a855f7' },
-      { status: 'pending',    count: periodBookings.filter(b => b.status === 'pending').length,    color: '#f59e0b' },
-      { status: 'failed',     count: periodBookings.filter(b => b.status === 'failed').length,     color: '#ef4444' },
+      { status: 'confirmed', count: periodBookings.filter(b => b.status === 'confirmed').length, color: '#3b82f6' },
+      { status: 'paid',      count: periodBookings.filter(b => b.status === 'paid').length,      color: '#10b981' },
+      { status: 'completed', count: periodBookings.filter(b => b.status === 'completed').length, color: '#a855f7' },
+      { status: 'pending',   count: periodBookings.filter(b => b.status === 'pending').length,   color: '#f59e0b' },
+      { status: 'failed',    count: periodBookings.filter(b => b.status === 'failed').length,    color: '#ef4444' },
     ].filter(s => s.count > 0);
 
-    // ── Peak hours — count bookings per hour slot ────────────────────────────
+    // ── Peak hours from bookings ─────────────────────────────────────────────
     const hourCounts: Record<number, number> = {};
     periodBookings.forEach(b => {
       if (!b.startTime) return;
       const h = new Date(b.startTime).getHours();
       hourCounts[h] = (hourCounts[h] ?? 0) + 1;
     });
-    const peakHours = Array.from({ length: 12 }, (_, i) => {
-      const h = i + 10; // 10 AM – 9 PM
+    const openH  = sSettings?.openHour  ?? 10;
+    const closeH = sSettings?.closeHour ?? 22;
+    const peakHours = Array.from({ length: closeH - openH }, (_, i) => {
+      const h = i + openH;
       return { hour: h, label: h > 12 ? `${h-12}PM` : h === 12 ? '12PM' : `${h}AM`, count: hourCounts[h] ?? 0 };
     });
     const maxHourCount = Math.max(...peakHours.map(h => h.count), 1);
 
-    // ── Customer return rate — phone numbers with 2+ bookings (all time) ────
-    const phoneCounts: Record<string, number> = {};
-    bookings.forEach(b => {
-      const p = b.customerPhone ?? '';
-      if (p) phoneCounts[p] = (phoneCounts[p] ?? 0) + 1;
-    });
-    const returningCustomers = Object.values(phoneCounts).filter(c => c >= 2).length;
-    const totalCustomers     = Object.keys(phoneCounts).length;
-    const returnRate         = totalCustomers > 0 ? Math.round((returningCustomers / totalCustomers) * 100) : 0;
+    // ── Booking status trend (pending vs confirmed vs completed) per day ───────
+    type BookingDayBucket = { label: string; pending: number; confirmed: number; completed: number };
+    const bookingsByDay: BookingDayBucket[] = [];
+    for (let i = chartDays - 1; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
+      const next = new Date(d); next.setDate(d.getDate() + 1);
+      const day = bookings.filter(b => {
+        if (!b.createdAt) return false;
+        const bd = b.createdAt.toDate(); return bd >= d && bd < next;
+      });
+      bookingsByDay.push({
+        label:     period === 'today' ? 'Today' : `${d.getDate()}/${d.getMonth() + 1}`,
+        pending:   day.filter(b => b.status === 'pending').length,
+        confirmed: day.filter(b => b.status === 'confirmed' || b.status === 'paid').length,
+        completed: day.filter(b => b.status === 'completed').length,
+      });
+    }
 
-    // ── Today's schedule — appointments sorted by startTime ─────────────────
+    // ── Booking source trend (walk-in vs online) per day ────────────────────
+    type SourceDayBucket = { label: string; walkin: number; online: number };
+    const bookingsBySource: SourceDayBucket[] = [];
+    for (let i = chartDays - 1; i >= 0; i--) {
+      const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
+      const next = new Date(d); next.setDate(d.getDate() + 1);
+      const day = bookings.filter(b => {
+        if (!b.createdAt) return false;
+        const bd = b.createdAt.toDate(); return bd >= d && bd < next && b.status !== 'failed';
+      });
+      bookingsBySource.push({
+        label:  period === 'today' ? 'Today' : `${d.getDate()}/${d.getMonth() + 1}`,
+        walkin: day.filter(b => (b as any).bookingSource === 'walk_in').length,
+        online: day.filter(b => (b as any).bookingSource !== 'walk_in').length,
+      });
+    }
+
+    // Totals for the period (for summary pills above charts)
+    const totalPending   = bookingsByDay.reduce((a, d) => a + d.pending,   0);
+    const totalConfirmed = bookingsByDay.reduce((a, d) => a + d.confirmed, 0);
+    const totalCompleted = bookingsByDay.reduce((a, d) => a + d.completed, 0);
+    const totalWalkin    = bookingsBySource.reduce((a, d) => a + d.walkin, 0);
+    const totalOnlineAppts = bookingsBySource.reduce((a, d) => a + d.online, 0);
+
+    // ── New vs Returning customers in period ─────────────────────────────────
+    const periodPhones     = new Set(periodInvoices.map(inv => inv.customerPhone).filter(Boolean));
+    const preExistingPhones = new Set(
+      billingInvoices
+        .filter(inv => inv.createdAt && inv.createdAt.toDate() < start)
+        .map(inv => inv.customerPhone).filter(Boolean)
+    );
+    const newCustomerCount       = [...periodPhones].filter(p => !preExistingPhones.has(p)).length;
+    const returningCustomerCount = periodPhones.size - newCustomerCount;
+
+    // ── Staff performance leaderboard from period invoice items ───────────────
+    type StaffEntry = { name: string; revenue: number; commission: number; services: number; bills: number };
+    const staffMap: Record<string, StaffEntry>    = {};
+    const staffBillSets: Record<string, Set<string>> = {};
+    periodInvoices.forEach(inv => {
+      const invId = (inv as any).id ?? '';
+      inv.items?.forEach((item: BillItem) => {
+        const name = item.staffName?.trim();
+        if (!name) return;
+        if (!staffMap[name]) { staffMap[name] = { name, revenue: 0, commission: 0, services: 0, bills: 0 }; staffBillSets[name] = new Set(); }
+        staffMap[name].revenue    += (item.unitPrice ?? 0) * (item.quantity ?? 1) * (1 - ((item.lineDiscount ?? 0) / 100));
+        staffMap[name].commission += item.commissionAmount ?? 0;
+        staffMap[name].services   += item.quantity ?? 1;
+        if (invId && !staffBillSets[name].has(invId)) { staffBillSets[name].add(invId); staffMap[name].bills++; }
+      });
+    });
+    const staffLeaderboard = Object.values(staffMap)
+      .sort((a, b) => b.revenue - a.revenue)
+      .map(s => ({ ...s, revenue: Math.round(s.revenue), commission: Math.round(s.commission) }));
+
+    // ── Day-of-week revenue pattern (Mon–Sun, period invoices) ────────────────
+    const DOW_LABELS  = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const DOW_JS      = [1, 2, 3, 4, 5, 6, 0]; // Mon=1 … Sun=0 in JS
+    const dowData = DOW_LABELS.map((day, i) => {
+      const dayInv = periodInvoices.filter(inv => inv.createdAt && inv.createdAt.toDate().getDay() === DOW_JS[i]);
+      return { day, amount: dayInv.reduce((a, inv) => a + (inv.total ?? 0), 0), count: dayInv.length };
+    });
+
+    // ── Revenue forecast for current month ────────────────────────────────────
+    let revenueForecast: number | null = null;
+    let forecastProgress: number | null = null;
+    if (!insightsFrom && !insightsTo && period === 'month' && totalRevenue > 0) {
+      const dayOfMonth  = now.getDate();
+      const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      revenueForecast   = Math.round((totalRevenue / dayOfMonth) * daysInMonth);
+      forecastProgress  = Math.min(100, Math.round((totalRevenue / revenueForecast) * 100));
+    }
+
+    // ── Top customers by lifetime spend (all invoices) ────────────────────────
+    type CustEntry = { name: string; phone: string; spend: number; visits: number; lastVisit: Date | null };
+    const custMap: Record<string, CustEntry> = {};
+    billingInvoices.forEach(inv => {
+      const phone = inv.customerPhone?.trim(); if (!phone) return;
+      if (!custMap[phone]) custMap[phone] = { name: inv.customerName ?? '', phone, spend: 0, visits: 0, lastVisit: null };
+      custMap[phone].spend += inv.total ?? 0;
+      custMap[phone].visits++;
+      const d = inv.createdAt?.toDate();
+      if (d && (!custMap[phone].lastVisit || d > custMap[phone].lastVisit!)) custMap[phone].lastVisit = d;
+    });
+    const topCustomers = Object.values(custMap)
+      .sort((a, b) => b.spend - a.spend)
+      .slice(0, 8)
+      .map(c => ({ ...c, spend: Math.round(c.spend) }));
+
+    // ── Today's schedule ────────────────────────────────────────────────────
     const todayISO = new Date().toISOString().slice(0, 10);
     const todaySchedule = bookings
       .filter(b => {
-        const d = b.startTime ? b.startTime.slice(0, 10) : (b.bookingDate ?? '').slice(0, 10);
+        const d = b.startTime ? b.startTime.slice(0,10) : (b.bookingDate ?? '').slice(0,10);
         return d === todayISO && b.status !== 'failed';
       })
       .sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
 
     return {
-      // Core metrics
-      totalRevenue, invoiceCount, avgBill, amountDue,
-      todayCount, uniqueCustomers, completedCount,
-      pendingCount: pendingBookings.length,
-      totalBookings: periodBookings.length,
-      // Collection
-      collectedAmount, collectionRate,
-      // Trend
-      revenueTrend, prevRevenue,
-      // Charts
-      revenueByDay, topServices, statusBreakdown, peakHours, maxHourCount,
+      // Invoice financial
+      totalRevenue, invoiceCount, avgBill,
+      collectedAmount, amountDue, collectionRate, discountGiven,
+      // Channel split
+      onlineRevenue, walkinRevenue, onlineCount, walkinCount,
+      onlineAvgBill, walkinAvgBill, onlineCollected, walkinCollected,
       // Customers
-      returningCustomers, totalCustomers, returnRate,
-      // Schedule
+      uniqueCustomers, returningCustomers, totalCustomers, returnRate,
+      newCustomerCount, returningCustomerCount,
+      // Trend & charts
+      revenueTrend, prevRevenue, revenueByDay, topServices,
+      // Booking trends
+      bookingsByDay, bookingsBySource,
+      totalPending, totalConfirmed, totalCompleted,
+      totalWalkin, totalOnlineAppts,
+      // New analytics
+      staffLeaderboard, dowData, revenueForecast, forecastProgress, topCustomers,
+      // Booking operational
+      todayCount, totalBookings: periodBookings.length,
+      pendingCount: pendingBookings.length, completedCount,
+      statusBreakdown, peakHours, maxHourCount,
       todaySchedule,
     };
-  }, [bookings, period, insightsFrom, insightsTo]);
+  }, [bookings, billingInvoices, period, insightsFrom, insightsTo, sSettings]);
 
-  // ── Service drill-down stats ──────────────────────────────────────────────
+  // ── Service drill-down stats (from invoice items) ────────────────────────
   const serviceDrillStats = useMemo(() => {
     if (!expandedService) return null;
     const now = new Date();
@@ -1610,14 +1958,14 @@ Your uid is: ${user.uid}
     else if (serviceDrillPeriod === 'year')  { start.setMonth(0,1); start.setHours(0,0,0,0); }
     else { start.setFullYear(2000); }
 
-    const relevant = bookings.filter(b => {
-      const inPeriod = !b.createdAt || b.createdAt.toDate() >= start;
-      return inPeriod && (b.serviceNames ?? '').split(',').some(s => s.trim() === expandedService);
+    const relevant = billingInvoices.filter(inv => {
+      const inPeriod = !inv.createdAt || inv.createdAt.toDate() >= start;
+      return inPeriod && inv.items?.some((it: BillItem) => it.serviceName?.trim() === expandedService);
     });
 
     const groups: Record<string, number> = {};
-    relevant.forEach(b => {
-      const d = b.createdAt?.toDate() ?? new Date();
+    relevant.forEach(inv => {
+      const d = inv.createdAt?.toDate() ?? new Date();
       const key = serviceDrillPeriod === 'today'
         ? `${d.getHours()}:00`
         : (serviceDrillPeriod === 'year' || serviceDrillPeriod === 'all')
@@ -1626,12 +1974,18 @@ Your uid is: ${user.uid}
       groups[key] = (groups[key] ?? 0) + 1;
     });
 
+    const serviceRevenue = relevant.reduce((a, inv) => {
+      const item = inv.items?.find((it: BillItem) => it.serviceName?.trim() === expandedService);
+      if (!item) return a;
+      return a + (item.unitPrice ?? 0) * (item.quantity ?? 1) * (1 - ((item.lineDiscount ?? 0) / 100));
+    }, 0);
+
     return {
       total:     relevant.length,
-      revenue:   relevant.reduce((a, b) => a + ((b as any).finalAmount ?? b.totalAmount ?? 0), 0),
+      revenue:   Math.round(serviceRevenue),
       chartData: Object.entries(groups).map(([label, count]) => ({ label, count })),
     };
-  }, [expandedService, serviceDrillPeriod, bookings]);
+  }, [expandedService, serviceDrillPeriod, billingInvoices]);
 
   // ── Split bookings into three tabs ───────────────────────────────────────────
   // pending   = payment not yet completed (status === 'pending')
@@ -1684,6 +2038,33 @@ Your uid is: ${user.uid}
     sortKey === k
       ? (sortDir === 'desc' ? <ChevronDown size={12} /> : <ChevronUp size={12} />)
       : <ChevronDown size={12} className="opacity-20" />;
+
+  // ── Express Billing full-screen takeover ──────────────────────────────────
+  if (billingOpen) {
+    return (
+      <div className="h-screen bg-[#0d0d0d] text-white flex flex-col overflow-hidden">
+        <BillingModule
+          prefill={billingPrefill}
+          onClose={() => { setBillingOpen(false); setBillingPrefill(null); }}
+          onInvoiceCreated={() => { setBillingOpen(false); setBillingPrefill(null); }}
+        />
+      </div>
+    );
+  }
+
+  // ── Walk-in Booking full-screen takeover ──────────────────────────────────
+  if (walkInOpen) {
+    return (
+      <div className="h-screen bg-[#0d0d0d] text-white flex flex-col overflow-hidden">
+        <WalkInBooking
+          user={user}
+          staffMember={staffMember ?? undefined}
+          onClose={() => setWalkInOpen(false)}
+          onCreated={(_id) => { setWalkInOpen(false); setActiveTab('active'); }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white">
@@ -1918,7 +2299,12 @@ Your uid is: ${user.uid}
             <p className="text-2xl font-black text-white leading-none mb-1">
               ₹{stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </p>
-            <p className="text-[10px] text-gray-500">{stats.invoiceCount} paid bookings</p>
+            <p className="text-[10px] text-gray-500">{stats.invoiceCount} invoice{stats.invoiceCount !== 1 ? 's' : ''} billed</p>
+            {stats.revenueForecast && (
+              <p className="text-[10px] text-blue-400 mt-1">
+                ~₹{stats.revenueForecast.toLocaleString('en-IN')} projected
+              </p>
+            )}
             {stats.revenueTrend !== null && (
               <span className={`absolute top-4 right-4 flex items-center gap-0.5 text-[10px] font-black ${stats.revenueTrend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {stats.revenueTrend >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
@@ -1934,9 +2320,9 @@ Your uid is: ${user.uid}
             <div className="absolute top-0 left-0 right-0 h-[3px] bg-blue-500 rounded-t-2xl" />
             <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Collected</p>
             <p className="text-2xl font-black text-white leading-none mb-1">
-              ₹{(stats.totalRevenue - stats.amountDue).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              ₹{stats.collectedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </p>
-            <p className="text-[10px] text-gray-500">Payments received</p>
+            <p className="text-[10px] text-gray-500">Amount collected from invoices</p>
           </motion.div>
 
           {/* Avg Bill */}
@@ -1956,11 +2342,11 @@ Your uid is: ${user.uid}
             className="bg-zinc-900 border border-red-500/30 rounded-2xl p-5 relative overflow-hidden"
           >
             <div className="absolute top-0 left-0 right-0 h-[3px] bg-red-500 rounded-t-2xl" />
-            <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Amount Due</p>
+            <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Outstanding Dues</p>
             <p className="text-2xl font-black text-white leading-none mb-1">
               ₹{stats.amountDue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </p>
-            <p className="text-[10px] text-gray-500">Pending collection</p>
+            <p className="text-[10px] text-gray-500">Partially paid invoices</p>
           </motion.div>
         </div>
 
@@ -1968,12 +2354,12 @@ Your uid is: ${user.uid}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           {[
             { label: 'Appointments',   value: stats.totalBookings.toString(),    sub: `${stats.todayCount} today`,         icon: <Calendar size={16} />,    color: 'text-gold' },
-            { label: 'Clients',        value: stats.uniqueCustomers.toString(),  sub: 'Unique by phone',                    icon: <Users size={16} />,       color: 'text-purple-400' },
+            { label: 'Clients',        value: stats.uniqueCustomers.toString(),  sub: `${stats.newCustomerCount} new · ${stats.returningCustomerCount} returning`, icon: <Users size={16} />,       color: 'text-purple-400' },
             { label: 'Pending',        value: stats.pendingCount.toString(),     sub: 'Awaiting payment',                   icon: <Clock size={16} />,       color: 'text-amber-400' },
             { label: 'Completed',      value: stats.completedCount.toString(),   sub: 'Services done',                      icon: <ListChecks size={16} />,  color: 'text-emerald-400' },
             { label: 'Avg / Day',
               value: stats.revenueByDay.length > 0
-                ? `₹${Math.round(stats.revenueByDay.reduce((a,b)=>a+b.amount,0) / Math.max(1, stats.revenueByDay.filter(d=>d.amount>0).length)).toLocaleString('en-IN')}`
+                ? `₹${Math.round(stats.revenueByDay.reduce((a,d)=>a+d.amount,0) / Math.max(1, stats.revenueByDay.filter(d=>d.amount>0).length)).toLocaleString('en-IN')}`
                 : '₹0',
               sub: 'On active days', icon: <BarChart3 size={16} />, color: 'text-blue-400' },
           ].map(({ label, value, sub, icon, color }) => (
@@ -1988,6 +2374,403 @@ Your uid is: ${user.uid}
               </div>
             </motion.div>
           ))}
+        </div>
+
+        {/* Channel Breakdown — Online vs Walk-in */}
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 mb-4">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Channel Breakdown</p>
+              <p className="text-white font-black text-sm mt-0.5">
+                {stats.invoiceCount} invoice{stats.invoiceCount !== 1 ? 's' : ''} · Online vs Walk-in
+              </p>
+            </div>
+            {stats.totalRevenue > 0 && (
+              <div className="flex items-center gap-2 text-[10px] font-black">
+                <span className="flex items-center gap-1 text-blue-400">
+                  <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+                  {Math.round((stats.onlineRevenue / stats.totalRevenue) * 100)}% Online
+                </span>
+                <span className="text-gray-600">/</span>
+                <span className="flex items-center gap-1 text-amber-400">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                  {Math.round((stats.walkinRevenue / stats.totalRevenue) * 100)}% Walk-in
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Side-by-side tiles */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            {/* Online */}
+            <div className="p-4 bg-blue-500/8 border border-blue-500/20 rounded-2xl">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Online</span>
+              </div>
+              <p className="text-2xl font-black text-white leading-none">
+                ₹{stats.onlineRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </p>
+              <div className="mt-2 space-y-0.5">
+                <p className="text-[10px] text-gray-400">{stats.onlineCount} invoice{stats.onlineCount !== 1 ? 's' : ''}</p>
+                <p className="text-[10px] text-gray-400">₹{stats.onlineAvgBill.toLocaleString('en-IN')} avg bill</p>
+                <p className="text-[10px] text-emerald-400">₹{stats.onlineCollected.toLocaleString('en-IN', { maximumFractionDigits: 0 })} collected</p>
+              </div>
+            </div>
+            {/* Walk-in */}
+            <div className="p-4 bg-amber-500/8 border border-amber-500/20 rounded-2xl">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Walk-in</span>
+              </div>
+              <p className="text-2xl font-black text-white leading-none">
+                ₹{stats.walkinRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </p>
+              <div className="mt-2 space-y-0.5">
+                <p className="text-[10px] text-gray-400">{stats.walkinCount} invoice{stats.walkinCount !== 1 ? 's' : ''}</p>
+                <p className="text-[10px] text-gray-400">₹{stats.walkinAvgBill.toLocaleString('en-IN')} avg bill</p>
+                <p className="text-[10px] text-emerald-400">₹{stats.walkinCollected.toLocaleString('en-IN', { maximumFractionDigits: 0 })} collected</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Revenue split bar */}
+          {stats.totalRevenue > 0 ? (
+            <div className="h-2.5 bg-white/8 rounded-full overflow-hidden flex mb-4">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${(stats.onlineRevenue / stats.totalRevenue) * 100}%` }}
+                transition={{ duration: 1, ease: 'easeOut' }}
+                className="h-full bg-blue-500 rounded-l-full"
+              />
+              <div className="flex-1 h-full bg-amber-500/60 rounded-r-full" />
+            </div>
+          ) : (
+            <div className="h-2.5 bg-white/8 rounded-full mb-4" />
+          )}
+
+          {/* Bottom metrics row */}
+          <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/10">
+            <div className="text-center">
+              <p className="text-lg font-black text-white">{stats.invoiceCount}</p>
+              <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Total Bills</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-black text-gold">₹{Math.round(stats.avgBill).toLocaleString('en-IN')}</p>
+              <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Avg Bill</p>
+            </div>
+            <div className="text-center">
+              <p className="text-lg font-black text-purple-400">
+                ₹{stats.discountGiven.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+              </p>
+              <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Discounts Given</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Booking Trends — Pending vs Confirmed  &  Walk-in vs Online */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+
+          {/* Pending vs Confirmed trend */}
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Order Status Trend</p>
+                <p className="text-white font-black text-sm mt-0.5">Pending vs Confirmed</p>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap justify-end">
+                {[
+                  { label: 'Pending',   count: stats.totalPending,   color: 'bg-amber-400', text: 'text-amber-400' },
+                  { label: 'Confirmed', count: stats.totalConfirmed, color: 'bg-blue-400',  text: 'text-blue-400'  },
+                  { label: 'Completed', count: stats.totalCompleted, color: 'bg-purple-400',text: 'text-purple-400'},
+                ].map(({ label, count, color, text }) => (
+                  <span key={label} className="flex items-center gap-1 text-[9px] font-black">
+                    <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
+                    <span className={text}>{count}</span>
+                    <span className="text-gray-600">{label}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+            {(() => {
+              const data  = stats.bookingsByDay.slice(-14);
+              const max   = Math.max(...data.map(d => d.pending + d.confirmed + d.completed), 1);
+              const H     = 96;
+              return data.every(d => d.pending + d.confirmed + d.completed === 0) ? (
+                <div className="h-24 flex items-center justify-center">
+                  <p className="text-gray-600 text-xs">No bookings in this period</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-end gap-1" style={{ height: `${H}px` }}>
+                    {data.map((d, i) => {
+                      const total  = d.pending + d.confirmed + d.completed;
+                      const barH   = Math.max(total > 0 ? 4 : 0, (total / max) * H);
+                      const pendH  = total > 0 ? (d.pending   / total) * barH : 0;
+                      const confH  = total > 0 ? (d.confirmed / total) * barH : 0;
+                      const compH  = total > 0 ? (d.completed / total) * barH : 0;
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-stretch justify-end group relative">
+                          <div className="w-full rounded-t overflow-hidden flex flex-col-reverse" style={{ height: `${barH}px` }}>
+                            <div className="w-full bg-blue-500/70"   style={{ height: `${confH}px` }} />
+                            <div className="w-full bg-amber-500/70"  style={{ height: `${pendH}px` }} />
+                            <div className="w-full bg-purple-500/70" style={{ height: `${compH}px` }} />
+                          </div>
+                          {total > 0 && (
+                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
+                              <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[9px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
+                                <p className="text-gray-300">{d.label}</p>
+                                {d.pending   > 0 && <p className="text-amber-400">{d.pending} pending</p>}
+                                {d.confirmed > 0 && <p className="text-blue-400">{d.confirmed} confirmed</p>}
+                                {d.completed > 0 && <p className="text-purple-400">{d.completed} completed</p>}
+                              </div>
+                              <div className="w-1.5 h-1.5 bg-zinc-800 rotate-45 -mt-0.5 border-r border-b border-white/10" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-1 mt-1.5">
+                    {data.map((d, i) => (
+                      <div key={i} className="flex-1 text-center">
+                        <span className="text-[7px] text-gray-700 font-bold leading-none">
+                          {data.length <= 10 ? d.label : (i % 2 === 0 ? d.label : '')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/10">
+              {[
+                { color: 'bg-purple-500/70', label: 'Completed' },
+                { color: 'bg-blue-500/70',   label: 'Confirmed' },
+                { color: 'bg-amber-500/70',  label: 'Pending'   },
+              ].map(({ color, label }) => (
+                <span key={label} className="flex items-center gap-1 text-[8px] text-gray-400 font-bold">
+                  <span className={`w-2 h-2 rounded-sm ${color}`} /> {label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Walk-in vs Online appointments trend */}
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Appointments by Source</p>
+                <p className="text-white font-black text-sm mt-0.5">Walk-in vs Online</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1 text-[9px] font-black">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+                  <span className="text-amber-400">{stats.totalWalkin}</span>
+                  <span className="text-gray-600">Walk-in</span>
+                </span>
+                <span className="flex items-center gap-1 text-[9px] font-black">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                  <span className="text-blue-400">{stats.totalOnlineAppts}</span>
+                  <span className="text-gray-600">Online</span>
+                </span>
+              </div>
+            </div>
+            {(() => {
+              const data = stats.bookingsBySource.slice(-14);
+              const max  = Math.max(...data.map(d => d.walkin + d.online), 1);
+              const H    = 96;
+              return data.every(d => d.walkin + d.online === 0) ? (
+                <div className="h-24 flex items-center justify-center">
+                  <p className="text-gray-600 text-xs">No appointments in this period</p>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-end gap-1" style={{ height: `${H}px` }}>
+                    {data.map((d, i) => {
+                      const total  = d.walkin + d.online;
+                      const barH   = Math.max(total > 0 ? 4 : 0, (total / max) * H);
+                      const wH     = total > 0 ? (d.walkin / total) * barH : 0;
+                      const oH     = total > 0 ? (d.online / total) * barH : 0;
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-stretch justify-end group relative">
+                          <div className="w-full rounded-t overflow-hidden flex flex-col-reverse" style={{ height: `${barH}px` }}>
+                            <div className="w-full bg-amber-500/70" style={{ height: `${wH}px` }} />
+                            <div className="w-full bg-blue-500/70"  style={{ height: `${oH}px` }} />
+                          </div>
+                          {total > 0 && (
+                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
+                              <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[9px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
+                                <p className="text-gray-300">{d.label}</p>
+                                {d.walkin  > 0 && <p className="text-amber-400">{d.walkin} walk-in</p>}
+                                {d.online  > 0 && <p className="text-blue-400">{d.online} online</p>}
+                              </div>
+                              <div className="w-1.5 h-1.5 bg-zinc-800 rotate-45 -mt-0.5 border-r border-b border-white/10" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-1 mt-1.5">
+                    {data.map((d, i) => (
+                      <div key={i} className="flex-1 text-center">
+                        <span className="text-[7px] text-gray-700 font-bold leading-none">
+                          {data.length <= 10 ? d.label : (i % 2 === 0 ? d.label : '')}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+            <div className="flex items-center gap-4 mt-3 pt-3 border-t border-white/10">
+              {[
+                { color: 'bg-blue-500/70',  label: 'Online'   },
+                { color: 'bg-amber-500/70', label: 'Walk-in'  },
+              ].map(({ color, label }) => (
+                <span key={label} className="flex items-center gap-1 text-[8px] text-gray-400 font-bold">
+                  <span className={`w-2 h-2 rounded-sm ${color}`} /> {label}
+                </span>
+              ))}
+            </div>
+          </div>
+
+        </div>
+
+        {/* Day-of-Week Revenue + Revenue Forecast / Customer Retention */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+
+          {/* Day-of-week revenue pattern */}
+          <div className="lg:col-span-2 bg-zinc-900 border border-white/12 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Day-of-Week Pattern</p>
+                <p className="text-white font-black text-sm mt-0.5">Revenue by weekday</p>
+              </div>
+              {(() => {
+                const best = stats.dowData.reduce((a, d) => d.amount > a.amount ? d : a, stats.dowData[0]);
+                return best?.amount > 0 ? (
+                  <span className="text-[10px] font-black text-gold px-2 py-1 bg-gold/10 border border-gold/20 rounded-full">
+                    Best: {best.day}
+                  </span>
+                ) : null;
+              })()}
+            </div>
+            {stats.dowData.every(d => d.amount === 0) ? (
+              <div className="h-32 flex items-center justify-center">
+                <p className="text-gray-600 text-xs">No invoice data for this period</p>
+              </div>
+            ) : (() => {
+              const maxAmt = Math.max(...stats.dowData.map(d => d.amount), 1);
+              const H = 96;
+              return (
+                <>
+                  <div className="flex items-end gap-2" style={{ height: `${H}px` }}>
+                    {stats.dowData.map((d, i) => {
+                      const barH  = Math.max(d.amount > 0 ? 4 : 0, (d.amount / maxAmt) * H);
+                      const isTop = d.amount === maxAmt && d.amount > 0;
+                      return (
+                        <div key={i} className="flex-1 flex flex-col items-stretch justify-end group relative">
+                          <motion.div
+                            initial={{ height: 0 }}
+                            animate={{ height: `${barH}px` }}
+                            transition={{ duration: 0.7, delay: i * 0.06, ease: 'easeOut' }}
+                            className={`w-full rounded-t cursor-default ${isTop ? 'bg-gold' : 'bg-gold/35 hover:bg-gold/55'} transition-colors`}
+                          />
+                          {d.amount > 0 && (
+                            <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
+                              <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[9px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
+                                <p className="text-gold">₹{d.amount.toLocaleString('en-IN')}</p>
+                                <p className="text-gray-400">{d.count} invoice{d.count !== 1 ? 's' : ''}</p>
+                              </div>
+                              <div className="w-1.5 h-1.5 bg-zinc-800 rotate-45 -mt-0.5 border-r border-b border-white/10" />
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <div className="flex gap-2 mt-2">
+                    {stats.dowData.map((d, i) => (
+                      <div key={i} className="flex-1 text-center">
+                        <span className={`text-[9px] font-black ${d.amount === maxAmt && d.amount > 0 ? 'text-gold' : 'text-gray-600'}`}>{d.day}</span>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Revenue Forecast (month) OR Customer Retention (other periods) */}
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 flex flex-col">
+            {stats.revenueForecast ? (
+              <>
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-1">Monthly Forecast</p>
+                <p className="text-white font-black text-sm mb-4">End-of-month projection</p>
+                <p className="text-3xl font-black text-gold leading-none mb-1">
+                  ₹{stats.revenueForecast.toLocaleString('en-IN')}
+                </p>
+                <p className="text-[10px] text-gray-500 mb-4">
+                  ₹{stats.totalRevenue.toLocaleString('en-IN')} so far · day {new Date().getDate()} of {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}
+                </p>
+                <div className="mt-auto space-y-2">
+                  <div className="flex justify-between text-[10px] text-gray-400">
+                    <span>Progress</span>
+                    <span className="font-black text-white">{stats.forecastProgress}%</span>
+                  </div>
+                  <div className="h-2 bg-white/8 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${stats.forecastProgress}%` }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
+                      className="h-full bg-gold rounded-full"
+                    />
+                  </div>
+                  {stats.prevRevenue > 0 && (
+                    <p className={`text-[10px] font-bold flex items-center gap-1 mt-2 ${stats.revenueForecast >= stats.prevRevenue ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {stats.revenueForecast >= stats.prevRevenue ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
+                      {Math.abs(Math.round(((stats.revenueForecast - stats.prevRevenue) / stats.prevRevenue) * 100))}% vs last month
+                      <span className="text-gray-600 font-normal">(₹{stats.prevRevenue.toLocaleString('en-IN')})</span>
+                    </p>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-1">Customer Retention</p>
+                <p className="text-white font-black text-sm mb-5">New vs Returning</p>
+                <div className="flex gap-3 mb-4">
+                  <div className="flex-1 p-3 bg-emerald-500/8 border border-emerald-500/20 rounded-xl text-center">
+                    <p className="text-2xl font-black text-emerald-400">{stats.newCustomerCount}</p>
+                    <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">New</p>
+                  </div>
+                  <div className="flex-1 p-3 bg-purple-500/8 border border-purple-500/20 rounded-xl text-center">
+                    <p className="text-2xl font-black text-purple-400">{stats.returningCustomerCount}</p>
+                    <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Returning</p>
+                  </div>
+                </div>
+                <div className="mt-auto space-y-2">
+                  <div className="flex justify-between text-[10px] text-gray-400">
+                    <span>Return rate (all time)</span>
+                    <span className="font-black text-purple-400">{stats.returnRate}%</span>
+                  </div>
+                  <div className="h-2 bg-white/8 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${stats.returnRate}%` }}
+                      transition={{ duration: 1, ease: 'easeOut' }}
+                      className="h-full bg-purple-500 rounded-full"
+                    />
+                  </div>
+                  <p className="text-[9px] text-gray-500">
+                    {stats.returningCustomers} of {stats.totalCustomers} customers visited 2+ times
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Row 3 — Revenue trend + Status donut + Collection rate */}
@@ -2036,7 +2819,7 @@ Your uid is: ${user.uid}
                           <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
                             <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[9px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
                               <p className="text-gold">₹{d.amount.toLocaleString('en-IN')}</p>
-                              <p className="text-gray-400">{d.bookings} booking{d.bookings !== 1 ? 's' : ''}</p>
+                              <p className="text-gray-400">{d.invoices} invoice{d.invoices !== 1 ? 's' : ''}</p>
                             </div>
                             <div className="w-1.5 h-1.5 bg-zinc-800 rotate-45 -mt-0.5 border-r border-b border-white/10" />
                           </div>
@@ -2385,6 +3168,117 @@ Your uid is: ${user.uid}
           </div>
         </div>
 
+        {/* Staff Leaderboard + Top Customers */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
+
+          {/* Staff Performance Leaderboard */}
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Staff Performance</p>
+                <p className="text-white font-black text-sm mt-0.5">Revenue & commissions</p>
+              </div>
+              <span className="text-[9px] font-black text-gray-600 uppercase tracking-wider">This period</span>
+            </div>
+            {stats.staffLeaderboard.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <Users size={24} className="text-gray-700" />
+                <p className="text-gray-600 text-xs">No staff data for this period</p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {stats.staffLeaderboard.map((s, i) => {
+                  const maxRev  = stats.staffLeaderboard[0].revenue;
+                  const medal   = i === 0 ? 'text-gold' : i === 1 ? 'text-gray-400' : i === 2 ? 'text-amber-700' : 'text-gray-700';
+                  const barColor = i === 0 ? 'bg-gold' : i === 1 ? 'bg-gray-400/60' : i === 2 ? 'bg-amber-700/60' : 'bg-white/20';
+                  return (
+                    <div key={s.name} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.03] transition-colors">
+                      <span className={`text-sm font-black w-5 text-center shrink-0 ${medal}`}>
+                        {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-bold text-white truncate">{s.name}</span>
+                          <span className="text-xs font-black text-gold shrink-0 ml-2">₹{s.revenue.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="h-1.5 bg-white/8 rounded-full overflow-hidden mb-1">
+                          <motion.div
+                            initial={{ width: 0 }}
+                            animate={{ width: `${maxRev > 0 ? (s.revenue / maxRev) * 100 : 0}%` }}
+                            transition={{ duration: 0.8, delay: i * 0.1, ease: 'easeOut' }}
+                            className={`h-full rounded-full ${barColor}`}
+                          />
+                        </div>
+                        <div className="flex items-center gap-3 text-[9px] text-gray-500">
+                          <span>{s.bills} bill{s.bills !== 1 ? 's' : ''}</span>
+                          <span>{s.services} service{s.services !== 1 ? 's' : ''}</span>
+                          <span className="text-emerald-500">₹{s.commission.toLocaleString('en-IN')} commission</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Top Customers by Lifetime Spend */}
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Top Customers</p>
+                <p className="text-white font-black text-sm mt-0.5">By lifetime spend</p>
+              </div>
+              <span className="text-[9px] font-black text-gray-600 uppercase tracking-wider">All time</span>
+            </div>
+            {stats.topCustomers.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 gap-2">
+                <Users size={24} className="text-gray-700" />
+                <p className="text-gray-600 text-xs">No customer data yet</p>
+              </div>
+            ) : (
+              <div className="space-y-1">
+                {stats.topCustomers.map((c, i) => {
+                  const maxSpend   = stats.topCustomers[0].spend;
+                  const lastSeen   = (() => {
+                    if (!c.lastVisit) return '—';
+                    const days = Math.floor((Date.now() - c.lastVisit.getTime()) / 86400000);
+                    if (days === 0) return 'Today';
+                    if (days === 1) return 'Yesterday';
+                    if (days < 7)  return `${days}d ago`;
+                    if (days < 30) return `${Math.floor(days / 7)}w ago`;
+                    if (days < 365) return `${Math.floor(days / 30)}mo ago`;
+                    return `${Math.floor(days / 365)}y ago`;
+                  })();
+                  return (
+                    <div key={c.phone} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.03] transition-colors">
+                      <span className="text-[10px] font-black text-gray-600 w-5 text-center shrink-0">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-0.5">
+                          <span className="text-xs font-bold text-white truncate">{c.name || c.phone}</span>
+                          <span className="text-xs font-black text-gold shrink-0 ml-2">₹{c.spend.toLocaleString('en-IN')}</span>
+                        </div>
+                        <div className="h-1 bg-white/8 rounded-full overflow-hidden mb-1">
+                          <div
+                            className="h-full rounded-full bg-gold/50"
+                            style={{ width: `${maxSpend > 0 ? (c.spend / maxSpend) * 100 : 0}%` }}
+                          />
+                        </div>
+                        <div className="flex items-center gap-3 text-[9px] text-gray-500">
+                          <span>{c.visits} visit{c.visits !== 1 ? 's' : ''}</span>
+                          <span>Last: {lastSeen}</span>
+                          <span>₹{Math.round(c.spend / c.visits).toLocaleString('en-IN')} avg</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+        </div>
+
         </>)}
 
         {/* ════════════════════════════════════════════════════════════════
@@ -2581,7 +3475,7 @@ Your uid is: ${user.uid}
                 <tbody>
                   <AnimatePresence>
                     {filtered.map(booking => (
-                      <BookingRow key={booking.id} booking={booking} onStatusChange={handleStatusChange} onCreateBill={openBillingFromBooking} onViewInvoice={id => setInvoiceModalId(id)} onConfirmPayment={confirmWithPaymentId} onMarkPayAtSalon={markPayAtSalon} />
+                      <BookingRow key={booking.id} booking={booking} onStatusChange={handleStatusChange} onCreateBill={openBillingFromBooking} onViewInvoice={id => setInvoiceModalId(id)} onConfirmPayment={confirmWithPaymentId} onMarkPayAtSalon={markPayAtSalon} onDelete={handleDeleteBooking} isSuperAdmin={!isStaffMode} />
                     ))}
                   </AnimatePresence>
                 </tbody>
@@ -2695,6 +3589,45 @@ Your uid is: ${user.uid}
             ))}
           </div>
 
+          {/* ── Outstanding dues card — always visible ── */}
+          {billingStats.totalDue > 0 ? (
+            <button
+              onClick={() => setShowDuesDrawer(true)}
+              className="w-full text-left bg-red-500/8 border border-red-500/25 rounded-2xl p-5 hover:bg-red-500/12 transition-all group"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-11 h-11 rounded-xl bg-red-500/15 border border-red-500/20 flex items-center justify-center shrink-0">
+                    <AlertCircle size={18} className="text-red-400" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase tracking-widest font-black text-red-400/70 mb-0.5">Outstanding Dues</p>
+                    <p className="text-2xl font-black text-red-400 leading-none">
+                      ₹{billingStats.totalDue.toLocaleString('en-IN')}
+                    </p>
+                    <p className="text-[11px] text-gray-400 mt-1">
+                      {dueCustomers.length} customer{dueCustomers.length !== 1 ? 's' : ''} · {billingStats.dueCount} invoice{billingStats.dueCount !== 1 ? 's' : ''} with unpaid balance
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-[10px] font-black text-red-400/60 uppercase tracking-wider group-hover:text-red-400 transition-colors shrink-0">
+                  View Details <ChevronRightIcon size={13} />
+                </div>
+              </div>
+            </button>
+          ) : (
+            <div className="flex items-center gap-4 bg-emerald-500/8 border border-emerald-500/20 rounded-2xl p-5">
+              <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/20 flex items-center justify-center shrink-0">
+                <CheckCircle2 size={18} className="text-emerald-400" />
+              </div>
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-emerald-400/70 mb-0.5">Outstanding Dues</p>
+                <p className="text-2xl font-black text-emerald-400 leading-none">₹0</p>
+                <p className="text-[11px] text-gray-400 mt-1">All bills are fully settled — no pending dues</p>
+              </div>
+            </div>
+          )}
+
           {/* ── Payment method breakdown ── */}
           {Object.keys(billingStats.pmRevenue).length > 0 && (
             <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
@@ -2711,7 +3644,7 @@ Your uid is: ${user.uid}
                     const bar = PM_COLORS[pm] ?? 'bg-gray-500';
                     return (
                       <div key={pm} className="flex items-center gap-3">
-                        <span className="text-[10px] font-black text-gray-400 uppercase w-16 shrink-0">{pm}</span>
+                        <span className="text-[10px] font-black text-gray-400 uppercase w-16 shrink-0">{pm === 'online' ? 'Razorpay' : pm}</span>
                         <div className="flex-1 h-2 bg-white/8 rounded-full overflow-hidden">
                           <div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%`, transition: 'width 0.6s ease' }} />
                         </div>
@@ -2749,6 +3682,7 @@ Your uid is: ${user.uid}
                     <tbody>
                       {billingStats.displayed.map(inv => {
                         const isExpanded = expandedInv === (inv as any).id;
+                        const isDue      = (inv as any).status === 'due' && ((inv as any).amountDue ?? 0) > 0;
                         const PM_STYLE: Record<string,string> = {
                           cash:'text-emerald-400 bg-emerald-400/10 border-emerald-400/20',
                           upi:'text-blue-400 bg-blue-400/10 border-blue-400/20',
@@ -2771,6 +3705,11 @@ Your uid is: ${user.uid}
                             >
                               <td className="py-3 px-4">
                                 <p className="text-gold text-[10px] font-black font-mono">{inv.invoiceNumber}</p>
+                                {isDue && (
+                                  <span className="inline-block mt-0.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500/15 border border-red-500/25 text-red-400 uppercase tracking-wide">
+                                    Due ₹{((inv as any).amountDue ?? 0).toLocaleString('en-IN')}
+                                  </span>
+                                )}
                               </td>
                               <td className="py-3 px-4">
                                 <p className="text-white text-xs font-bold">{inv.customerName}</p>
@@ -2809,6 +3748,35 @@ Your uid is: ${user.uid}
                                   >
                                     <Eye size={13} />
                                   </button>
+                                  {/* Delete — super admin only */}
+                                  {!isStaffMode && (
+                                    deleteConfirmId === (inv as any).id ? (
+                                      <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                        <button
+                                          onClick={() => handleDeleteInvoice((inv as any).id)}
+                                          disabled={deleting}
+                                          className="px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-[9px] font-black hover:bg-red-500/30 transition-all disabled:opacity-50 flex items-center gap-1"
+                                        >
+                                          {deleting ? <Loader2 size={10} className="animate-spin" /> : null}
+                                          Confirm
+                                        </button>
+                                        <button
+                                          onClick={() => setDeleteConfirmId(null)}
+                                          className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-gray-400 text-[9px] font-black hover:text-white transition-all"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        onClick={e => { e.stopPropagation(); setDeleteConfirmId((inv as any).id); }}
+                                        className="p-1.5 rounded-lg text-gray-700 hover:text-red-400 hover:bg-red-400/10 transition-all"
+                                        title="Delete invoice"
+                                      >
+                                        <Trash2 size={13} />
+                                      </button>
+                                    )
+                                  )}
                                   <span className="text-gray-700 group-hover:text-gray-500 transition-colors">
                                     {isExpanded ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
                                   </span>
@@ -2822,20 +3790,37 @@ Your uid is: ${user.uid}
                                   <div className="px-6 py-4 bg-zinc-800/60 border-b border-white/10 space-y-2">
                                     <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-2">Line Items</p>
                                     {inv.items?.map((it: BillItem, i: number) => (
-                                      <div key={i} className="flex items-center justify-between gap-3 text-xs">
-                                        <div className="flex-1 min-w-0">
-                                          <span className="text-gray-300">{it.serviceName}</span>
-                                          {it.staffName && <span className="text-gray-400 ml-2">— {it.staffName} ({it.commissionRate}%)</span>}
+                                      <div key={i} className="space-y-0.5">
+                                        <div className="flex items-center justify-between gap-3 text-xs">
+                                          <div className="flex-1 min-w-0">
+                                            <span className="text-gray-300">{it.serviceName}{(it.quantity ?? 1) > 1 ? ` ×${it.quantity}` : ''}</span>
+                                            {it.staffName && <span className="text-gray-400 ml-2">— {it.staffName} ({it.commissionRate}%)</span>}
+                                          </div>
+                                          <span className="text-white font-bold shrink-0">₹{it.price.toLocaleString('en-IN')}</span>
                                         </div>
-                                        <span className="text-white font-bold shrink-0">₹{it.price.toLocaleString('en-IN')}</span>
+                                        {(it.quantity ?? 1) > 1 && (
+                                          <p className="text-[9px] text-gray-500 pl-1">₹{it.unitPrice.toLocaleString('en-IN')} × {it.quantity}</p>
+                                        )}
                                       </div>
                                     ))}
-                                    {inv.discountAmount > 0 && (
-                                      <div className="flex justify-between text-xs text-red-400 pt-1 border-t border-white/10">
-                                        <span>Discount ({inv.discountPercent}%)</span>
-                                        <span>-₹{inv.discountAmount.toLocaleString('en-IN')}</span>
+                                    <div className="pt-2 border-t border-white/10 space-y-1">
+                                      {inv.discountAmount > 0 && (
+                                        <div className="flex justify-between text-xs text-red-400">
+                                          <span>Discount ({inv.discountPercent}%)</span>
+                                          <span>-₹{inv.discountAmount.toLocaleString('en-IN')}</span>
+                                        </div>
+                                      )}
+                                      {(inv as any).dueSettlementAmount > 0 && (
+                                        <div className="flex justify-between text-xs text-amber-400 font-bold">
+                                          <span>⚠ Previous Dues Settled</span>
+                                          <span>+₹{(inv as any).dueSettlementAmount.toLocaleString('en-IN')}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex justify-between text-xs text-white font-black pt-1 border-t border-white/10">
+                                        <span>Total</span>
+                                        <span className="text-gold">₹{(inv.total ?? 0).toLocaleString('en-IN')}</span>
                                       </div>
-                                    )}
+                                    </div>
                                   </div>
                                 </td>
                               </tr>
@@ -2853,6 +3838,91 @@ Your uid is: ${user.uid}
               </>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Dues Drawer ── */}
+      {showDuesDrawer && (
+        <div className="fixed inset-0 z-[300] flex justify-end">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDuesDrawer(false)} />
+          <motion.div
+            initial={{ x: '100%' }} animate={{ x: 0 }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="relative z-10 w-full max-w-lg bg-zinc-950 border-l border-white/10 flex flex-col overflow-hidden"
+          >
+            {/* Header */}
+            <div className="shrink-0 bg-zinc-950 border-b border-white/10 px-5 py-4 flex items-center justify-between">
+              <div>
+                <p className="text-[10px] uppercase tracking-widest font-black text-red-400/70">Outstanding Dues</p>
+                <p className="text-white font-black text-xl leading-none mt-0.5">
+                  ₹{billingStats.totalDue.toLocaleString('en-IN')}
+                </p>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  {dueCustomers.length} customer{dueCustomers.length !== 1 ? 's' : ''} · {billingStats.dueCount} invoice{billingStats.dueCount !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <button onClick={() => setShowDuesDrawer(false)}
+                className="p-2 rounded-xl bg-white/8 border border-white/10 text-gray-400 hover:text-white transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Customer list */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {dueCustomers.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center py-12">No outstanding dues</p>
+              ) : dueCustomers.map(customer => (
+                <div key={customer.phone} className="bg-zinc-900 border border-white/10 rounded-2xl overflow-hidden">
+                  {/* Customer header */}
+                  <div className="flex items-center justify-between px-4 py-3 bg-white/[0.03] border-b border-white/8">
+                    <div>
+                      <p className="text-white font-bold text-sm">{customer.name}</p>
+                      <p className="text-gray-400 text-[11px]">{customer.phone}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-red-400 font-black text-base">₹{customer.totalDue.toLocaleString('en-IN')}</p>
+                      <p className="text-[9px] text-gray-500 uppercase tracking-wider">Total due</p>
+                    </div>
+                  </div>
+                  {/* Due invoices */}
+                  <div className="divide-y divide-white/6">
+                    {customer.invoices.map(inv => {
+                      const invDate = (inv as any).createdAt
+                        ? (inv as any).createdAt.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                        : '—';
+                      const services = inv.items?.map((it: BillItem) => it.serviceName).join(', ') ?? '—';
+                      const amountDue = (inv as any).amountDue ?? 0;
+                      const amountPaid = inv.amountPaid ?? (inv.total - amountDue);
+                      return (
+                        <div key={(inv as any).id} className="px-4 py-3 flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-gold text-[10px] font-black font-mono">{inv.invoiceNumber}</span>
+                              <span className="text-[9px] text-gray-500">{invDate}</span>
+                            </div>
+                            <p className="text-gray-300 text-[11px] truncate mb-1.5">{services}</p>
+                            <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
+                              <span className="text-gray-400 text-[10px]">Total ₹{inv.total.toLocaleString('en-IN')}</span>
+                              <span className="text-gray-600 text-[10px]">·</span>
+                              <span className="text-emerald-400 text-[10px]">Paid ₹{amountPaid.toLocaleString('en-IN')}</span>
+                              <span className="text-gray-600 text-[10px]">·</span>
+                              <span className="text-red-400 text-[10px] font-bold">Due ₹{amountDue.toLocaleString('en-IN')}</span>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => { setInvoiceModalId((inv as any).id); }}
+                            className="shrink-0 px-2.5 py-1.5 rounded-lg bg-gold/10 border border-gold/20 text-gold text-[10px] font-black uppercase tracking-wider hover:bg-gold/20 transition-colors"
+                          >
+                            View
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
         </div>
       )}
 
@@ -3304,11 +4374,13 @@ Your uid is: ${user.uid}
           {/* Sub-tab bar */}
           <div className="flex items-center gap-1 flex-wrap bg-zinc-800 border border-white/10 rounded-2xl p-1.5">
             {([
-              { id: 'services', label: 'Services',    icon: <Scissors  size={12}/>, adminOnly: true  },
-              { id: 'banners',  label: 'Banners',     icon: <Wrench    size={12}/>, adminOnly: false },
-              { id: 'gallery',  label: 'Gallery',     icon: <BarChart  size={12}/>, adminOnly: false },
-              { id: 'coupons',  label: 'Coupons',     icon: <Percent   size={12}/>, adminOnly: true  },
-              { id: 'data',     label: 'Import/Export', icon: <Download  size={12}/>, adminOnly: true  },
+              { id: 'services', label: 'Services',      icon: <Scissors    size={12}/>, adminOnly: true  },
+              { id: 'expenses', label: 'Expenses',      icon: <IndianRupee size={12}/>, adminOnly: true  },
+              { id: 'banners',  label: 'Banners',       icon: <Wrench      size={12}/>, adminOnly: false },
+              { id: 'gallery',  label: 'Gallery',       icon: <BarChart    size={12}/>, adminOnly: false },
+              { id: 'coupons',  label: 'Coupons',       icon: <Percent     size={12}/>, adminOnly: true  },
+              { id: 'data',     label: 'Import/Export', icon: <Download    size={12}/>, adminOnly: true  },
+              { id: 'settings', label: 'Settings',      icon: <Building2   size={12}/>, adminOnly: true  },
             ] as const).filter(t => !t.adminOnly || !isStaffMode).map(t => (
               <button key={t.id} onClick={() => setToolsTab(t.id)}
                 className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
@@ -3323,45 +4395,113 @@ Your uid is: ${user.uid}
 
           {/* Tab content */}
           {toolsTab === 'services' && !isStaffMode && <ServiceManager />}
+          {toolsTab === 'expenses' && !isStaffMode && <ExpenseManager />}
           {toolsTab === 'banners'  && <BannerManager />}
           {toolsTab === 'gallery'  && <GalleryManager />}
           {toolsTab === 'coupons'  && !isStaffMode && <CouponManager />}
           {toolsTab === 'data'     && !isStaffMode && <DataIO />}
+
+          {toolsTab === 'settings' && !isStaffMode && (
+            <div className="space-y-6 max-w-xl">
+              <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6">
+                <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1">Salon Configuration</p>
+                <p className="text-xs text-gray-500 mb-6">Controls booking slots, capacity, and voice assistant hours. Changes take effect immediately for new bookings.</p>
+
+                {!sSettingsLoaded ? (
+                  <div className="flex items-center gap-2 text-gray-400 py-8 justify-center">
+                    <Loader2 size={16} className="animate-spin" /> Loading…
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    {/* Staff count */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-300 mb-1">Staff / Simultaneous Appointments</label>
+                      <p className="text-[10px] text-gray-500 mb-2">How many appointments can run at the same time</p>
+                      <input type="number" min={1} max={20}
+                        value={sSettings.staffCount}
+                        onChange={e => setSSettings(p => ({ ...p, staffCount: Math.max(1, +e.target.value) }))}
+                        className="w-32 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40"
+                      />
+                    </div>
+
+                    {/* Opening & closing hours */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-xs font-bold text-gray-300 mb-1">Opening Hour</label>
+                        <p className="text-[10px] text-gray-500 mb-2">24-hour format (e.g. 10 = 10:00 AM)</p>
+                        <input type="number" min={0} max={23}
+                          value={sSettings.openHour}
+                          onChange={e => setSSettings(p => ({ ...p, openHour: Math.min(23, Math.max(0, +e.target.value)) }))}
+                          className="w-32 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40"
+                        />
+                        <p className="text-[10px] text-gold mt-1">{sSettings.openHour === 0 ? '12:00 AM' : sSettings.openHour < 12 ? `${sSettings.openHour}:00 AM` : sSettings.openHour === 12 ? '12:00 PM' : `${sSettings.openHour - 12}:00 PM`}</p>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-300 mb-1">Closing Hour</label>
+                        <p className="text-[10px] text-gray-500 mb-2">24-hour format (e.g. 22 = 10:00 PM)</p>
+                        <input type="number" min={0} max={23}
+                          value={sSettings.closeHour}
+                          onChange={e => setSSettings(p => ({ ...p, closeHour: Math.min(23, Math.max(0, +e.target.value)) }))}
+                          className="w-32 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40"
+                        />
+                        <p className="text-[10px] text-gold mt-1">{sSettings.closeHour === 0 ? '12:00 AM' : sSettings.closeHour < 12 ? `${sSettings.closeHour}:00 AM` : sSettings.closeHour === 12 ? '12:00 PM' : `${sSettings.closeHour - 12}:00 PM`}</p>
+                      </div>
+                    </div>
+
+                    {/* Slot step */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-300 mb-1">Slot Interval (minutes)</label>
+                      <p className="text-[10px] text-gray-500 mb-2">How frequently new time slots are generated (e.g. every 15 min)</p>
+                      <select value={sSettings.slotStepMins}
+                        onChange={e => setSSettings(p => ({ ...p, slotStepMins: +e.target.value }))}
+                        className="w-40 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40">
+                        {[5, 10, 15, 20, 30, 60].map(v => <option key={v} value={v}>{v} minutes</option>)}
+                      </select>
+                    </div>
+
+                    {/* Buffer */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-300 mb-1">Advance Buffer (minutes)</label>
+                      <p className="text-[10px] text-gray-500 mb-2">Minimum time ahead required before the first available slot</p>
+                      <select value={sSettings.bufferMins}
+                        onChange={e => setSSettings(p => ({ ...p, bufferMins: +e.target.value }))}
+                        className="w-40 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40">
+                        {[0, 15, 30, 45, 60, 90, 120].map(v => <option key={v} value={v}>{v === 0 ? 'None' : `${v} minutes`}</option>)}
+                      </select>
+                    </div>
+
+                    {sSettingsError && (
+                      <p className="text-red-400 text-xs flex items-center gap-1.5"><AlertCircle size={12}/>{sSettingsError}</p>
+                    )}
+                    {sSettingsSaved && (
+                      <p className="text-emerald-400 text-xs flex items-center gap-1.5"><CheckCircle2 size={12}/>Settings saved successfully</p>
+                    )}
+
+                    <button
+                      disabled={sSettingsSaving}
+                      onClick={async () => {
+                        setSSettingsSaving(true); setSSettingsError(null); setSSettingsSaved(false);
+                        try {
+                          await setDoc(doc(db, 'settings', 'salon'), sSettings, { merge: true });
+                          setSSettingsSaved(true);
+                          setTimeout(() => setSSettingsSaved(false), 3000);
+                        } catch (e: any) {
+                          setSSettingsError(e.message ?? 'Failed to save');
+                        } finally {
+                          setSSettingsSaving(false);
+                        }
+                      }}
+                      className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-gold to-[#F0D060] rounded-xl text-black font-black text-xs uppercase tracking-wider disabled:opacity-50 transition-all hover:scale-105"
+                    >
+                      {sSettingsSaving ? <><Loader2 size={13} className="animate-spin"/>Saving…</> : <><Save size={13}/>Save Settings</>}
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
-
-      {/* ── Walk-in booking modal ── */}
-      <AnimatePresence>
-        {walkInOpen && (
-          <WalkInBooking
-            user={user}
-            staffMember={staffMember ?? undefined}
-            onClose={() => setWalkInOpen(false)}
-            onCreated={(_id) => {
-              setWalkInOpen(false);
-              // Live onSnapshot listener picks up the new booking automatically.
-              setActiveTab('active');
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ── Billing module modal — rendered over everything ── */}
-      <AnimatePresence>
-        {billingOpen && (
-          <BillingModule
-            prefill={billingPrefill}
-            onClose={() => { setBillingOpen(false); setBillingPrefill(null); }}
-            onInvoiceCreated={(inv) => {
-              setBillingOpen(false);
-              setBillingPrefill(null);
-            }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ── Walk-In Booking modal ── */}
-      {walkInOpen && <WalkInBooking onClose={() => setWalkInOpen(false)} />}
 
       {/* ── Invoice view modal ── */}
       {invoiceModalId && (

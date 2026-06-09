@@ -21,7 +21,8 @@ import {
 } from 'lucide-react';
 import { format, addDays, isSameDay, startOfDay } from 'date-fns';
 import { db } from '../lib/firebase';
-import { collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc, updateDoc, increment } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc, updateDoc, increment, orderBy } from 'firebase/firestore';
+import { type SalonConfig, DEFAULT_SALON_CONFIG, fetchSalonConfig } from '../lib/salonConfig';
 import { servicesData, Service } from '../constants/services';
 import { Link } from 'react-router-dom';
 
@@ -52,12 +53,8 @@ declare global { interface Window { Razorpay: new (o: any) => any; } }
 
 // ─── Constants ─────────────────────────────────────────────────────────────────
 
-const RAZORPAY_KEY   = import.meta.env.VITE_RAZORPAY_KEY_ID as string;
-const STAFF_COUNT    = 3;
-const SALON_OPEN_H   = 10;
-const SALON_CLOSE_H  = 22;
-const SLOT_STEP_MINS = 15;
-const BUFFER_MINS    = 30;
+const RAZORPAY_KEY = import.meta.env.VITE_RAZORPAY_KEY_ID as string;
+// Slot/capacity defaults — live values fetched from Firestore settings/salon
 
 // Category display order — Combos first (highest demand), then by popularity
 const CATEGORY_ORDER = [
@@ -337,27 +334,27 @@ function fmtT(d: Date) {
   return `${h}:${String(mi).padStart(2,'0')} ${p}`;
 }
 
-function computeSlots(date: Date, mins: number, existing: ExistingBooking[]): SlotOption[] {
+function computeSlots(date: Date, mins: number, existing: ExistingBooking[], cfg: SalonConfig): SlotOption[] {
   if (mins <= 0) return [];
   const now      = new Date();
-  const buf      = new Date(now.getTime() + BUFFER_MINS * 60_000);
-  const openMs   = new Date(date).setHours(SALON_OPEN_H,  0, 0, 0);
-  const latestMs = new Date(date).setHours(SALON_CLOSE_H, 0, 0, 0) - mins * 60_000;
+  const buf      = new Date(now.getTime() + cfg.bufferMins * 60_000);
+  const openMs   = new Date(date).setHours(cfg.openHour,  0, 0, 0);
+  const latestMs = new Date(date).setHours(cfg.closeHour, 0, 0, 0) - mins * 60_000;
   const out: SlotOption[] = [];
 
-  for (let t = openMs; t <= latestMs; t += SLOT_STEP_MINS * 60_000) {
+  for (let t = openMs; t <= latestMs; t += cfg.slotStepMins * 60_000) {
     const e = t + mins * 60_000;
     if (isSameDay(date, now) && t < buf.getTime()) continue;
     const concurrent = existing.filter(b =>
       new Date(b.startTime).getTime() < e && new Date(b.endTime).getTime() > t
     ).length;
-    if (concurrent >= STAFF_COUNT) continue;
+    if (concurrent >= cfg.staffCount) continue;
     const sd = new Date(t), ed = new Date(e);
     const h  = sd.getHours();
     out.push({
       label: `${fmtT(sd)} – ${fmtT(ed)}`,
       startISO: sd.toISOString(), endISO: ed.toISOString(),
-      available: STAFF_COUNT - concurrent,
+      available: cfg.staffCount - concurrent,
       session: h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening',
     });
   }
@@ -366,17 +363,23 @@ function computeSlots(date: Date, mins: number, existing: ExistingBooking[]): Sl
 
 // ─── Voice parser (no API key) ─────────────────────────────────────────────────
 
-async function parseVoice(transcript: string): Promise<VoiceIntent> {
+function fmtHour(h: number): string {
+  if (h === 0)  return '12:00 AM';
+  if (h === 12) return '12:00 PM';
+  return h < 12 ? `${h}:00 AM` : `${h - 12}:00 PM`;
+}
+
+async function parseVoice(transcript: string, servicesList: Service[], cfg: SalonConfig): Promise<VoiceIntent> {
   const today    = new Date();
   const todayStr = today.toISOString().slice(0, 10);
   const dayName  = today.toLocaleDateString('en-IN', { weekday: 'long' });
 
-  const serviceList = servicesData
+  const serviceList = servicesList
     .map(s => `"${s.name}" (${s.category}, ${s.time}, ₹${s.priceValue})`)
     .join('\n');
 
   const system = `You are a multilingual booking assistant for Hair Tech Salon, Araria, Bihar.
-Today is ${dayName}, ${todayStr}. Salon hours: 10:00 AM – 10:00 PM.
+Today is ${dayName}, ${todayStr}. Salon hours: ${fmtHour(cfg.openHour)} – ${fmtHour(cfg.closeHour)}.
 
 The user speaks English, Hindi, or Hinglish (mixed). Parse their voice input and extract intent.
 
@@ -489,7 +492,7 @@ function loadRazorpay() {
 
 // ─── Voice button ──────────────────────────────────────────────────────────────
 
-function VoiceMic({ onResult }: { onResult: (i: VoiceIntent) => void }) {
+function VoiceMic({ onResult, services: voiceServices, config: voiceConfig }: { onResult: (i: VoiceIntent) => void; services: Service[]; config: SalonConfig }) {
   const [st, setSt] = useState<'idle'|'listening'|'processing'|'error'>('idle');
   const [err, setErr] = useState('');
   const recRef = useRef<any>(null);
@@ -503,7 +506,7 @@ function VoiceMic({ onResult }: { onResult: (i: VoiceIntent) => void }) {
     r.lang = 'hi-IN'; r.continuous = false; r.maxAlternatives = 3;
     r.onresult = (e: any) => {
       setSt('processing');
-      parseVoice(e.results[0][0].transcript)
+      parseVoice(e.results[0][0].transcript, voiceServices, voiceConfig)
         .then(intent => { setSt('idle'); onResult(intent); })
         .catch(() => { setSt('error'); setErr("Couldn't understand."); });
     };
@@ -536,10 +539,11 @@ function VoiceMic({ onResult }: { onResult: (i: VoiceIntent) => void }) {
 
 // ─── Slot picker screen ────────────────────────────────────────────────────────
 
-function SlotScreen({ totalMins, onBack, onSelect }: {
+function SlotScreen({ totalMins, onBack, onSelect, config }: {
   totalMins: number;
   onBack: () => void;
   onSelect: (date: Date, slot: SlotOption) => void;
+  config: SalonConfig;
 }) {
   const [selDate, setSelDate]       = useState(() => new Date());
   const [loading, setLoading]       = useState(false);
@@ -573,7 +577,7 @@ function SlotScreen({ totalMins, onBack, onSelect }: {
     return ()=>{dead=true;};
   }, [selDate]);
 
-  const slots    = useMemo(()=>computeSlots(selDate,totalMins,bookings),[selDate,totalMins,bookings]);
+  const slots    = useMemo(()=>computeSlots(selDate,totalMins,bookings,config),[selDate,totalMins,bookings,config]);
   const groups   = useMemo(()=>({
     morning:   slots.filter(s=>s.session==='morning'),
     afternoon: slots.filter(s=>s.session==='afternoon'),
@@ -696,6 +700,54 @@ export default function BookingSystem() {
   const [couponError,   setCouponError]   = useState<string|null>(null);
   const catRefs = useRef<Record<string,HTMLDivElement|null>>({});
 
+  const [salonConfig, setSalonConfig] = useState<SalonConfig>(DEFAULT_SALON_CONFIG);
+
+  useEffect(() => {
+    fetchSalonConfig().then(setSalonConfig).catch(() => {});
+  }, []);
+
+  const [firestoreServices, setFirestoreServices] = useState<Service[]>([]);
+
+  useEffect(() => {
+    let dead = false;
+    getDocs(query(collection(db, 'services'), orderBy('category'), orderBy('name')))
+      .then(snap => {
+        if (dead) return;
+        setFirestoreServices(snap.docs
+          .filter(d => (d.data() as any).active !== false)
+          .map(d => {
+            const data = d.data();
+            return {
+              id: d.id,
+              name: data.name,
+              category: data.category,
+              price: data.price,
+              priceValue: data.priceValue,
+              time: data.time,
+              ...(data.description && { description: data.description }),
+            } as Service;
+          }));
+      })
+      .catch(() => {});
+    return () => { dead = true; };
+  }, []);
+
+  // Merge Firestore services with static fallback (Firestore takes precedence by name)
+  const services = useMemo(() => {
+    if (!firestoreServices.length) return servicesData;
+    const fsNames = new Set(firestoreServices.map(s => s.name.toLowerCase()));
+    return [...firestoreServices, ...servicesData.filter(s => !fsNames.has(s.name.toLowerCase()))];
+  }, [firestoreServices]);
+
+  // Dynamic category list — includes any new categories added via Firestore
+  const dynamicCategories = useMemo(() => {
+    const allCats = Array.from(new Set(services.map(s => s.category)));
+    return [
+      ...CATEGORY_ORDER.filter(c => allCats.includes(c)),
+      ...allCats.filter(c => !CATEGORY_ORDER.includes(c)),
+    ];
+  }, [services]);
+
   // Derived
   const totalAmount = useMemo(()=>cart.reduce((a,i)=>a+i.service.priceValue*i.qty,0),[cart]);
   const totalMins   = useMemo(()=>cart.reduce((a,i)=>a+parseMins(i.service.time)*i.qty,0),[cart]);
@@ -770,10 +822,10 @@ export default function BookingSystem() {
 
   // Filtered + grouped services
   const filtered = useMemo(()=>{
-    if (!search.trim()) return servicesData;
+    if (!search.trim()) return services;
     const q = search.toLowerCase();
-    return servicesData.filter(s=>s.name.toLowerCase().includes(q)||s.category.toLowerCase().includes(q));
-  },[search]);
+    return services.filter(s=>s.name.toLowerCase().includes(q)||s.category.toLowerCase().includes(q));
+  },[search, services]);
 
   const grouped = useMemo(()=>{
     const g: Record<string,Service[]>={};
@@ -781,7 +833,7 @@ export default function BookingSystem() {
     return g;
   },[filtered]);
 
-  const visibleCats = useMemo(()=>CATEGORIES.filter(c=>grouped[c]?.length),[grouped]);
+  const visibleCats = useMemo(()=>dynamicCategories.filter(c=>grouped[c]?.length),[grouped, dynamicCategories]);
 
   // Cart helpers
   const qty    = (id:string) => cart.find(i=>i.service.id===id)?.qty??0;
@@ -789,13 +841,13 @@ export default function BookingSystem() {
     setCart(prev=>{
       const ex = prev.find(i=>i.service.id===id);
       if (!ex) {
-        if (delta>0) return [...prev,{service:servicesData.find(s=>s.id===id)!,qty:1}];
+        if (delta>0) return [...prev,{service:services.find(s=>s.id===id)!,qty:1}];
         return prev;
       }
       const n = ex.qty+delta;
       return n<=0 ? prev.filter(i=>i.service.id!==id) : prev.map(i=>i.service.id===id?{...i,qty:n}:i);
     });
-  },[]);
+  },[services]);
 
   // Scroll-spy
   useEffect(()=>{
@@ -817,12 +869,12 @@ export default function BookingSystem() {
   const handleVoice = useCallback((intent:VoiceIntent)=>{
     if (intent.intent==='unknown') return;
     intent.services.forEach(name=>{
-      const s = servicesData.find(x=>x.name===name);
+      const s = services.find(x=>x.name===name);
       if (s) setCart(prev=>prev.find(i=>i.service.id===s.id)?prev:[...prev,{service:s,qty:1}]);
     });
     if (intent.requestedDate==='tomorrow') setSelDate(addDays(new Date(),1));
     if (cart.length>0||intent.services.length>0) setScreen('slots');
-  },[cart.length]);
+  },[cart.length, services]);
 
   // Payment
   const pay = async()=>{
@@ -927,7 +979,8 @@ export default function BookingSystem() {
   if (screen==='slots') return (
     <div className="fixed inset-0 z-[200]">
       <SlotScreen totalMins={totalMins} onBack={()=>setScreen('browse')}
-        onSelect={(date,slot)=>{setSelDate(date);setSelSlot(slot);setScreen('details');}}/>
+        onSelect={(date,slot)=>{setSelDate(date);setSelSlot(slot);setScreen('details');}}
+        config={salonConfig}/>
     </div>
   );
 
@@ -1186,7 +1239,7 @@ export default function BookingSystem() {
             />
             {search&&<button onClick={()=>setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"><X size={13}/></button>}
           </div>
-          <VoiceMic onResult={handleVoice}/>
+          <VoiceMic onResult={handleVoice} services={services} config={salonConfig}/>
         </div>
       </div>
 

@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import {
   collection, query, where, getDocs, doc, updateDoc, getDoc, serverTimestamp,
+  orderBy, limit,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { format, parseISO, isToday, isFuture, startOfDay, addDays, isSameDay } from 'date-fns';
@@ -114,7 +115,7 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   failed:    { label: 'Failed',     cls: 'text-red-400     bg-red-400/10     border-red-400/20'     },
 };
 
-// ─── Invoice mini-viewer ───────────────────────────────────────────────────────
+// ─── Invoice viewer (full detail, matches BillingModule's InvoicePreview) ─────
 
 function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () => void }) {
   const [data, setData] = useState<any>(null);
@@ -130,22 +131,70 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
   const handlePrint = () => {
     if (!data) return;
     const w = window.open('', '_blank'); if (!w) return;
-    w.document.write(`<!DOCTYPE html><html><head><title>Invoice ${data.invoiceNumber}</title><meta charset="utf-8"/>
-    <style>@page{size:80mm auto;margin:0}body{font-family:'Courier New',monospace;font-size:11px;width:80mm;margin:0 auto;padding:5mm 4mm;color:#000}.center{text-align:center}.bold{font-weight:700}.dash{border-top:1px dashed #888;margin:4px 0}.row{display:flex;justify-content:space-between;padding:2px 0}.total{font-size:14px;font-weight:900}.sm{font-size:9px;color:#666}</style>
+    const discountLine = (data.discountAmount ?? 0) > 0
+      ? `<div class="row"><span>Discount (${data.discountPercent}%)</span><span style="color:#c00">-&#8377;${data.discountAmount.toLocaleString('en-IN')}</span></div>`
+      : '';
+    const dueSettledLine = (data.dueSettlementAmount ?? 0) > 0
+      ? `<div class="row"><span>&#9888; Previous Dues Settled</span><span style="color:#c07000">+&#8377;${data.dueSettlementAmount.toLocaleString('en-IN')}</span></div>`
+      : '';
+    const items: any[] = data.items ?? [];
+    const splits: any[] = data.paymentSplits ?? [];
+    const effectivePaid = data.amountPaid ?? (data.total - (data.amountDue ?? 0));
+    const hasDue = (data.amountDue ?? 0) > 0;
+    const paymentRows = splits.length > 0
+      ? splits.map((s: any) => `<div class="row sm"><span style="text-transform:capitalize${s.isAdvance ? ';color:#c07000;font-weight:700' : ''}">${s.isAdvance ? `Advance (${s.method})` : s.method === 'online' ? 'Razorpay' : s.method}</span><span>&#8377;${s.amount.toLocaleString('en-IN')}</span></div>`).join('')
+        + (splits.length > 1 ? `<div class="row sm"><span>Collected</span><span class="bold">&#8377;${effectivePaid.toLocaleString('en-IN')}</span></div>` : '')
+      : `<div class="row sm"><span style="text-transform:capitalize">${data.paymentMethod === 'online' ? 'Razorpay' : (data.paymentMethod ?? '')}</span><span class="bold">&#8377;${effectivePaid.toLocaleString('en-IN')}</span></div>`;
+    const dateStr = data.createdAt?.toDate
+      ? data.createdAt.toDate().toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+      : new Date().toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+
+    w.document.write(`<!DOCTYPE html><html><head>
+      <title>Invoice ${data.invoiceNumber}</title><meta charset="utf-8"/>
+      <style>
+        @page{size:80mm auto;margin:0}*{box-sizing:border-box}
+        body{font-family:'Courier New',Courier,monospace;font-size:12px;width:80mm;margin:0 auto;padding:6mm 4mm;color:#000}
+        .center{text-align:center}.bold{font-weight:700}.lg{font-size:15px}.xl{font-size:20px;font-weight:900}
+        .sm{font-size:10px;color:#555}.dash{border-top:1px dashed #888;margin:5px 0}
+        .row{display:flex;justify-content:space-between;padding:2px 0}
+        .row.total{font-size:15px;font-weight:900;padding-top:4px}
+        .badge{display:inline-block;background:#eee;padding:1px 5px;border-radius:3px;font-size:9px}
+        .svc{margin:3px 0}.staff-hint{font-size:9px;color:#888;margin-left:8px}
+      </style>
     </head><body>
-    <div class="center"><div style="font-size:18px;font-weight:900">Hair Tech</div><div class="bold">Unisex Salon, Araria</div><div class="sm">Invoice: <span class="bold">${data.invoiceNumber}</span></div></div>
-    <div class="dash"></div>
-    <div class="row"><span>Customer</span><span class="bold">${data.customerName}</span></div>
-    <div class="row sm"><span>Phone</span><span>${data.customerPhone}</span></div>
-    <div class="dash"></div>
-    ${(data.items ?? []).map((it: any) => `<div class="row"><span>${it.serviceName}</span><span class="bold">₹${it.price?.toLocaleString('en-IN')}</span></div>`).join('')}
-    <div class="dash"></div>
-    <div class="row"><span>Subtotal</span><span>₹${data.subtotal?.toLocaleString('en-IN')}</span></div>
-    ${data.discountAmount > 0 ? `<div class="row sm"><span>Discount</span><span>-₹${data.discountAmount?.toLocaleString('en-IN')}</span></div>` : ''}
-    <div class="row total"><span>TOTAL</span><span>₹${data.total?.toLocaleString('en-IN')}</span></div>
-    <div class="row sm"><span>Payment</span><span class="bold">${(data.paymentMethod ?? '').toUpperCase()}</span></div>
-    <div class="dash"></div>
-    <div class="center sm">Thank you for visiting Hair Tech Salon!</div>
+      <div class="center" style="margin-bottom:8px">
+        <div class="xl">Hair Tech</div>
+        <div class="bold">Unisex Salon, Araria</div>
+        <div class="sm">+91 87896 03343</div>
+        <div class="sm" style="margin-top:4px"><span class="badge">${data.source === 'online' ? 'Online Booking' : 'Walk-in'}</span></div>
+      </div>
+      <div class="dash"></div>
+      <div class="sm">Invoice: <span class="bold">${data.invoiceNumber}</span></div>
+      <div class="sm">${dateStr}</div>
+      <div class="dash"></div>
+      <div class="row"><span>Customer</span><span class="bold">${data.customerName}</span></div>
+      <div class="row sm"><span>Phone</span><span>${data.customerPhone}</span></div>
+      <div class="dash"></div>
+      <div class="bold sm" style="margin-bottom:4px">SERVICES</div>
+      ${items.map((it: any) => `
+        <div class="svc">
+          <div class="row"><span>${it.serviceName}${(it.quantity ?? 1) > 1 ? ` &times;${it.quantity}` : ''}</span><span class="bold">&#8377;${it.price?.toLocaleString('en-IN')}</span></div>
+          ${(it.quantity ?? 1) > 1 ? `<div class="staff-hint">&#8377;${it.unitPrice?.toLocaleString('en-IN')} &times; ${it.quantity}</div>` : ''}
+          ${it.staffName ? `<div class="staff-hint">Staff: ${it.staffName}</div>` : ''}
+        </div>`).join('')}
+      <div class="dash"></div>
+      <div class="row"><span>Subtotal</span><span>&#8377;${data.subtotal?.toLocaleString('en-IN')}</span></div>
+      ${discountLine}${dueSettledLine}
+      <div class="row total"><span>TOTAL</span><span>&#8377;${data.total?.toLocaleString('en-IN')}</span></div>
+      <div class="sm bold" style="margin-top:4px">Payment</div>
+      ${paymentRows}
+      <div class="row sm" style="color:${hasDue ? '#c00' : '#007700'};font-weight:700">
+        <span>${hasDue ? 'Balance Due' : '&#10003; Fully Paid'}</span>
+        <span>&#8377;${hasDue ? (data.amountDue ?? 0).toLocaleString('en-IN') : effectivePaid.toLocaleString('en-IN')}</span>
+      </div>
+      ${data.paymentId ? `<div class="row sm"><span>Ref ID</span><span>${data.paymentId}</span></div>` : ''}
+      <div class="dash"></div>
+      <div class="center sm" style="margin-top:6px">Thank you for visiting Hair Tech Salon!<br/>Follow us &#64;hairtech111</div>
     </body></html>`);
     w.document.close(); setTimeout(() => w.print(), 400);
   };
@@ -156,12 +205,12 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
       className="overflow-hidden"
     >
       <div className="mt-3 rounded-2xl overflow-hidden border border-white/10 bg-white">
-        {/* Invoice toolbar */}
+        {/* Toolbar */}
         <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
           <p className="text-xs font-black text-gray-700 uppercase tracking-wider">Invoice</p>
           <div className="flex items-center gap-2">
             {data && (
-              <button onClick={handlePrint} className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-gray-200 text-[10px] font-bold text-gray-400 hover:bg-gray-100 transition-all">
+              <button onClick={handlePrint} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-[10px] font-bold text-gray-500 hover:bg-gray-100 transition-all">
                 <Download size={11} /> Print / Download
               </button>
             )}
@@ -177,41 +226,133 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
           </div>
         ) : !data ? (
           <p className="text-center py-6 text-gray-400 text-sm">Invoice not available.</p>
-        ) : (
-          <div className="p-5 font-mono text-xs text-black">
-            <div className="text-center mb-4">
-              <p className="font-black text-lg uppercase tracking-tight">Hair Tech</p>
-              <p className="font-bold text-sm">Unisex Salon, Araria</p>
-              <p className="text-gray-400 text-[10px] mt-1">Invoice: <span className="font-black text-black">{data.invoiceNumber}</span></p>
-            </div>
-            <div className="border-t border-dashed border-gray-300 pt-3 mb-3 space-y-1">
-              <div className="flex justify-between text-xs"><span className="text-gray-500">Customer</span><span className="font-bold">{data.customerName}</span></div>
-              <div className="flex justify-between text-xs"><span className="text-gray-500">Phone</span><span className="text-gray-700">{data.customerPhone}</span></div>
-            </div>
-            <div className="border-t border-dashed border-gray-300 pt-3 mb-3 space-y-1.5">
-              <p className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-2">Services</p>
-              {(data.items ?? []).map((it: any, i: number) => (
-                <div key={i} className="flex justify-between text-xs">
-                  <span className="text-gray-700 flex-1 pr-2 truncate">{it.serviceName}</span>
-                  <span className="font-bold shrink-0">₹{it.price?.toLocaleString('en-IN')}</span>
+        ) : (() => {
+          const items: any[] = data.items ?? [];
+          const splits: any[] = data.paymentSplits ?? [];
+          const effectivePaid = data.amountPaid ?? (data.total - (data.amountDue ?? 0));
+          const hasDue = (data.amountDue ?? 0) > 0;
+          const dateStr = data.createdAt?.toDate
+            ? data.createdAt.toDate().toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+            : '';
+          return (
+            <div className="p-5 font-mono text-xs text-black space-y-0">
+              {/* Header */}
+              <div className="text-center mb-4">
+                <p className="font-black text-xl uppercase tracking-tight">Hair Tech</p>
+                <p className="font-bold text-sm">Unisex Salon, Araria</p>
+                <p className="text-gray-500 text-[10px]">+91 87896 03343</p>
+                <div className="flex justify-center gap-1 mt-2">
+                  <span className={`text-[9px] px-2 py-0.5 rounded border ${data.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                    {data.source === 'online' ? 'Online Booking' : 'Walk-in'}
+                  </span>
                 </div>
-              ))}
-            </div>
-            <div className="border-t border-dashed border-gray-300 pt-2 space-y-1">
-              <div className="flex justify-between text-xs text-gray-400"><span>Subtotal</span><span>₹{data.subtotal?.toLocaleString('en-IN')}</span></div>
-              {data.discountAmount > 0 && <div className="flex justify-between text-xs text-red-500"><span>Discount ({data.discountPercent}%)</span><span>-₹{data.discountAmount?.toLocaleString('en-IN')}</span></div>}
-              <div className="flex justify-between font-black text-sm pt-1 border-t border-dashed border-gray-300">
-                <span>TOTAL</span><span style={{ color: '#B8941F' }}>₹{data.total?.toLocaleString('en-IN')}</span>
+                <div className="mt-2 text-[9px] text-gray-400 space-y-0.5">
+                  <p>Invoice: <span className="font-black text-black">{data.invoiceNumber}</span></p>
+                  {dateStr && <p>{dateStr}</p>}
+                </div>
               </div>
-              <div className="flex justify-between text-[10px] text-gray-500 pt-1">
-                <span>Payment</span><span className="font-bold text-black uppercase">{data.paymentMethod}</span>
+
+              {/* Customer */}
+              <div className="border-t border-dashed border-gray-300 pt-3 pb-3 space-y-1">
+                <div className="flex justify-between text-xs"><span className="text-gray-500">Customer</span><span className="font-bold">{data.customerName}</span></div>
+                <div className="flex justify-between text-xs"><span className="text-gray-500">Phone</span><span className="text-gray-700">{data.customerPhone}</span></div>
+              </div>
+
+              {/* Services */}
+              <div className="border-t border-dashed border-gray-300 pt-3 pb-3 space-y-2.5">
+                <p className="text-[9px] font-black uppercase tracking-wider text-gray-500 mb-2">Services</p>
+                {items.map((it: any, i: number) => (
+                  <div key={i} className="space-y-0.5">
+                    <div className="flex justify-between items-start gap-2">
+                      <span className="text-gray-800 flex-1 text-xs">{it.serviceName}{(it.quantity ?? 1) > 1 ? ` ×${it.quantity}` : ''}</span>
+                      <span className="font-bold shrink-0 text-xs">₹{it.price?.toLocaleString('en-IN')}</span>
+                    </div>
+                    {(it.quantity ?? 1) > 1 && (
+                      <p className="text-[9px] text-gray-400 pl-1">₹{it.unitPrice?.toLocaleString('en-IN')} × {it.quantity}</p>
+                    )}
+                    {(it.lineDiscount ?? 0) > 0 && (
+                      <p className="text-[9px] text-red-500 pl-1">Line discount: {it.lineDiscount}%</p>
+                    )}
+                    {it.staffName && (
+                      <p className="text-[9px] text-gray-400 pl-1">Staff: {it.staffName}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Totals */}
+              <div className="border-t border-dashed border-gray-300 pt-3 space-y-1.5">
+                <div className="flex justify-between text-xs text-gray-400"><span>Subtotal</span><span>₹{data.subtotal?.toLocaleString('en-IN')}</span></div>
+                {(data.discountAmount ?? 0) > 0 && (
+                  <div className="flex justify-between text-xs text-red-600">
+                    <span>Discount ({data.discountPercent}%)</span>
+                    <span>-₹{data.discountAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {(data.dueSettlementAmount ?? 0) > 0 && (
+                  <div className="flex justify-between text-xs text-amber-600 font-bold">
+                    <span>⚠ Previous Dues Settled</span>
+                    <span>+₹{data.dueSettlementAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                <div className="flex justify-between font-black text-sm pt-1.5 border-t border-dashed border-gray-300">
+                  <span>TOTAL</span>
+                  <span style={{ color: '#B8941F' }}>₹{data.total?.toLocaleString('en-IN')}</span>
+                </div>
+
+                {/* Payment splits */}
+                <div className="pt-2 space-y-1.5">
+                  <p className="text-[9px] text-gray-500 uppercase tracking-wider font-black">Payment</p>
+                  {splits.length > 0 ? (
+                    <>
+                      {splits.map((s: any, i: number) => (
+                        <div key={i} className="flex justify-between text-xs">
+                          <span className={`capitalize ${s.isAdvance ? 'text-amber-600 font-bold' : 'text-gray-600'}`}>
+                            {s.isAdvance ? `Advance (${s.method})` : s.method === 'online' ? 'Razorpay' : s.method}
+                          </span>
+                          <span className="font-bold text-black">₹{s.amount?.toLocaleString('en-IN')}</span>
+                        </div>
+                      ))}
+                      {splits.length > 1 && (
+                        <div className="flex justify-between text-xs text-gray-500 border-t border-dashed border-gray-200 pt-0.5">
+                          <span>Collected</span>
+                          <span className="font-bold">₹{effectivePaid.toLocaleString('en-IN')}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="flex justify-between text-xs">
+                      <span className="text-gray-600 capitalize">
+                        {data.paymentMethod === 'online' ? 'Razorpay' : (data.paymentMethod ?? '—')}
+                      </span>
+                      <span className="font-bold text-black">₹{effectivePaid.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  <div className={`flex justify-between text-xs font-black pt-1 border-t border-dashed border-gray-200 ${hasDue ? 'text-red-600' : 'text-emerald-700'}`}>
+                    <span>
+                      {hasDue ? 'Balance Due' : '✓ Fully Paid'}
+                      {hasDue && (
+                        <span className="font-normal text-[9px] text-gray-400 ml-1">
+                          (₹{data.total?.toLocaleString('en-IN')} − ₹{effectivePaid.toLocaleString('en-IN')})
+                        </span>
+                      )}
+                    </span>
+                    <span>{hasDue ? `₹${(data.amountDue ?? 0).toLocaleString('en-IN')}` : `₹${effectivePaid.toLocaleString('en-IN')}`}</span>
+                  </div>
+                  {data.paymentId && (
+                    <div className="flex justify-between text-[9px] text-gray-400">
+                      <span>Ref ID</span><span className="font-mono">{data.paymentId}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="border-t border-dashed border-gray-300 mt-4 pt-3 text-center text-[9px] text-gray-400">
+                Thank you for visiting Hair Tech Salon!<br />Follow us @hairtech111
               </div>
             </div>
-            <div className="border-t border-dashed border-gray-300 mt-3 pt-2 text-center text-[9px] text-gray-400">
-              Thank you for visiting Hair Tech Salon!
-            </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     </motion.div>
   );
@@ -220,11 +361,12 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function MyAppointments() {
-  const [phone,     setPhone]     = useState('');
-  const [bookings,  setBookings]  = useState<Booking[] | null>(null);
-  const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<AppTab>('upcoming');
+  const [phone,              setPhone]              = useState('');
+  const [bookings,           setBookings]           = useState<Booking[] | null>(null);
+  const [completedInvoices,  setCompletedInvoices]  = useState<Booking[] | null>(null);
+  const [loading,            setLoading]            = useState(false);
+  const [error,              setError]              = useState<string | null>(null);
+  const [activeTab,          setActiveTab]          = useState<AppTab>('upcoming');
 
   // Reschedule state
   const [editingId,      setEditingId]      = useState<string | null>(null);
@@ -247,12 +389,13 @@ export default function MyAppointments() {
   const search = useCallback(async (ph: string) => {
     const digits = ph.replace(/\D/g, '').slice(-10);
     if (digits.length < 10) return;
-    setLoading(true); setError(null); setBookings(null);
+    setLoading(true); setError(null); setBookings(null); setCompletedInvoices(null);
     try {
-      // Run all phone-format queries in parallel.
       // Covers: raw 10-digit, E.164 (no space), E.164 (with space), country-code, leading-zero
-      const seen = new Set<string>(), results: Booking[] = [];
       const formats = [digits, `+91${digits}`, `+91 ${digits}`, `91${digits}`, `0${digits}`];
+
+      // Bookings (upcoming + pending tabs)
+      const seen = new Set<string>(), results: Booking[] = [];
       const snaps = await Promise.all(
         formats.map(fmt => getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt))))
       );
@@ -261,10 +404,40 @@ export default function MyAppointments() {
       }));
       results.sort((a, b) => new Date(b.startTime || b.bookingDate || '').getTime() - new Date(a.startTime || a.bookingDate || '').getTime());
       setBookings(results);
-      // Default to upcoming if any, else completed
+
+      // Invoices (completed tab) — covers both online and walk-in billed orders
+      const seenInv = new Set<string>(), invResults: Booking[] = [];
+      const invSnaps = await Promise.all(
+        formats.map(fmt =>
+          getDocs(query(collection(db, 'invoices'), where('customerPhone', '==', fmt), orderBy('createdAt', 'desc'), limit(100)))
+        )
+      );
+      invSnaps.forEach(snap => snap.docs.forEach(d => {
+        if (!seenInv.has(d.id)) {
+          seenInv.add(d.id);
+          const inv = d.data() as any;
+          const createdDate: Date | null = inv.createdAt?.toDate?.() ?? null;
+          invResults.push({
+            id: d.id,
+            customerName:    inv.customerName  ?? '',
+            customerPhone:   inv.customerPhone ?? '',
+            serviceNames:    (inv.items ?? []).map((it: any) => it.serviceName ?? it.name ?? '').filter(Boolean).join(', '),
+            bookingDate:     createdDate?.toISOString() ?? '',
+            bookingTime:     createdDate ? format(createdDate, 'h:mm a') : '',
+            totalAmount:     inv.total ?? 0,
+            finalAmount:     inv.amountPaid ?? inv.total ?? 0,
+            status:          'completed',
+            invoiceId:       d.id,
+            paymentMethod:   inv.paymentMethod ?? (inv.paymentSplits?.[0]?.method === 'online' ? 'Razorpay' : inv.paymentSplits?.[0]?.method ?? ''),
+          });
+        }
+      }));
+      setCompletedInvoices(invResults);
+
+      // Default tab
       const hasUpcoming = results.some(b => classifyBooking(b) === 'upcoming');
       const hasPending  = results.some(b => classifyBooking(b) === 'pending');
-      setActiveTab(hasPending ? 'pending' : hasUpcoming ? 'upcoming' : 'completed');
+      setActiveTab(hasPending ? 'pending' : hasUpcoming ? 'upcoming' : invResults.length > 0 ? 'completed' : 'upcoming');
     } catch { setError('Could not fetch your bookings. Please try again.'); }
     finally { setLoading(false); }
   }, []);
@@ -379,11 +552,11 @@ export default function MyAppointments() {
 
   // Derived
   const grouped = {
-    upcoming:  bookings?.filter(b => classifyBooking(b) === 'upcoming')  ?? [],
-    pending:   bookings?.filter(b => classifyBooking(b) === 'pending')   ?? [],
-    completed: bookings?.filter(b => classifyBooking(b) === 'completed') ?? [],
+    upcoming:  bookings?.filter(b => classifyBooking(b) === 'upcoming') ?? [],
+    pending:   bookings?.filter(b => classifyBooking(b) === 'pending')  ?? [],
+    completed: completedInvoices ?? [],
   };
-  const customerName = bookings?.[0]?.customerName ?? '';
+  const customerName = bookings?.[0]?.customerName ?? completedInvoices?.[0]?.customerName ?? '';
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -434,12 +607,12 @@ export default function MyAppointments() {
                 </div>
                 <div>
                   <p className="text-white font-bold text-sm">Welcome back, {customerName.split(' ')[0]}!</p>
-                  <p className="text-gray-500 text-xs">{bookings.length} booking{bookings.length !== 1 ? 's' : ''} found</p>
+                  <p className="text-gray-500 text-xs">{grouped.upcoming.length + grouped.pending.length + grouped.completed.length} record{(grouped.upcoming.length + grouped.pending.length + grouped.completed.length) !== 1 ? 's' : ''} found</p>
                 </div>
               </div>
             )}
 
-            {bookings.length === 0 ? (
+            {bookings.length === 0 && grouped.completed.length === 0 ? (
               <div className="text-center py-16 space-y-3">
                 <CalendarX size={40} className="text-gray-700 mx-auto" />
                 <p className="text-gray-400 font-bold">No bookings found</p>

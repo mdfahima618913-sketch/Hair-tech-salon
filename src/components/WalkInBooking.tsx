@@ -11,7 +11,7 @@ import {
   X, User, Phone, ChevronLeft, Search, Plus, Minus,
   Calendar, Sun, CloudSun, Moon, CheckCircle2,
   Loader2, CalendarCheck, ShoppingBag, AlertCircle,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, Wallet,
 } from 'lucide-react';
 import {
   collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc,
@@ -149,9 +149,11 @@ interface Props {
   createdBy?: 'admin' | 'staff';
   /** @deprecated use staffMember.name instead */
   staffName?: string;
+  /** 'modal' = floating dialog with backdrop; 'page' = full-width inline, no backdrop */
+  variant?: 'modal' | 'page';
 }
 
-export default function WalkInBooking({ onClose, onCreated, user, staffMember, createdBy = 'admin', staffName }: Props) {
+export default function WalkInBooking({ onClose, onCreated, user, staffMember, createdBy = 'admin', staffName, variant = 'modal' }: Props) {
   const { t } = useLanguage();
   const [step,         setStep]         = useState<Step>('customer');
   const [customerName, setCustomerName] = useState('');
@@ -170,9 +172,12 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
   const [slots,        setSlots]        = useState<SlotOption[]>([]);
   const [slotsLoading, setSlotsLoading] = useState(false);
   const [selSlot,      setSelSlot]      = useState<SlotOption | null>(null);
-  const [saving,       setSaving]       = useState(false);
-  const [saveErr,      setSaveErr]      = useState<string | null>(null);
-  const [savedId,      setSavedId]      = useState<string | null>(null);
+  const [saving,         setSaving]         = useState(false);
+  const [saveErr,        setSaveErr]        = useState<string | null>(null);
+  const [savedId,        setSavedId]        = useState<string | null>(null);
+  const [showAdvance,          setShowAdvance]          = useState(false);
+  const [advanceAmount,        setAdvanceAmount]        = useState(0);
+  const [advancePaymentMethod, setAdvancePaymentMethod] = useState<'cash'|'upi'|'card'>('cash');
 
   const dateStrip = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i));
 
@@ -311,16 +316,20 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
         bookingTime:         selSlot.label,
         bookingDate:         startOfDay(selDate).toISOString(),
 
-        // Services
-        serviceNames:        cart.map(i => i.service.name).join(', '),
+        // Services — serviceNames is for display; serviceItems carries qty for billing
+        serviceNames:        cart.map(i => i.service.name + (i.qty > 1 ? ` ×${i.qty}` : '')).join(', '),
+        serviceItems:        cart.map(i => ({ id: i.service.id, name: i.service.name, qty: i.qty, priceValue: i.service.priceValue })),
         serviceDurationMins: totalMins,
 
         // Payment / billing
-        totalAmount:         totalAmt,
-        originalAmount:      totalAmt,
-        status:              'confirmed',
-        paymentMethod:       'pay_at_salon',
-        paymentId:           '',
+        totalAmount:           totalAmt,
+        originalAmount:        totalAmt,
+        advanceAmount:         advanceAmount > 0 ? advanceAmount : 0,
+        advancePaymentMethod:  advanceAmount > 0 ? advancePaymentMethod : null,
+        balanceDue:            advanceAmount > 0 ? totalAmt - advanceAmount : totalAmt,
+        status:                'confirmed',
+        paymentMethod:         'pay_at_salon',
+        paymentId:             '',
 
         // Walk-in metadata
         bookingSource:       'walk_in',
@@ -348,20 +357,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
-  return (
-    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        onClick={onClose} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
-
-      {/* Panel */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.96, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.96, y: 20 }}
-        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-        className="relative w-full max-w-2xl bg-[#111] border border-white/15 rounded-[28px] shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
-      >
+  const inner = (<>
         {/* Header */}
         <div className="flex items-center justify-between px-7 py-4 border-b border-white/15 shrink-0 bg-zinc-900/60">
           <div className="flex items-center gap-3">
@@ -640,9 +636,30 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                           <span className="text-white font-bold">₹{(service.priceValue * q).toLocaleString('en-IN')}</span>
                         </div>
                       ))}
-                      <div className="flex justify-between font-black text-sm pt-2 border-t border-white/10 mt-2">
-                        <span className="text-gray-400">Total Due at Salon</span>
-                        <span className="text-gold">₹{totalAmt.toLocaleString('en-IN')}</span>
+                      {/* Totals — conditional on advance */}
+                      <div className="pt-2 border-t border-white/10 mt-2 space-y-1.5">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-400">Total</span>
+                          <span className="text-white font-bold">₹{totalAmt.toLocaleString('en-IN')}</span>
+                        </div>
+                        {showAdvance && advanceAmount > 0 && (
+                          <>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-amber-400 font-bold">Advance collected</span>
+                              <span className="text-amber-400 font-black">-₹{advanceAmount.toLocaleString('en-IN')}</span>
+                            </div>
+                            <div className="flex justify-between font-black text-sm border-t border-white/10 pt-1.5">
+                              <span className="text-gray-300">Balance at billing</span>
+                              <span className="text-gold">₹{(totalAmt - advanceAmount).toLocaleString('en-IN')}</span>
+                            </div>
+                          </>
+                        )}
+                        {(!showAdvance || advanceAmount === 0) && (
+                          <div className="flex justify-between font-black text-sm border-t border-white/10 pt-1.5">
+                            <span className="text-gray-400">Total due at salon</span>
+                            <span className="text-gold">₹{totalAmt.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="border-t border-white/10 pt-3 space-y-1.5">
@@ -650,11 +667,68 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                       <div className="flex justify-between text-sm"><span className="text-gray-500">Time</span><span className="text-white">{selSlot?.label}</span></div>
                       <div className="flex justify-between text-sm"><span className="text-gray-500">Duration</span><span className="text-white">~{totalMins} min</span></div>
                     </div>
+
+                    {/* ── Advance Payment collector ── */}
                     <div className="border-t border-white/10 pt-3">
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                        <AlertCircle size={13} className="text-amber-400 shrink-0"/>
-                        <p className="text-amber-400 text-[10px] font-bold">Payment will be collected at the salon during billing.</p>
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <Wallet size={13} className="text-amber-400" />
+                          <p className="text-white text-sm font-bold">Advance Payment</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => { setShowAdvance(v => !v); setAdvanceAmount(0); }}
+                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all ${
+                            showAdvance
+                              ? 'bg-amber-500/20 border border-amber-500/30 text-amber-400'
+                              : 'bg-white/8 border border-white/12 text-gray-400 hover:text-white'
+                          }`}
+                        >
+                          {showAdvance ? 'Remove' : '+ Collect now'}
+                        </button>
                       </div>
+                      {showAdvance ? (
+                        <div className="space-y-3">
+                          <p className="text-gray-500 text-xs">Amount the customer is paying now:</p>
+                          <div className="relative">
+                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold pointer-events-none">₹</span>
+                            <input
+                              type="number"
+                              min={0}
+                              max={totalAmt}
+                              placeholder="0"
+                              value={advanceAmount || ''}
+                              onChange={e => setAdvanceAmount(Math.min(totalAmt, Math.max(0, Number(e.target.value))))}
+                              autoFocus
+                              className="w-full bg-zinc-900 border border-amber-500/40 rounded-xl py-3 pl-10 pr-4 text-white text-lg font-black focus:outline-none focus:border-amber-500 placeholder:text-gray-600 transition-all"
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <p className="text-gray-500 text-xs">Paid via:</p>
+                            <div className="flex gap-2">
+                              {(['cash', 'upi', 'card'] as const).map(m => (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => setAdvancePaymentMethod(m)}
+                                  className={`flex-1 py-2 rounded-xl text-xs font-black uppercase tracking-wider border transition-all ${
+                                    advancePaymentMethod === m
+                                      ? 'bg-amber-500/20 border-amber-500/40 text-amber-400'
+                                      : 'bg-white/[0.04] border-white/10 text-gray-500 hover:text-white'
+                                  }`}
+                                >
+                                  {m}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                          <AlertCircle size={13} className="text-amber-400 shrink-0"/>
+                          <p className="text-amber-400 text-[10px] font-bold">Full payment will be collected at the salon during billing.</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -680,8 +754,21 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                 </div>
                 <div className="bg-white/[0.03] border border-white/12 rounded-2xl p-4 text-left space-y-2">
                   <div className="flex justify-between text-xs"><span className="text-gray-500">Services</span><span className="text-gray-300 text-right">{cart.map(i=>i.service.name).join(', ')}</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-gray-500">Amount Due</span><span className="text-gold font-black">₹{totalAmt.toLocaleString('en-IN')}</span></div>
-                  <div className="flex justify-between text-xs"><span className="text-gray-500">Payment</span><span className="text-amber-400 font-bold">Pay at Salon</span></div>
+                  <div className="flex justify-between text-xs"><span className="text-gray-500">Total</span><span className="text-white font-bold">₹{totalAmt.toLocaleString('en-IN')}</span></div>
+                  {advanceAmount > 0 ? (
+                    <>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-amber-400">Advance ({advancePaymentMethod.toUpperCase()})</span>
+                        <span className="text-amber-400 font-black">₹{advanceAmount.toLocaleString('en-IN')}</span>
+                      </div>
+                      <div className="flex justify-between text-xs font-black border-t border-white/10 pt-1.5">
+                        <span className="text-gray-400">Balance at Billing</span>
+                        <span className="text-gold">₹{(totalAmt - advanceAmount).toLocaleString('en-IN')}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="flex justify-between text-xs"><span className="text-gray-500">Payment</span><span className="text-amber-400 font-bold">Pay at Salon</span></div>
+                  )}
                   {savedId && <div className="flex justify-between text-xs"><span className="text-gray-500">Ref ID</span><span className="text-gray-400 font-mono text-[10px]">{savedId.slice(-8)}</span></div>}
                 </div>
                 <button onClick={onClose} className="w-full py-4 bg-white/8 border border-white/10 rounded-2xl text-white font-bold text-base hover:bg-white/10 transition-all">
@@ -727,6 +814,29 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
             </div>
           </div>
         )}
+  </>
+);
+
+  if (variant === 'page') {
+    return (
+      <div className="w-full bg-[#111] border border-white/15 rounded-[28px] overflow-hidden flex flex-col">
+        {inner}
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        onClick={onClose} className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.96, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.96, y: 20 }}
+        transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        className="relative w-full max-w-2xl bg-[#111] border border-white/15 rounded-[28px] shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+      >
+        {inner}
       </motion.div>
     </div>
   );

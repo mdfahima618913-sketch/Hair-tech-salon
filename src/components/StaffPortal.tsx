@@ -490,6 +490,57 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
     { id: 'profile',  icon: <User       size={24} />, label: t('profile')  },
   ];
 
+  // ── Full-screen billing takeover ─────────────────────────────────────────
+  if (billingOpen) {
+    return (
+      <div className="h-screen bg-[#0d0d0d] text-white flex flex-col overflow-hidden">
+        <BillingModule
+          onClose={() => setBillingOpen(false)}
+          onInvoiceCreated={() => setBillingOpen(false)}
+        />
+      </div>
+    );
+  }
+
+  // ── Full-screen walk-in booking takeover ──────────────────────────────────
+  if (walkInOpen) {
+    if (!firebaseUser) {
+      return (
+        <div className="h-screen bg-[#0d0d0d] text-white flex flex-col items-center justify-center gap-4 p-6">
+          <p className="text-white font-black text-xl">Session Expired</p>
+          <p className="text-gray-400 text-sm">Please sign out and sign in again.</p>
+          <button onClick={() => setWalkInOpen(false)}
+            className="px-6 py-3 bg-white/8 border border-white/12 rounded-xl text-gray-300 font-bold">
+            Go Back
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="h-screen bg-[#0d0d0d] text-white flex flex-col overflow-hidden">
+        {/* Compact header with back button */}
+        <div className="flex items-center gap-3 px-4 h-14 border-b border-white/10 bg-zinc-900/60 shrink-0">
+          <button onClick={() => setWalkInOpen(false)}
+            className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
+            <CalendarPlus size={16} className="text-teal-400" />
+            <span className="text-white font-black text-sm">Walk-in Appointment</span>
+          </button>
+          <span className="ml-auto text-gray-500 text-xs">← Back to portal</span>
+          <button onClick={() => setWalkInOpen(false)}
+            className="w-8 h-8 rounded-lg bg-white/8 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all">
+            <LogOut size={14} />
+          </button>
+        </div>
+        {/* WalkInBooking fills remaining space; its fixed-inset overlay is removed by rendering inline */}
+        <div className="flex-1 overflow-y-auto">
+          <WalkInBooking user={firebaseUser} staffMember={staffMember} createdBy="staff"
+            onClose={() => setWalkInOpen(false)} onCreated={() => setWalkInOpen(false)} />
+        </div>
+      </div>
+    );
+  }
+
+  // ── Normal portal view ────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
       {/* Header */}
@@ -548,32 +599,6 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
           ))}
         </div>
       </nav>
-
-      {/* Billing modal */}
-      <AnimatePresence>
-        {billingOpen && (
-          <BillingModule onClose={() => setBillingOpen(false)} onInvoiceCreated={() => setBillingOpen(false)} />
-        )}
-      </AnimatePresence>
-
-      {/* Walk-in appointment modal */}
-      <AnimatePresence>
-        {walkInOpen && firebaseUser && (
-          <WalkInBooking user={firebaseUser} staffMember={staffMember} createdBy="staff"
-            onClose={() => setWalkInOpen(false)} onCreated={() => setWalkInOpen(false)} />
-        )}
-        {walkInOpen && !firebaseUser && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-black/80"
-            onClick={() => setWalkInOpen(false)}
-          >
-            <div className="bg-zinc-900 border border-white/15 rounded-3xl p-8 text-center max-w-sm w-full">
-              <p className="text-white font-black text-xl mb-2">Session Expired</p>
-              <p className="text-gray-400 text-sm">Please sign out and sign in again.</p>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }
