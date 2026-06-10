@@ -18,7 +18,7 @@ import {
   Search, UserPlus, X, Plus, Minus,
   Receipt, CreditCard, Banknote, Smartphone, CheckCircle2,
   Loader2, AlertCircle, User, Phone,
-  ArrowLeft, Printer, Star, Wallet, Tag,
+  ArrowLeft, Printer, Star, Wallet, Tag, Crown,
 } from 'lucide-react';
 import {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
@@ -107,6 +107,8 @@ export interface Invoice {
   dueSettlementAmount?: number;
   status: 'paid' | 'due';
   source: 'walkin' | 'online';
+  /** VIP tier — defaults to 'standard' when absent */
+  billingType?: 'standard' | 'vvip';
   createdAt?: Timestamp;
 }
 
@@ -530,6 +532,8 @@ function ServiceStep({
   const [search,       setSearch]      = useState('');
   const [openCat,      setOpenCat]     = useState<string | null>(null);
   const [firestoreServices, setFirestoreServices] = useState<Service[]>([]);
+  const [popularity, setPopularity] = useState<Record<string, number>>({});
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [showAddForm,  setShowAddForm]  = useState(false);
   const [addForm,      setAddForm]      = useState<QuickAddForm>({ ...QUICK_BLANK });
   const [addSaving,    setAddSaving]    = useState(false);
@@ -565,12 +569,69 @@ function ServiceStep({
       .catch(() => {});
   }, []);
 
-  // Merge: Firestore services take precedence; static catalogue fills any gaps
+  // Load recent invoices to rank services by how often they're picked.
+  // Cached in localStorage for a day so this heavy scan only runs once daily.
+  useEffect(() => {
+    const CACHE_KEY = 'billing_service_popularity_v1';
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) {
+        const { computedAt, counts } = JSON.parse(cached);
+        if (Date.now() - computedAt < ONE_DAY_MS) {
+          setPopularity(counts);
+          return;
+        }
+      }
+    } catch { /* ignore corrupt cache */ }
+
+    getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(300)))
+      .then(snap => {
+        const counts: Record<string, number> = {};
+        snap.docs.forEach(d => {
+          const items = (d.data().items ?? []) as any[];
+          items.forEach(it => {
+            const key = it.serviceId || it.serviceName;
+            if (!key) return;
+            counts[key] = (counts[key] ?? 0) + (it.quantity ?? 1);
+          });
+        });
+        setPopularity(counts);
+        try {
+          localStorage.setItem(CACHE_KEY, JSON.stringify({ computedAt: Date.now(), counts }));
+        } catch { /* storage full/unavailable — non-fatal */ }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Load admin-pinned trending services (Tools → Trending)
+  useEffect(() => {
+    getDoc(doc(db, 'settings', 'trending_services'))
+      .then(snap => {
+        if (snap.exists()) setPinnedIds((snap.data().serviceIds ?? []) as string[]);
+      })
+      .catch(() => {});
+  }, []);
+
+  // Merge: Firestore services take precedence; static catalogue fills any gaps.
+  // Manually pinned services (Tools → Trending) come first in their configured order,
+  // then the rest sorted by how frequently each has been picked in recent bills.
   const allServices = useMemo(() => {
     const fsNames = new Set(firestoreServices.map(s => s.name.toLowerCase()));
     const staticOnly = servicesData.filter(s => !fsNames.has(s.name.toLowerCase()));
-    return [...firestoreServices, ...staticOnly];
-  }, [firestoreServices]);
+    const merged = [...firestoreServices, ...staticOnly];
+
+    const byId = new Map(merged.map(s => [s.id, s]));
+    const pinned = pinnedIds.map(id => byId.get(id)).filter((s): s is Service => !!s);
+    const pinnedSet = new Set(pinned.map(s => s.id));
+    const rest = merged.filter(s => !pinnedSet.has(s.id)).sort((a, b) => {
+      const pa = popularity[a.id] ?? popularity[a.name] ?? 0;
+      const pb = popularity[b.id] ?? popularity[b.name] ?? 0;
+      return pb - pa;
+    });
+
+    return [...pinned, ...rest];
+  }, [firestoreServices, popularity, pinnedIds]);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return allServices;
@@ -1431,6 +1492,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
         <div class="sm">+91 87896 03343</div>
         <div class="sm" style="margin-top:4px">
           <span class="badge">${invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}</span>
+          ${invoice.billingType === 'vvip' ? '<span class="badge" style="background:#f5d56b;color:#000;font-weight:700;margin-left:4px">&#9813; VVIP</span>' : ''}
         </div>
       </div>
       <div class="dash"></div>
@@ -1504,6 +1566,11 @@ function InvoicePreview({ invoice, customer, onClose }: {
             <span className={`text-[9px] px-2 py-0.5 rounded border ${invoice.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
               {invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}
             </span>
+            {invoice.billingType === 'vvip' && (
+              <span className="text-[9px] px-2 py-0.5 rounded border bg-gold/15 border-gold/40 text-gold font-black flex items-center gap-1">
+                <Crown size={9} /> VVIP
+              </span>
+            )}
           </div>
           <div className="mt-2 text-[9px] text-gray-400 space-y-0.5">
             <p>Invoice: <span className="font-black text-black">{invoice.invoiceNumber}</span></p>
@@ -1527,6 +1594,14 @@ function InvoicePreview({ invoice, customer, onClose }: {
               {invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}
             </span>
           </div>
+          {invoice.billingType === 'vvip' && (
+            <div className="flex justify-between text-xs">
+              <span className="text-gray-500">Tier</span>
+              <span className="text-[9px] px-2 py-0.5 rounded border font-black bg-amber-50 border-amber-300 text-amber-700 flex items-center gap-1">
+                <Crown size={9} /> VVIP
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Items */}
@@ -1682,6 +1757,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   const [invoice, setInvoice]          = useState<Invoice | null>(null);
   const [outstandingDue, setOutstandingDue] = useState(0);
   const [settleDues, setSettleDues]    = useState(false);
+  const [billingType, setBillingType]  = useState<'standard' | 'vvip'>('standard');
   // Remember last-used staff so new service additions pre-populate it
   const lastStaffRef = useRef<string>('');
 
@@ -1899,6 +1975,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
         ...(prefill?.paymentId && { paymentId: prefill.paymentId }),
         status:    amountDue > 0 ? 'due' : 'paid',
         source:    isRealOnline ? 'online' : 'walkin',
+        billingType,
         createdAt: serverTimestamp() as any,
       };
 
@@ -2020,6 +2097,30 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {!invoice && (
+              <div className="flex items-center bg-white/[0.04] border border-white/10 rounded-xl p-1 gap-1">
+                <button
+                  onClick={() => setBillingType('standard')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                    billingType === 'standard'
+                      ? 'bg-white/10 text-white'
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  Standard
+                </button>
+                <button
+                  onClick={() => setBillingType('vvip')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                    billingType === 'vvip'
+                      ? 'bg-gold/20 border border-gold/40 text-gold'
+                      : 'text-gray-500 hover:text-gray-300'
+                  }`}
+                >
+                  <Crown size={12} /> VVIP
+                </button>
+              </div>
+            )}
             <Steps current={displayStep} steps={STEPS} />
             {onClose && (
               <button onClick={onClose}

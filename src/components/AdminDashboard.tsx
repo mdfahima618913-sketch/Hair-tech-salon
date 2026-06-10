@@ -9,7 +9,7 @@ import {
   CheckSquare, ListChecks, PhoneOff,
   TrendingDown, BarChart3, CalendarDays, ChevronRight as ChevronRightIcon,
   Receipt, UserCheck, Plus, Trash2, Edit2, Save, Building2,
-  Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer, CalendarPlus, IndianRupee,
+  Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer, CalendarPlus, IndianRupee, Crown,
 } from 'lucide-react';
 import BannerManager  from './BannerManager';
 import GalleryManager from './GalleryManager';
@@ -17,6 +17,7 @@ import CouponManager  from './CouponManager';
 import ServiceManager  from './ServiceManager';
 import DataIO          from './DataIO';
 import ExpenseManager  from './ExpenseManager';
+import TrendingServicesManager from './TrendingServicesManager';
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -28,7 +29,7 @@ import {
   doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, where, limit,
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
-import BillingModule, { type OnlineBookingPrefill, type StaffMember, type Customer, type Invoice, type BillItem } from './BillingModule';
+import BillingModule, { type OnlineBookingPrefill, type StaffMember, type Customer, type Invoice, type BillItem, type PaymentSplit, type PaymentMethod } from './BillingModule';
 import WalkInBooking    from './WalkInBooking';
 import StaffAnalytics    from './StaffAnalytics';
 import CustomerAnalytics from './CustomerAnalytics';
@@ -74,6 +75,16 @@ const STATUS_META: Record<BookingStatus, { label: string; color: string; bg: str
   whatsapp_redirected:  { label: 'WhatsApp',    color: 'text-green-400',   bg: 'bg-green-500/10   border-green-500/20',   icon: <CheckCircle2 size={11} /> },
   completed:            { label: 'Completed',   color: 'text-purple-400',  bg: 'bg-purple-500/10  border-purple-500/20',  icon: <CheckSquare  size={11} /> },
 };
+
+const EDIT_PAYMENT_METHODS: { id: PaymentMethod; label: string }[] = [
+  { id: 'cash',    label: 'Cash' },
+  { id: 'upi',     label: 'UPI' },
+  { id: 'gpay',    label: 'GPay' },
+  { id: 'phonepe', label: 'PhonePe' },
+  { id: 'paytm',   label: 'Paytm' },
+  { id: 'card',    label: 'Card' },
+  { id: 'online',  label: 'Razorpay' },
+];
 
 function fmtDate(iso: string) {
   try { return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }); }
@@ -1143,6 +1154,19 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [deleting,        setDeleting]           = useState(false);
   const [showDuesDrawer,  setShowDuesDrawer]     = useState(false);
 
+  // Billing tab — invoice editing
+  const [editingInvId, setEditingInvId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    customerName: string;
+    customerPhone: string;
+    items: BillItem[];
+    discountPercent: number;
+    paymentSplits: PaymentSplit[];
+    billingType: 'standard' | 'vvip';
+  } | null>(null);
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [editError,  setEditError]  = useState<string | null>(null);
+
   const handleDeleteInvoice = async (id: string) => {
     setDeleting(true);
     try {
@@ -1157,6 +1181,106 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
     }
   };
 
+  const handleStartEditInvoice = (inv: Invoice & { id: string }) => {
+    setEditForm({
+      customerName:    inv.customerName ?? '',
+      customerPhone:   inv.customerPhone ?? '',
+      items:           (inv.items ?? []).map(it => ({ ...it })),
+      discountPercent: inv.discountPercent ?? 0,
+      paymentSplits:   (inv.paymentSplits ?? []).map(s => ({ ...s })),
+      billingType:     (inv as any).billingType === 'vvip' ? 'vvip' : 'standard',
+    });
+    setEditingInvId(inv.id);
+    setExpandedInv(inv.id);
+    setEditError(null);
+  };
+
+  const handleCancelEditInvoice = () => {
+    setEditingInvId(null);
+    setEditForm(null);
+    setEditError(null);
+  };
+
+  const updateEditItem = (idx: number, overrides: Partial<BillItem>) => {
+    setEditForm(prev => {
+      if (!prev) return prev;
+      const items = prev.items.map((it, i) => {
+        if (i !== idx) return it;
+        const merged = { ...it, ...overrides };
+        const lineTotal = Math.round(merged.unitPrice * merged.quantity * (1 - merged.lineDiscount / 100));
+        const commAmt   = merged.staffId ? Math.round(lineTotal * merged.commissionRate / 100) : 0;
+        return { ...merged, price: lineTotal, commissionAmount: commAmt };
+      });
+      return { ...prev, items };
+    });
+  };
+
+  const updateEditItemStaff = (idx: number, staffId: string) => {
+    const member = staffId ? staff.find(s => s.id === staffId) : null;
+    const rate   = member?.commissionRate ?? 5;
+    updateEditItem(idx, { staffId, staffName: member?.name ?? '', commissionRate: staffId ? rate : 0 });
+  };
+
+  const removeEditItem = (idx: number) => {
+    setEditForm(prev => prev ? { ...prev, items: prev.items.filter((_, i) => i !== idx) } : prev);
+  };
+
+  const updateEditSplit = (idx: number, overrides: Partial<PaymentSplit>) => {
+    setEditForm(prev => prev ? { ...prev, paymentSplits: prev.paymentSplits.map((s, i) => i === idx ? { ...s, ...overrides } : s) } : prev);
+  };
+
+  const addEditSplit = () => {
+    setEditForm(prev => prev ? { ...prev, paymentSplits: [...prev.paymentSplits, { method: 'cash', amount: 0 }] } : prev);
+  };
+
+  const removeEditSplit = (idx: number) => {
+    setEditForm(prev => prev ? { ...prev, paymentSplits: prev.paymentSplits.filter((_, i) => i !== idx) } : prev);
+  };
+
+  const handleSaveEditInvoice = async (inv: Invoice & { id: string }) => {
+    if (!editForm) return;
+    if (editForm.items.length === 0) {
+      setEditError('Invoice must have at least one item');
+      return;
+    }
+    setSavingEdit(true);
+    setEditError(null);
+    try {
+      const subtotal      = editForm.items.reduce((a, it) => a + it.price, 0);
+      const discountAmount = Math.round(subtotal * editForm.discountPercent / 100);
+      const dueSettlementAmount = (inv as any).dueSettlementAmount ?? 0;
+      const total          = subtotal - discountAmount + dueSettlementAmount;
+      const validSplits    = editForm.paymentSplits.filter(s => s.amount > 0);
+      const amountPaid     = validSplits.reduce((a, s) => a + s.amount, 0);
+      const amountDue      = Math.max(0, Math.round((total - amountPaid) * 100) / 100);
+      const primaryMethod: PaymentMethod = validSplits[0]?.method ?? inv.paymentMethod ?? 'cash';
+
+      const updates = {
+        customerName:    editForm.customerName,
+        customerPhone:   editForm.customerPhone,
+        items:           editForm.items,
+        subtotal,
+        discountPercent: editForm.discountPercent,
+        discountAmount,
+        total,
+        paymentMethod:   primaryMethod,
+        paymentSplits:   validSplits,
+        amountPaid,
+        amountDue,
+        status:          amountDue > 0 ? 'due' as const : 'paid' as const,
+        billingType:     editForm.billingType,
+      };
+      await updateDoc(doc(db, 'invoices', inv.id), updates);
+      setBillingInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, ...updates } : i));
+      setEditingInvId(null);
+      setEditForm(null);
+    } catch (e: any) {
+      setEditError(e.message ?? 'Failed to save changes');
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
   // Staff module state
   const [staff, setStaff]                 = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading]   = useState(false);
@@ -1164,10 +1288,10 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [staffSaving,   setStaffSaving]   = useState(false);
   const [staffInvoices, setStaffInvoices] = useState<any[]>([]);
   const [staffSubView,  setStaffSubView]  = useState<'list' | 'analytics'>('list');
-  const [toolsTab,      setToolsTab]      = useState<'services' | 'banners' | 'gallery' | 'coupons' | 'data' | 'settings' | 'expenses'>('services');
+  const [toolsTab,      setToolsTab]      = useState<'services' | 'banners' | 'gallery' | 'coupons' | 'data' | 'settings' | 'expenses' | 'trending'>('services');
   // Staff can't see admin-only tools tabs — fall back to banners
   useEffect(() => {
-    if (isStaffMode && (toolsTab === 'services' || toolsTab === 'coupons' || toolsTab === 'settings')) setToolsTab('banners');
+    if (isStaffMode && (toolsTab === 'services' || toolsTab === 'coupons' || toolsTab === 'settings' || toolsTab === 'expenses' || toolsTab === 'data' || toolsTab === 'trending')) setToolsTab('banners');
   }, [isStaffMode, toolsTab]);
 
   // Salon settings (Tools > Settings tab)
@@ -1413,6 +1537,14 @@ Your uid is: ${user.uid}
       .finally(() => setBillingLoading(false));
   }, [view]);
 
+  // Load staff list for the invoice-edit staff dropdown
+  useEffect(() => {
+    if (view !== 'billing' || staff.length > 0) return;
+    getDocs(query(collection(db, 'staff'), orderBy('name')))
+      .then(snap => setStaff(snap.docs.map(d => ({ id: d.id, ...d.data() } as StaffMember))))
+      .catch(console.error);
+  }, [view, staff.length]);
+
   // Billing tab stats — filtered by selected period or custom date range
   const billingStats = useMemo(() => {
     const now = new Date();
@@ -1471,7 +1603,16 @@ Your uid is: ${user.uid}
         )
       : periodInvoices;
 
-    return { totalRevenue, count, avgBill, onlineCount, walkinCount, pmRevenue, displayed, totalDue, dueCount };
+    // VVIP customer trends
+    const vvipInvoices  = periodInvoices.filter(i => (i as any).billingType === 'vvip');
+    const vvipRevenue   = vvipInvoices.reduce((a, i) => a + (i.total ?? 0), 0);
+    const vvipBillCount = vvipInvoices.length;
+    const vvipCustomers = new Set(vvipInvoices.map(i => i.customerPhone).filter(Boolean));
+    const vvipCustomerCount = vvipCustomers.size;
+    const vvipAvgBill   = vvipBillCount > 0 ? vvipRevenue / vvipBillCount : 0;
+
+    return { totalRevenue, count, avgBill, onlineCount, walkinCount, pmRevenue, displayed, totalDue, dueCount,
+      vvipRevenue, vvipBillCount, vvipCustomerCount, vvipAvgBill };
   }, [billingInvoices, billingPeriod, billingFrom, billingTo, billingSearch]);
 
   // Group all due invoices by customer for the dues drawer
@@ -3589,6 +3730,34 @@ Your uid is: ${user.uid}
             ))}
           </div>
 
+          {/* ── VVIP customer trends ── */}
+          <div className="bg-gradient-to-br from-gold/10 to-zinc-900 border border-gold/25 rounded-2xl p-5 relative overflow-hidden">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-gold/60 rounded-t-2xl" />
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-gold/15 border border-gold/30 flex items-center justify-center shrink-0">
+                <Crown size={14} className="text-gold" />
+              </div>
+              <p className="text-[10px] uppercase tracking-widest font-black text-gold/80">VVIP Customer Trends</p>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              {[
+                { label: 'Total Spend',     value: `₹${billingStats.vvipRevenue.toLocaleString('en-IN',{maximumFractionDigits:0})}`, sub: `${billingStats.vvipBillCount} bill${billingStats.vvipBillCount !== 1 ? 's' : ''}` },
+                { label: 'Total Visits',    value: billingStats.vvipBillCount.toString(),                                            sub: 'VVIP bills in period' },
+                { label: 'VVIP Customers',  value: billingStats.vvipCustomerCount.toString(),                                        sub: 'Unique customers' },
+                { label: 'Average Bill',    value: `₹${Math.round(billingStats.vvipAvgBill).toLocaleString('en-IN')}`,                sub: 'Per VVIP bill' },
+              ].map(({ label, value, sub }) => (
+                <div key={label}>
+                  <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">{label}</p>
+                  <p className="text-2xl font-black text-white leading-none mb-1">{value}</p>
+                  <p className="text-[10px] text-gray-400">{sub}</p>
+                </div>
+              ))}
+            </div>
+            {billingStats.vvipBillCount === 0 && (
+              <p className="text-[11px] text-gray-500 mt-3">No VVIP bills in this period.</p>
+            )}
+          </div>
+
           {/* ── Outstanding dues card — always visible ── */}
           {billingStats.totalDue > 0 ? (
             <button
@@ -3731,13 +3900,20 @@ Your uid is: ${user.uid}
                                 </span>
                               </td>
                               <td className="py-3 px-4">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${
-                                  inv.source === 'online'
-                                    ? 'text-blue-400 bg-blue-400/10 border-blue-400/20'
-                                    : 'text-amber-400 bg-amber-400/10 border-amber-400/20'
-                                }`}>
-                                  {inv.source === 'online' ? '🌐 Online' : '🏪 Walk-in'}
-                                </span>
+                                <div className="flex items-center gap-1 flex-wrap">
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${
+                                    inv.source === 'online'
+                                      ? 'text-blue-400 bg-blue-400/10 border-blue-400/20'
+                                      : 'text-amber-400 bg-amber-400/10 border-amber-400/20'
+                                  }`}>
+                                    {inv.source === 'online' ? '🌐 Online' : '🏪 Walk-in'}
+                                  </span>
+                                  {(inv as any).billingType === 'vvip' && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase border text-gold bg-gold/10 border-gold/30">
+                                      <Crown size={9} /> VVIP
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-1">
@@ -3748,6 +3924,27 @@ Your uid is: ${user.uid}
                                   >
                                     <Eye size={13} />
                                   </button>
+                                  {/* Edit — super admin only */}
+                                  {!isStaffMode && (
+                                    <button
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        if (editingInvId === (inv as any).id) {
+                                          handleCancelEditInvoice();
+                                        } else {
+                                          handleStartEditInvoice(inv as Invoice & { id: string });
+                                        }
+                                      }}
+                                      className={`p-1.5 rounded-lg transition-all ${
+                                        editingInvId === (inv as any).id
+                                          ? 'text-gold bg-gold/10'
+                                          : 'text-gray-400 hover:text-gold hover:bg-gold/10'
+                                      }`}
+                                      title="Edit invoice"
+                                    >
+                                      <Edit2 size={13} />
+                                    </button>
+                                  )}
                                   {/* Delete — super admin only */}
                                   {!isStaffMode && (
                                     deleteConfirmId === (inv as any).id ? (
@@ -3783,45 +3980,199 @@ Your uid is: ${user.uid}
                                 </div>
                               </td>
                             </tr>
-                            {/* Expanded row — line items */}
+                            {/* Expanded row — line items / edit form */}
                             {isExpanded && (
                               <tr key={`${(inv as any).id}-exp`}>
                                 <td colSpan={8} className="p-0">
-                                  <div className="px-6 py-4 bg-zinc-800/60 border-b border-white/10 space-y-2">
-                                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-2">Line Items</p>
-                                    {inv.items?.map((it: BillItem, i: number) => (
-                                      <div key={i} className="space-y-0.5">
-                                        <div className="flex items-center justify-between gap-3 text-xs">
-                                          <div className="flex-1 min-w-0">
-                                            <span className="text-gray-300">{it.serviceName}{(it.quantity ?? 1) > 1 ? ` ×${it.quantity}` : ''}</span>
-                                            {it.staffName && <span className="text-gray-400 ml-2">— {it.staffName} ({it.commissionRate}%)</span>}
-                                          </div>
-                                          <span className="text-white font-bold shrink-0">₹{it.price.toLocaleString('en-IN')}</span>
+                                  {editingInvId === (inv as any).id && editForm ? (
+                                    <div className="px-6 py-4 bg-zinc-800/60 border-b border-white/10 space-y-3" onClick={e => e.stopPropagation()}>
+                                      <p className="text-[9px] uppercase tracking-widest font-black text-gold mb-1">Edit Invoice</p>
+
+                                      {/* Customer info */}
+                                      <div className="grid grid-cols-2 gap-3">
+                                        <div>
+                                          <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Customer Name</label>
+                                          <input value={editForm.customerName}
+                                            onChange={e => setEditForm(prev => prev ? { ...prev, customerName: e.target.value } : prev)}
+                                            className="w-full mt-1 bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50" />
                                         </div>
-                                        {(it.quantity ?? 1) > 1 && (
-                                          <p className="text-[9px] text-gray-500 pl-1">₹{it.unitPrice.toLocaleString('en-IN')} × {it.quantity}</p>
+                                        <div>
+                                          <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Phone</label>
+                                          <input value={editForm.customerPhone}
+                                            onChange={e => setEditForm(prev => prev ? { ...prev, customerPhone: e.target.value } : prev)}
+                                            className="w-full mt-1 bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50" />
+                                        </div>
+                                      </div>
+
+                                      {/* Billing tier */}
+                                      <div>
+                                        <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Billing Type</label>
+                                        <div className="flex items-center bg-zinc-900 border border-white/10 rounded-xl p-1 gap-1 mt-1 w-fit">
+                                          <button onClick={() => setEditForm(prev => prev ? { ...prev, billingType: 'standard' } : prev)}
+                                            className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                                              editForm.billingType === 'standard' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
+                                            }`}
+                                          >
+                                            Standard
+                                          </button>
+                                          <button onClick={() => setEditForm(prev => prev ? { ...prev, billingType: 'vvip' } : prev)}
+                                            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                                              editForm.billingType === 'vvip' ? 'bg-gold/20 border border-gold/40 text-gold' : 'text-gray-500 hover:text-gray-300'
+                                            }`}
+                                          >
+                                            <Crown size={11} /> VVIP
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      {/* Line items */}
+                                      <div className="space-y-2">
+                                        <p className="text-[9px] uppercase tracking-widest font-black text-gray-500">Line Items</p>
+                                        {editForm.items.map((it, i) => (
+                                          <div key={i} className="flex flex-wrap items-center gap-2 bg-zinc-900 border border-white/10 rounded-lg p-2">
+                                            <span className="text-xs text-gray-200 font-bold flex-1 min-w-[120px]">{it.serviceName}</span>
+                                            <div className="flex items-center gap-1">
+                                              <span className="text-[9px] text-gray-500">Price</span>
+                                              <input type="number" min={0} value={it.unitPrice}
+                                                onChange={e => updateEditItem(i, { unitPrice: Math.max(0, Number(e.target.value)) })}
+                                                className="w-20 bg-zinc-800 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                              <span className="text-[9px] text-gray-500">Qty</span>
+                                              <input type="number" min={1} value={it.quantity}
+                                                onChange={e => updateEditItem(i, { quantity: Math.max(1, Number(e.target.value)) })}
+                                                className="w-14 bg-zinc-800 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                              <span className="text-[9px] text-gray-500">Disc %</span>
+                                              <input type="number" min={0} max={100} value={it.lineDiscount}
+                                                onChange={e => updateEditItem(i, { lineDiscount: Math.min(100, Math.max(0, Number(e.target.value))) })}
+                                                className="w-14 bg-zinc-800 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
+                                            </div>
+                                            <select value={it.staffId} onChange={e => updateEditItemStaff(i, e.target.value)}
+                                              className="bg-zinc-800 border border-white/10 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-gold/50">
+                                              <option value="">No staff</option>
+                                              {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                            </select>
+                                            <span className="text-xs font-black text-gold w-16 text-right">₹{it.price.toLocaleString('en-IN')}</span>
+                                            <button onClick={() => removeEditItem(i)} className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-400/10" title="Remove item">
+                                              <Trash2 size={12} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+
+                                      {/* Overall discount */}
+                                      <div className="flex items-center gap-2">
+                                        <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Overall Discount %</label>
+                                        <input type="number" min={0} max={100} value={editForm.discountPercent}
+                                          onChange={e => setEditForm(prev => prev ? { ...prev, discountPercent: Math.min(100, Math.max(0, Number(e.target.value))) } : prev)}
+                                          className="w-16 bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
+                                      </div>
+
+                                      {/* Payment splits */}
+                                      <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                          <p className="text-[9px] uppercase tracking-widest font-black text-gray-500">Payment Splits</p>
+                                          <button onClick={addEditSplit} className="text-[9px] font-black text-gold hover:underline">+ Add Split</button>
+                                        </div>
+                                        {editForm.paymentSplits.map((s, i) => (
+                                          <div key={i} className="flex items-center gap-2">
+                                            <select value={s.method} onChange={e => updateEditSplit(i, { method: e.target.value as PaymentMethod })}
+                                              className="bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-gold/50">
+                                              {EDIT_PAYMENT_METHODS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                            </select>
+                                            <input type="number" min={0} value={s.amount}
+                                              onChange={e => updateEditSplit(i, { amount: Math.max(0, Number(e.target.value)) })}
+                                              className="w-24 bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
+                                            {s.isAdvance && <span className="text-[9px] text-amber-400 font-bold">Advance</span>}
+                                            <button onClick={() => removeEditSplit(i)} className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-400/10" title="Remove split">
+                                              <Trash2 size={12} />
+                                            </button>
+                                          </div>
+                                        ))}
+                                        {editForm.paymentSplits.length === 0 && (
+                                          <p className="text-[10px] text-gray-500">No payment splits — invoice will be marked fully due.</p>
                                         )}
                                       </div>
-                                    ))}
-                                    <div className="pt-2 border-t border-white/10 space-y-1">
-                                      {inv.discountAmount > 0 && (
-                                        <div className="flex justify-between text-xs text-red-400">
-                                          <span>Discount ({inv.discountPercent}%)</span>
-                                          <span>-₹{inv.discountAmount.toLocaleString('en-IN')}</span>
-                                        </div>
-                                      )}
-                                      {(inv as any).dueSettlementAmount > 0 && (
-                                        <div className="flex justify-between text-xs text-amber-400 font-bold">
-                                          <span>⚠ Previous Dues Settled</span>
-                                          <span>+₹{(inv as any).dueSettlementAmount.toLocaleString('en-IN')}</span>
-                                        </div>
-                                      )}
-                                      <div className="flex justify-between text-xs text-white font-black pt-1 border-t border-white/10">
-                                        <span>Total</span>
-                                        <span className="text-gold">₹{(inv.total ?? 0).toLocaleString('en-IN')}</span>
+
+                                      {/* Computed totals */}
+                                      {(() => {
+                                        const subtotal = editForm.items.reduce((a, it) => a + it.price, 0);
+                                        const discountAmount = Math.round(subtotal * editForm.discountPercent / 100);
+                                        const dueSettlementAmount = (inv as any).dueSettlementAmount ?? 0;
+                                        const total = subtotal - discountAmount + dueSettlementAmount;
+                                        const amountPaid = editForm.paymentSplits.filter(s => s.amount > 0).reduce((a, s) => a + s.amount, 0);
+                                        const amountDue = Math.max(0, Math.round((total - amountPaid) * 100) / 100);
+                                        return (
+                                          <div className="pt-2 border-t border-white/10 space-y-1 text-xs">
+                                            <div className="flex justify-between text-gray-400"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
+                                            {discountAmount > 0 && (
+                                              <div className="flex justify-between text-red-400"><span>Discount ({editForm.discountPercent}%)</span><span>-₹{discountAmount.toLocaleString('en-IN')}</span></div>
+                                            )}
+                                            {dueSettlementAmount > 0 && (
+                                              <div className="flex justify-between text-amber-400 font-bold"><span>Previous Dues Settled</span><span>+₹{dueSettlementAmount.toLocaleString('en-IN')}</span></div>
+                                            )}
+                                            <div className="flex justify-between text-white font-black pt-1 border-t border-white/10"><span>Total</span><span className="text-gold">₹{total.toLocaleString('en-IN')}</span></div>
+                                            <div className="flex justify-between text-gray-400"><span>Paid</span><span>₹{amountPaid.toLocaleString('en-IN')}</span></div>
+                                            {amountDue > 0 && (
+                                              <div className="flex justify-between text-red-400 font-bold"><span>Due</span><span>₹{amountDue.toLocaleString('en-IN')}</span></div>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+
+                                      {editError && <p className="text-[10px] text-red-400 font-bold">{editError}</p>}
+
+                                      {/* Save / Cancel */}
+                                      <div className="flex items-center gap-2 pt-1">
+                                        <button onClick={() => handleSaveEditInvoice(inv as Invoice & { id: string })} disabled={savingEdit}
+                                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gold text-black text-[10px] font-black hover:bg-gold/90 transition-all disabled:opacity-50">
+                                          {savingEdit ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Save Changes
+                                        </button>
+                                        <button onClick={handleCancelEditInvoice}
+                                          className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-gray-400 text-[10px] font-black hover:text-white transition-all">
+                                          Cancel
+                                        </button>
                                       </div>
                                     </div>
-                                  </div>
+                                  ) : (
+                                    <div className="px-6 py-4 bg-zinc-800/60 border-b border-white/10 space-y-2">
+                                      <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-2">Line Items</p>
+                                      {inv.items?.map((it: BillItem, i: number) => (
+                                        <div key={i} className="space-y-0.5">
+                                          <div className="flex items-center justify-between gap-3 text-xs">
+                                            <div className="flex-1 min-w-0">
+                                              <span className="text-gray-300">{it.serviceName}{(it.quantity ?? 1) > 1 ? ` ×${it.quantity}` : ''}</span>
+                                              {it.staffName && <span className="text-gray-400 ml-2">— {it.staffName} ({it.commissionRate}%)</span>}
+                                            </div>
+                                            <span className="text-white font-bold shrink-0">₹{it.price.toLocaleString('en-IN')}</span>
+                                          </div>
+                                          {(it.quantity ?? 1) > 1 && (
+                                            <p className="text-[9px] text-gray-500 pl-1">₹{it.unitPrice.toLocaleString('en-IN')} × {it.quantity}</p>
+                                          )}
+                                        </div>
+                                      ))}
+                                      <div className="pt-2 border-t border-white/10 space-y-1">
+                                        {inv.discountAmount > 0 && (
+                                          <div className="flex justify-between text-xs text-red-400">
+                                            <span>Discount ({inv.discountPercent}%)</span>
+                                            <span>-₹{inv.discountAmount.toLocaleString('en-IN')}</span>
+                                          </div>
+                                        )}
+                                        {(inv as any).dueSettlementAmount > 0 && (
+                                          <div className="flex justify-between text-xs text-amber-400 font-bold">
+                                            <span>⚠ Previous Dues Settled</span>
+                                            <span>+₹{(inv as any).dueSettlementAmount.toLocaleString('en-IN')}</span>
+                                          </div>
+                                        )}
+                                        <div className="flex justify-between text-xs text-white font-black pt-1 border-t border-white/10">
+                                          <span>Total</span>
+                                          <span className="text-gold">₹{(inv.total ?? 0).toLocaleString('en-IN')}</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
                                 </td>
                               </tr>
                             )}
@@ -4375,6 +4726,7 @@ Your uid is: ${user.uid}
           <div className="flex items-center gap-1 flex-wrap bg-zinc-800 border border-white/10 rounded-2xl p-1.5">
             {([
               { id: 'services', label: 'Services',      icon: <Scissors    size={12}/>, adminOnly: true  },
+              { id: 'trending', label: 'Trending',      icon: <TrendingUp  size={12}/>, adminOnly: true  },
               { id: 'expenses', label: 'Expenses',      icon: <IndianRupee size={12}/>, adminOnly: true  },
               { id: 'banners',  label: 'Banners',       icon: <Wrench      size={12}/>, adminOnly: false },
               { id: 'gallery',  label: 'Gallery',       icon: <BarChart    size={12}/>, adminOnly: false },
@@ -4395,6 +4747,7 @@ Your uid is: ${user.uid}
 
           {/* Tab content */}
           {toolsTab === 'services' && !isStaffMode && <ServiceManager />}
+          {toolsTab === 'trending' && !isStaffMode && <TrendingServicesManager />}
           {toolsTab === 'expenses' && !isStaffMode && <ExpenseManager />}
           {toolsTab === 'banners'  && <BannerManager />}
           {toolsTab === 'gallery'  && <GalleryManager />}

@@ -123,7 +123,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
 
   useEffect(() => {
     getDoc(doc(db, 'invoices', invoiceId))
-      .then(s => { if (s.exists()) setData(s.data()); })
+      .then(s => { if (s.exists() && s.data().billingType !== 'vvip') setData(s.data()); })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [invoiceId]);
@@ -416,6 +416,7 @@ export default function MyAppointments() {
         if (!seenInv.has(d.id)) {
           seenInv.add(d.id);
           const inv = d.data() as any;
+          if (inv.billingType === 'vvip') return; // VVIP bills are hidden from customer view
           const createdDate: Date | null = inv.createdAt?.toDate?.() ?? null;
           invResults.push({
             id: d.id,
