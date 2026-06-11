@@ -1620,6 +1620,27 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [customerSubView,     setCustomerSubView]     = useState<'list' | 'analytics'>('list');
   const [customerSearch,      setCustomerSearch]      = useState('');
   const [customerSourceFilter,setCustomerSourceFilter]= useState<'all'|'online'|'walkin'|'both'>('all');
+  const CUSTOMER_PAGE_SIZE = 50;
+  const [customerVisibleCount, setCustomerVisibleCount] = useState(CUSTOMER_PAGE_SIZE);
+  const customerLoadMoreRef = useRef<HTMLDivElement | null>(null);
+
+  // Reset to first page whenever the search/filter changes
+  useEffect(() => {
+    setCustomerVisibleCount(CUSTOMER_PAGE_SIZE);
+  }, [customerSearch, customerSourceFilter]);
+
+  // Infinite scroll — load 50 more customer rows when the sentinel scrolls into view
+  useEffect(() => {
+    const el = customerLoadMoreRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(entries => {
+      if (entries[0].isIntersecting) {
+        setCustomerVisibleCount(c => c + CUSTOMER_PAGE_SIZE);
+      }
+    }, { rootMargin: '200px' });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [customerVisibleCount, customers, customerSearch, customerSourceFilter]);
   const [staffSearch,         setStaffSearch]         = useState('');
 
   // Ticking clock — re-evaluates which 'pending' bookings have crossed
@@ -2042,6 +2063,7 @@ Your uid is: ${user.uid}
       const merged = Array.from(map.values())
         .sort((a, b) => (b.lastVisit ?? '').localeCompare(a.lastVisit ?? ''));
       setCustomers(merged);
+      setCustomerVisibleCount(CUSTOMER_PAGE_SIZE);
     }).catch(console.error)
       .finally(() => setCustomersLoading(false));
   }, [view]);
@@ -5010,6 +5032,7 @@ Your uid is: ${user.uid}
               const matchSource = customerSourceFilter === 'all' || c.source === customerSourceFilter;
               return matchSearch && matchSource;
             });
+            const visible = filtered.slice(0, customerVisibleCount);
             return (
             <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
               {filtered.length === 0 ? (
@@ -5026,7 +5049,7 @@ Your uid is: ${user.uid}
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map((c: any) => {
+                  {visible.map((c: any) => {
                     const isReturning = (c.visitCount ?? 0) >= 2;
                     const srcMeta: Record<string, { label: string; cls: string }> = {
                       online: { label: '🌐 Online',  cls: 'bg-blue-500/10 border-blue-500/20 text-blue-400'       },
@@ -5070,8 +5093,14 @@ Your uid is: ${user.uid}
                 </tbody>
               </table>
               )}
+              {/* Infinite-scroll sentinel — loads +50 more rows when scrolled into view */}
+              {visible.length < filtered.length && (
+                <div ref={customerLoadMoreRef} className="flex items-center justify-center py-4">
+                  <Loader2 size={16} className="animate-spin text-gold" />
+                </div>
+              )}
               <div className="px-5 py-3 border-t border-white/10 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
-                {filtered.length} of {customers.length} · ₹{customers.reduce((a: number, c: any) => a + (c.totalSpend ?? 0), 0).toLocaleString('en-IN')} combined spend
+                Showing {visible.length} of {filtered.length} · ₹{customers.reduce((a: number, c: any) => a + (c.totalSpend ?? 0), 0).toLocaleString('en-IN')} combined spend
               </div>
             </div>
           );})()}

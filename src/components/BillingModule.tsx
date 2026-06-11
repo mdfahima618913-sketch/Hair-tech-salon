@@ -207,7 +207,6 @@ function CustomerStep({
   const [searching,    setSearching]    = useState(false);
   const [creating,     setCreating]     = useState(false);
   const [error,        setError]        = useState<string | null>(null);
-  const [customerList, setCustomerList] = useState<Customer[]>([]);
   const [suggestions,  setSuggestions]  = useState<Customer[]>([]);
   const [showDrop,     setShowDrop]     = useState(false);
   const [dropPos,      setDropPos]      = useState<{ top: number; left: number; width: number } | null>(null);
@@ -228,11 +227,8 @@ function CustomerStep({
     }).catch(() => setOutstandingDue(0));
   }, [found]);
 
-  // Load customer list once on mount for instant local suggestions
+  // Focus the search input on mount
   useEffect(() => {
-    getDocs(query(collection(db, 'customers'), orderBy('lastVisit', 'desc'), limit(500)))
-      .then(snap => setCustomerList(snap.docs.map(d => ({ ...d.data(), phone: d.id } as Customer))))
-      .catch(() => {});
     inputRef.current?.focus();
   }, []);
 
@@ -253,37 +249,67 @@ function CustomerStep({
     }
   }, [showDrop, suggestions]);
 
-  // Live suggestions from local list after 3+ chars (phone digits or name)
+  // Live suggestions via Firestore prefix search after 3+ chars (debounced)
+  // — avoids loading the entire customer list (3000+ docs) up front.
   useEffect(() => {
     const raw    = phone.trim();
     const digits = raw.replace(/\D/g, '');
     if (raw.length < 3) { setSuggestions([]); setShowDrop(false); return; }
     if (found && found !== 'not-found') return;
-    const matches = customerList.filter((c: Customer) =>
-      digits.length >= 3
-        ? c.phone.includes(digits)
-        : c.name.toLowerCase().includes(raw.toLowerCase())
-    ).slice(0, 8);
-    setSuggestions(matches);
-    setShowDrop(matches.length > 0);
-  }, [phone, customerList, found]);
+
+    const t = setTimeout(async () => {
+      try {
+        let results: Customer[] = [];
+        if (digits.length >= 3) {
+          // Prefix search on phone number (doc ID is the normalised phone)
+          const snap = await getDocs(query(
+            collection(db, 'customers'),
+            orderBy('phone'),
+            where('phone', '>=', digits),
+            where('phone', '<', digits + ''),
+            limit(8)
+          ));
+          results = snap.docs.map(d => ({ ...d.data(), phone: d.id } as Customer));
+        } else {
+          // Prefix search on name — try as typed and with first-letter case toggled
+          const variants = new Set([
+            raw,
+            raw.charAt(0).toUpperCase() + raw.slice(1),
+            raw.charAt(0).toLowerCase() + raw.slice(1),
+          ]);
+          const snaps = await Promise.all(
+            Array.from(variants).map(v => getDocs(query(
+              collection(db, 'customers'),
+              orderBy('name'),
+              where('name', '>=', v),
+              where('name', '<', v + ''),
+              limit(8)
+            )))
+          );
+          const seen = new Set<string>();
+          snaps.forEach(snap => snap.docs.forEach(d => {
+            if (seen.has(d.id)) return;
+            seen.add(d.id);
+            results.push({ ...d.data(), phone: d.id } as Customer);
+          }));
+        }
+        results = results.slice(0, 8);
+        setSuggestions(results);
+        setShowDrop(results.length > 0);
+      } catch {
+        setSuggestions([]);
+        setShowDrop(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [phone, found]);
 
   // Resolve customer once 10 digits are present.
-  // If the local list is already loaded, it's authoritative — no DB call needed.
-  // The list was fetched on mount; if the customer existed they would have appeared as a suggestion.
   useEffect(() => {
     const clean = normalisePhone(phone);
     if (clean.length < 10) { setFound(null); setError(null); return; }
     setShowDrop(false);
 
-    // Local list is loaded → trust it, skip the network roundtrip
-    if (customerList.length > 0) {
-      const localMatch = customerList.find((c: Customer) => c.phone === clean);
-      setFound(localMatch ?? 'not-found');
-      return;
-    }
-
-    // Local list not yet loaded (still fetching) → fall back to Firestore
     const t = setTimeout(async () => {
       setSearching(true); setError(null);
       try {
@@ -305,7 +331,7 @@ function CustomerStep({
       finally { setSearching(false); }
     }, 400);
     return () => clearTimeout(t);
-  }, [phone, customerList]);
+  }, [phone]);
 
   // Clicking a dropdown suggestion auto-advances — no extra "Select" click needed
   const pickSuggestion = (c: Customer) => {

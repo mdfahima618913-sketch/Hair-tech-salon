@@ -160,7 +160,6 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
   const [customerPhone,setCustomerPhone]= useState('');
   const [phoneLoading, setPhoneLoading] = useState(false);
   const [autoFilled,   setAutoFilled]   = useState(false);
-  const [customerList, setCustomerList] = useState<{ phone: string; name: string }[]>([]);
   const [suggestions,  setSuggestions]  = useState<{ phone: string; name: string }[]>([]);
   const [showDrop,     setShowDrop]     = useState(false);
   const [dropPos,      setDropPos]      = useState<{ top: number; left: number; width: number } | null>(null);
@@ -184,23 +183,11 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
   const totalMins = useMemo(() => cart.reduce((a, i) => a + parseMins(i.service.time) * i.qty, 0), [cart]);
   const totalAmt  = useMemo(() => cart.reduce((a, i) => a + i.service.priceValue * i.qty, 0), [cart]);
 
-  // Phone auto-fill — local list is authoritative when loaded, no server call needed
+  // Phone auto-fill — looked up directly from Firestore once 10 digits are entered
   useEffect(() => {
     const digits = customerPhone.replace(/\D/g, '').slice(-10);
     if (digits.length < 10) { setAutoFilled(false); return; }
 
-    // Local list loaded → look up instantly, skip the network roundtrip entirely
-    if (customerList.length > 0) {
-      const match = customerList.find((c: { phone: string; name: string }) => c.phone === digits);
-      if (match?.name && !customerName) {
-        setCustomerName(match.name);
-        setAutoFilled(true);
-      }
-      // No match = new customer — name field stays empty for manual entry
-      return;
-    }
-
-    // Local list not yet loaded → fall back to Firestore
     const t = setTimeout(async () => {
       setPhoneLoading(true);
       try {
@@ -224,14 +211,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
       finally { setPhoneLoading(false); }
     }, 400);
     return () => clearTimeout(t);
-  }, [customerPhone, customerList]);
-
-  // Load customer list once for live suggestions
-  useEffect(() => {
-    getDocs(query(collection(db, 'customers'), orderBy('lastVisit', 'desc'), limit(500)))
-      .then(snap => setCustomerList(snap.docs.map(d => ({ phone: d.id, name: (d.data().name ?? '') }))))
-      .catch(() => {});
-  }, []);
+  }, [customerPhone]);
 
   // Click-outside closes dropdown
   useEffect(() => {
@@ -250,19 +230,59 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
     }
   }, [showDrop, suggestions]);
 
-  // Live suggestions after 3+ chars in phone field
+  // Live suggestions via Firestore prefix search after 3+ chars (debounced)
+  // — avoids loading the entire customer list (3000+ docs) up front.
   useEffect(() => {
     const raw    = customerPhone.trim();
     const digits = raw.replace(/\D/g, '');
     if (raw.length < 3) { setSuggestions([]); setShowDrop(false); return; }
-    const matches = customerList.filter((c: { phone: string; name: string }) =>
-      digits.length >= 3
-        ? c.phone.includes(digits)
-        : c.name.toLowerCase().includes(raw.toLowerCase())
-    ).slice(0, 8);
-    setSuggestions(matches);
-    setShowDrop(matches.length > 0);
-  }, [customerPhone, customerList]);
+
+    const t = setTimeout(async () => {
+      try {
+        let results: { phone: string; name: string }[] = [];
+        if (digits.length >= 3) {
+          // Prefix search on phone number (doc ID is the normalised phone)
+          const snap = await getDocs(query(
+            collection(db, 'customers'),
+            orderBy('phone'),
+            where('phone', '>=', digits),
+            where('phone', '<', digits + ''),
+            limit(8)
+          ));
+          results = snap.docs.map(d => ({ phone: d.id, name: (d.data().name ?? '') }));
+        } else {
+          // Prefix search on name — try as typed and with first-letter case toggled
+          const variants = new Set([
+            raw,
+            raw.charAt(0).toUpperCase() + raw.slice(1),
+            raw.charAt(0).toLowerCase() + raw.slice(1),
+          ]);
+          const snaps = await Promise.all(
+            Array.from(variants).map(v => getDocs(query(
+              collection(db, 'customers'),
+              orderBy('name'),
+              where('name', '>=', v),
+              where('name', '<', v + ''),
+              limit(8)
+            )))
+          );
+          const seen = new Set<string>();
+          snaps.forEach(snap => snap.docs.forEach(d => {
+            if (seen.has(d.id)) return;
+            seen.add(d.id);
+            results.push({ phone: d.id, name: (d.data().name ?? '') });
+          }));
+        }
+        results = results.slice(0, 8);
+        setSuggestions(results);
+        setShowDrop(results.length > 0);
+      } catch {
+        setSuggestions([]);
+        setShowDrop(false);
+      }
+    }, 300);
+    return () => clearTimeout(t);
+  }, [customerPhone]);
 
   // Load slots when date changes (and we're on the slot step)
   useEffect(() => {
