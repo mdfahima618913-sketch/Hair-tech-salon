@@ -10,7 +10,9 @@ import {
   TrendingDown, BarChart3, CalendarDays, ChevronRight as ChevronRightIcon,
   Receipt, UserCheck, Plus, Trash2, Edit2, Save, Building2,
   Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer, CalendarPlus, IndianRupee, Crown,
+  CalendarCheck, Sun, CloudSun, Moon,
 } from 'lucide-react';
+import { format, addDays, startOfDay, isSameDay, isToday } from 'date-fns';
 import BannerManager  from './BannerManager';
 import GalleryManager from './GalleryManager';
 import CouponManager  from './CouponManager';
@@ -58,7 +60,15 @@ interface Booking {
   bookingSource?: string;
   createdAt?: Timestamp;
   startTime?: string;
+  endTime?: string;
+  serviceDurationMins?: number;
   serviceItems?: Array<{ id: string; name: string; qty: number; priceValue: number }>;
+  originalBookingDate?: string;
+  originalBookingTime?: string;
+  originalStartTime?: string;
+  originalEndTime?: string;
+  rescheduledAt?: Timestamp;
+  rescheduleCount?: number;
 }
 
 type SortKey = 'createdAt' | 'totalAmount' | 'customerName' | 'bookingDate';
@@ -75,6 +85,10 @@ const STATUS_META: Record<BookingStatus, { label: string; color: string; bg: str
   whatsapp_redirected:  { label: 'WhatsApp',    color: 'text-green-400',   bg: 'bg-green-500/10   border-green-500/20',   icon: <CheckCircle2 size={11} /> },
   completed:            { label: 'Completed',   color: 'text-purple-400',  bg: 'bg-purple-500/10  border-purple-500/20',  icon: <CheckSquare  size={11} /> },
 };
+
+// Grace period before notifying admins about a 'pending' booking — gives the
+// customer time to complete the Razorpay flow without triggering a false alarm.
+const PENDING_NOTIFY_DELAY_MS = 5 * 60_000; // 5 minutes
 
 const EDIT_PAYMENT_METHODS: { id: PaymentMethod; label: string }[] = [
   { id: 'cash',    label: 'Cash' },
@@ -94,6 +108,37 @@ function fmtDate(iso: string) {
 function fmtTs(ts?: Timestamp) {
   if (!ts) return '—';
   return ts.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+
+// ─── Reschedule slot helpers (mirrors MyAppointments) ─────────────────────────
+
+const STAFF_COUNT = 3; const SALON_OPEN_H = 10; const SALON_CLOSE_H = 22;
+const SLOT_STEP_MINS = 15; const BUFFER_MINS = 30;
+
+interface SlotOption { label: string; startISO: string; endISO: string; available: number; session: 'morning'|'afternoon'|'evening'; }
+interface ExistingBooking { startTime: string; endTime: string; }
+
+function fmtSlotTime(d: Date) {
+  let h = d.getHours(), mi = d.getMinutes();
+  const p = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return `${h}:${String(mi).padStart(2,'0')} ${p}`;
+}
+
+function computeSlots(date: Date, mins: number, existing: ExistingBooking[]): SlotOption[] {
+  if (mins <= 0) return [];
+  const now = new Date(), buf = new Date(now.getTime() + BUFFER_MINS * 60_000);
+  const openMs = new Date(date).setHours(SALON_OPEN_H, 0, 0, 0);
+  const latestMs = new Date(date).setHours(SALON_CLOSE_H, 0, 0, 0) - mins * 60_000;
+  const out: SlotOption[] = [];
+  for (let t = openMs; t <= latestMs; t += SLOT_STEP_MINS * 60_000) {
+    const e = t + mins * 60_000;
+    if (isSameDay(date, now) && t < buf.getTime()) continue;
+    const concurrent = existing.filter(b => new Date(b.startTime).getTime() < e && new Date(b.endTime).getTime() > t).length;
+    if (concurrent >= STAFF_COUNT) continue;
+    const sd = new Date(t), ed = new Date(e), h = sd.getHours();
+    out.push({ label: `${fmtSlotTime(sd)} – ${fmtSlotTime(ed)}`, startISO: sd.toISOString(), endISO: ed.toISOString(), available: STAFF_COUNT - concurrent, session: h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening' });
+  }
+  return out;
 }
 
 function exportCSV(bookings: Booking[]) {
@@ -269,15 +314,90 @@ function playNotificationSound() {
   }
 }
 
-// Plays the 3s ring repeatedly until stopRinging() is called.
-// Returns a stop function. Safe to call multiple times — stops previous loop first.
+/**
+ * Gentle two-tone "ding-dong" chime for new PENDING bookings — distinct from
+ * the urgent alarm buzzer used for paid/confirmed bookings, so admins can
+ * tell at a glance (by ear) whether a booking needs payment review or is
+ * already confirmed and ready.
+ */
+function playPendingNotificationSound() {
+  if (_stopSound) { _stopSound(); _stopSound = null; }
+
+  try {
+    const ctx = getAudioContext();
+
+    const run = () => {
+      const now      = ctx.currentTime;
+      const DURATION = 2.4;
+      const nodes: AudioNode[] = [];
+
+      const master = ctx.createGain();
+      master.gain.setValueAtTime(0.001, now);
+      master.gain.linearRampToValueAtTime(1.0, now + 0.02);
+      master.gain.setValueAtTime(1.0, now + DURATION - 0.08);
+      master.gain.linearRampToValueAtTime(0.001, now + DURATION);
+      master.connect(ctx.destination);
+      nodes.push(master);
+
+      // Two-note "ding-dong" doorbell chime (E6 → C6), repeated twice.
+      const NOTE_HI = 1318.5; // E6
+      const NOTE_LO = 1046.5; // C6
+      const NOTE_ON = 0.35;
+      const GAP     = 0.12;
+      const CHIME_STEP = NOTE_ON + GAP + NOTE_ON + 0.5; // ~1.32s per ding-dong
+
+      for (let chime = 0; chime < 2; chime++) {
+        const chimeStart = now + chime * CHIME_STEP;
+        if (chimeStart >= now + DURATION) break;
+
+        ([[NOTE_HI, chimeStart], [NOTE_LO, chimeStart + NOTE_ON + GAP]] as const).forEach(([freq, start]) => {
+          const end = start + NOTE_ON;
+          const osc  = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, start);
+          gain.gain.setValueAtTime(0.001, start);
+          gain.gain.linearRampToValueAtTime(0.5, start + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.001, end);
+          osc.connect(gain); gain.connect(master);
+          osc.start(start); osc.stop(end + 0.05);
+          nodes.push(osc, gain);
+        });
+      }
+
+      _stopSound = () => {
+        try {
+          master.gain.cancelScheduledValues(ctx.currentTime);
+          master.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.04);
+        } catch {}
+      };
+      setTimeout(() => { _stopSound = null; }, DURATION * 1000 + 200);
+    };
+
+    if (ctx.state === 'suspended') {
+      ctx.resume().then(run).catch(() => console.warn('[NOTIF SOUND] resume failed'));
+    } else {
+      run();
+    }
+
+  } catch (err) {
+    console.warn('[NOTIF SOUND]', err);
+  }
+}
+
+// Plays the ring repeatedly until stopRinging() is called.
+// `kind` selects which sound loops — 'pending' uses the gentler ding-dong chime,
+// 'confirmed' (default) uses the urgent alarm buzzer.
+// Safe to call multiple times — stops previous loop first.
 let _ringLoopTimer: ReturnType<typeof setTimeout> | null = null;
 
-function startRinging() {
+function startRinging(kind: 'confirmed' | 'pending' = 'confirmed') {
   stopRinging(); // clear any existing loop
+  const playSound = kind === 'pending' ? playPendingNotificationSound : playNotificationSound;
+  const interval  = kind === 'pending' ? 2700 : 3200; // sound duration + gap before repeat
   const loop = () => {
-    playNotificationSound();
-    _ringLoopTimer = setTimeout(loop, 3200); // 3s ring + 200ms gap before repeat
+    playSound();
+    _ringLoopTimer = setTimeout(loop, interval);
   };
   loop();
 }
@@ -290,10 +410,13 @@ function stopRinging() {
 function fireDesktopNotification(booking: Booking) {
   // Play sound regardless of notification permission —
   // audio only requires a prior user gesture (clicking the dashboard counts).
-  playNotificationSound();
+  const isPending = booking.status === 'pending';
+  if (isPending) playPendingNotificationSound(); else playNotificationSound();
 
   if (!('Notification' in window) || Notification.permission !== 'granted') return;
-  const title = '💇 New Booking — Hair Tech Salon';
+  const title = isPending
+    ? '⏳ New Pending Booking — Review Required'
+    : '💇 New Booking — Hair Tech Salon';
   const body  = [
     booking.customerName ?? 'Guest',
     booking.serviceNames ?? '',
@@ -317,13 +440,17 @@ interface NewBookingBannerProps {
   onDismiss: () => void;
 }
 
-function NewBookingBanner({ booking, onDismiss, onAccept }: NewBookingBannerProps & { onAccept: () => void }) {
+function NewBookingBanner({ booking, onDismiss, onAccept, onReview }: NewBookingBannerProps & { onAccept: () => void; onReview: () => void }) {
+  const isPending = booking.status === 'pending';
+
   useEffect(() => {
-    // Start looping ring — it stops only when admin accepts or all banners clear
-    startRinging();
+    // Start looping ring — it stops only when admin accepts/reviews or all banners clear
+    startRinging(isPending ? 'pending' : 'confirmed');
     // No auto-dismiss — ring persists until explicit admin action
     return () => {}; // cleanup handled by parent via stopRinging
-  }, []);
+  }, [isPending]);
+
+  const accent = isPending ? 'amber' : 'emerald';
 
   return (
     <motion.div
@@ -333,24 +460,24 @@ function NewBookingBanner({ booking, onDismiss, onAccept }: NewBookingBannerProp
       transition={{ type: 'spring', stiffness: 300, damping: 28 }}
       className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] w-full max-w-lg px-4"
     >
-      <div className="relative bg-zinc-900 border border-emerald-500/50 rounded-2xl shadow-[0_8px_60px_rgba(16,185,129,0.3)] overflow-hidden">
-        {/* Persistent pulsing top border — no progress bar, rings until accepted */}
-        <div className="absolute top-0 left-0 right-0 h-[2px] bg-emerald-500 animate-pulse" />
+      <div className={`relative bg-zinc-900 border ${isPending ? 'border-amber-500/50 shadow-[0_8px_60px_rgba(245,158,11,0.3)]' : 'border-emerald-500/50 shadow-[0_8px_60px_rgba(16,185,129,0.3)]'} rounded-2xl overflow-hidden`}>
+        {/* Persistent pulsing top border — no progress bar, rings until handled */}
+        <div className={`absolute top-0 left-0 right-0 h-[2px] ${isPending ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
 
         <div className="p-4 flex items-start gap-4">
           {/* Pulsing icon */}
           <div className="relative shrink-0 mt-0.5">
-            <div className="w-11 h-11 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
-              <Bell size={20} className="text-emerald-400" />
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${isPending ? 'bg-amber-500/15 border border-amber-500/30' : 'bg-emerald-500/15 border border-emerald-500/30'}`}>
+              {isPending ? <AlertCircle size={20} className="text-amber-400" /> : <Bell size={20} className="text-emerald-400" />}
             </div>
-            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-emerald-500 rounded-full">
-              <span className="absolute inset-0 rounded-full bg-emerald-400 animate-ping opacity-75" />
+            <span className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full ${isPending ? 'bg-amber-500' : 'bg-emerald-500'}`}>
+              <span className={`absolute inset-0 rounded-full animate-ping opacity-75 ${isPending ? 'bg-amber-400' : 'bg-emerald-400'}`} />
             </span>
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400 mb-1">
-              🔔 New Booking — Action Required
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isPending ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {isPending ? '⏳ New Pending Booking — Review Required' : '🔔 New Booking — Action Required'}
             </p>
             <p className="text-white font-bold text-sm leading-tight truncate">
               {booking.customerName ?? 'Guest'}
@@ -371,15 +498,24 @@ function NewBookingBanner({ booking, onDismiss, onAccept }: NewBookingBannerProp
 
         {/* Action buttons */}
         <div className="px-4 pb-4 flex gap-3">
-          <button
-            onClick={onAccept}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 hover:bg-emerald-400 rounded-xl text-black font-black text-xs uppercase tracking-widest transition-all"
-          >
-            <CheckSquare size={14} /> Accept Booking
-          </button>
+          {isPending ? (
+            <button
+              onClick={onReview}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-amber-500 hover:bg-amber-400 rounded-xl text-black font-black text-xs uppercase tracking-widest transition-all"
+            >
+              <Eye size={14} /> Review Booking
+            </button>
+          ) : (
+            <button
+              onClick={onAccept}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-emerald-500 hover:bg-emerald-400 rounded-xl text-black font-black text-xs uppercase tracking-widest transition-all"
+            >
+              <CheckSquare size={14} /> Accept Booking
+            </button>
+          )}
           <button
             onClick={onDismiss}
-            title="Dismiss banner — ring continues until all bookings are accepted"
+            title="Dismiss banner — ring continues until all bookings are handled"
             className="flex items-center justify-center gap-2 px-4 py-2.5 bg-white/8 hover:bg-white/10 border border-white/10 rounded-xl text-gray-400 font-black text-xs uppercase tracking-widest transition-all"
           >
             <PhoneOff size={14} />
@@ -570,10 +706,56 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
   const [deleteConfirm,   setDeleteConfirm]   = useState(false);
   const [deletingRow,     setDeletingRow]     = useState(false);
 
+  // Reschedule state
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [editDate,       setEditDate]       = useState(() => new Date());
+  const [editSlots,      setEditSlots]      = useState<SlotOption[]>([]);
+  const [editSelSlot,    setEditSelSlot]    = useState<SlotOption | null>(null);
+  const [slotsLoading,   setSlotsLoading]   = useState(false);
+  const [editSaving,     setEditSaving]     = useState(false);
+  const [editSuccess,    setEditSuccess]    = useState<string | null>(null);
+  const dateStrip = Array.from({ length: 8 }, (_, i) => addDays(new Date(), i));
+
   const handleStatus = async (status: BookingStatus) => {
     setUpdating(true);
     await onStatusChange(booking.id, status);
     setUpdating(false);
+  };
+
+  const loadSlots = async (date: Date, durationMins: number) => {
+    setSlotsLoading(true); setEditSelSlot(null);
+    try {
+      const s = startOfDay(date).toISOString(), e = startOfDay(addDays(date, 1)).toISOString();
+      const snap = await getDocs(query(collection(db, 'bookings'), where('startTime', '>=', s), where('startTime', '<', e), where('status', 'in', ['paid', 'confirmed', 'pending'])));
+      const existing: ExistingBooking[] = snap.docs.flatMap(d => { if (d.id === booking.id) return []; const x = d.data(); return x.startTime && x.endTime ? [{ startTime: x.startTime, endTime: x.endTime }] : []; });
+      setEditSlots(computeSlots(date, durationMins || 60, existing));
+    } catch { setEditSlots([]); }
+    finally { setSlotsLoading(false); }
+  };
+
+  const saveReschedule = async () => {
+    if (!editSelSlot) return;
+    setEditSaving(true);
+    try {
+      const updates: Record<string, unknown> = {
+        bookingDate: startOfDay(editDate).toISOString(),
+        bookingTime: editSelSlot.label,
+        startTime:   editSelSlot.startISO,
+        endTime:     editSelSlot.endISO,
+        updatedAt:   serverTimestamp(),
+        rescheduledAt: serverTimestamp(),
+        rescheduleCount: (booking.rescheduleCount ?? 0) + 1,
+      };
+      if (!booking.originalBookingDate) {
+        updates.originalBookingDate = booking.bookingDate ?? null;
+        updates.originalBookingTime = booking.bookingTime ?? null;
+        updates.originalStartTime   = booking.startTime ?? null;
+        updates.originalEndTime     = booking.endTime ?? null;
+      }
+      await updateDoc(doc(db, 'bookings', booking.id), updates);
+      setEditSuccess(`Rescheduled to ${format(editDate, 'EEE, MMM d')} · ${editSelSlot.label}`);
+      setTimeout(() => { setIsRescheduling(false); setEditSuccess(null); }, 2200);
+    } catch { /* silent */ } finally { setEditSaving(false); }
   };
 
   return (
@@ -596,6 +778,14 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
         <td className="py-4 px-5 hidden md:table-cell">
           <p className="text-gray-300 text-sm">{booking.bookingDate ? fmtDate(booking.bookingDate) : '—'}</p>
           <p className="text-gray-400 text-[10px]">{booking.bookingTime ?? '—'}</p>
+          {booking.rescheduledAt && (
+            <p className="text-[9px] text-blue-400 font-bold mt-0.5 flex items-center gap-1">
+              <Edit2 size={9} />
+              <span className="line-through text-gray-600">{booking.originalBookingTime ?? '—'}</span>
+              <ChevronRightIcon size={9} />
+              <span>{booking.bookingTime ?? '—'}</span>
+            </p>
+          )}
         </td>
         <td className="py-4 px-5 hidden lg:table-cell">
           <p className="text-gray-400 text-xs max-w-[180px] truncate">{booking.serviceNames ?? '—'}</p>
@@ -677,6 +867,30 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                     <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-1">Services</p>
                     <p className="text-gray-300 text-xs">{booking.serviceNames}</p>
                   </div>
+
+                  {/* Reschedule history */}
+                  {booking.rescheduledAt && (
+                    <div className="sm:col-span-2 lg:col-span-4 p-4 bg-blue-500/8 border border-blue-500/30 rounded-2xl">
+                      <p className="text-[9px] uppercase tracking-widest font-black text-blue-400 flex items-center gap-1.5 mb-2">
+                        <Edit2 size={11} /> Rescheduled{booking.rescheduleCount && booking.rescheduleCount > 1 ? ` (${booking.rescheduleCount}×)` : ''} — {fmtTs(booking.rescheduledAt)}
+                      </p>
+                      <div className="flex items-center gap-3 flex-wrap text-xs">
+                        <div>
+                          <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-0.5">Originally Booked</p>
+                          <p className="text-gray-400 line-through">
+                            {booking.originalBookingDate ? fmtDate(booking.originalBookingDate) : '—'} · {booking.originalBookingTime ?? '—'}
+                          </p>
+                        </div>
+                        <ChevronRightIcon size={14} className="text-gray-600 shrink-0" />
+                        <div>
+                          <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-0.5">Now Scheduled</p>
+                          <p className="text-emerald-400 font-bold">
+                            {booking.bookingDate ? fmtDate(booking.bookingDate) : '—'} · {booking.bookingTime ?? '—'}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* ── Pending-payment admin actions (only when status === 'pending') ── */}
                   {booking.status === 'pending' && (
@@ -808,7 +1022,89 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                           </button>
                         )
                       )}
+
+                      {/* Reschedule — for active (non-completed/failed) bookings */}
+                      {['paid', 'confirmed'].includes(booking.status) && (
+                        <button
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (isRescheduling) { setIsRescheduling(false); } else {
+                              const today = new Date();
+                              setIsRescheduling(true); setEditDate(today);
+                              setEditSelSlot(null); setEditSuccess(null);
+                              loadSlots(today, booking.serviceDurationMins ?? 60);
+                            }
+                          }}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-blue-500/10 border-blue-500/30 text-blue-300 text-[10px] font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all"
+                        >
+                          <Edit2 size={11} /> {isRescheduling ? 'Cancel Reschedule' : 'Reschedule'}
+                        </button>
+                      )}
                     </div>
+
+                    {/* Reschedule panel */}
+                    <AnimatePresence>
+                      {isRescheduling && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden w-full">
+                          <div className="pt-3 mt-2 border-t border-white/10 space-y-3" onClick={e => e.stopPropagation()}>
+                            {editSuccess ? (
+                              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold py-2">
+                                <CheckCircle2 size={14}/>{editSuccess}
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-[10px] font-black uppercase tracking-wider text-gold flex items-center gap-1.5"><CalendarCheck size={12}/>Pick new date & time</p>
+                                {/* Date strip */}
+                                <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
+                                  {dateStrip.map(d => {
+                                    const active = isSameDay(d, editDate);
+                                    return (
+                                      <button key={d.toString()} onClick={() => { setEditDate(d); loadSlots(d, booking.serviceDurationMins ?? 60); }}
+                                        className={`shrink-0 w-11 h-13 rounded-xl flex flex-col items-center justify-center transition-all border py-2 ${active ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.04] text-gray-400 hover:border-gold/40'}`}>
+                                        <span className={`text-[9px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{isToday(d) ? 'Today' : format(d,'EEE')}</span>
+                                        <span className="text-sm font-black">{format(d,'d')}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                                {/* Slots */}
+                                {slotsLoading ? (
+                                  <div className="flex items-center justify-center gap-2 py-4 text-gray-500 text-xs">
+                                    <Loader2 size={13} className="animate-spin text-gold"/>Checking availability…
+                                  </div>
+                                ) : editSlots.length === 0 ? (
+                                  <p className="text-gray-400 text-xs text-center py-2">No slots available for this date — try another date</p>
+                                ) : (
+                                  <div className="space-y-2">
+                                    {(['morning','afternoon','evening'] as const).filter(sess => editSlots.some(s => s.session === sess)).map(sess => {
+                                      const Icon = sess === 'morning' ? Sun : sess === 'afternoon' ? CloudSun : Moon;
+                                      return (
+                                        <div key={sess}>
+                                          <div className="flex items-center gap-1.5 mb-1"><Icon size={10} className="text-gray-500"/><span className="text-[9px] text-gray-500 font-bold capitalize">{sess}</span></div>
+                                          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                                            {editSlots.filter(s => s.session === sess).map(slot => (
+                                              <button key={slot.startISO} onClick={() => setEditSelSlot(slot)}
+                                                className={`py-2 text-[10px] font-bold rounded-xl border transition-all ${editSelSlot?.startISO === slot.startISO ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.03] text-gray-400 hover:border-gold/30 hover:text-white'}`}>
+                                                {slot.label.split('–')[0].trim()}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                                <button onClick={saveReschedule} disabled={!editSelSlot || editSaving}
+                                  className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gold text-black text-xs font-black uppercase tracking-wider disabled:opacity-40 flex items-center justify-center gap-2">
+                                  {editSaving ? <Loader2 size={12} className="animate-spin"/> : <CalendarCheck size={12}/>}
+                                  {editSaving ? 'Saving…' : 'Confirm New Slot'}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                   )}{/* /non-pending actions */}
                 </div>
@@ -1121,7 +1417,7 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [sortDir, setSortDir]             = useState<SortDir>('desc');
   const [signOutLoading, setSignOutLoading] = useState(false);
   // 'active' = paid/confirmed | 'pending' = payment not done | 'completed' = service done
-  const [activeTab, setActiveTab]         = useState<'active' | 'pending' | 'completed'>('active');
+  const [activeTab, setActiveTab]         = useState<'active' | 'pending' | 'completed' | 'rescheduled'>('active');
 
   // ── Module navigation ─────────────────────────────────────────────────────
   type DashView = 'bookings' | 'insights' | 'billing' | 'staff' | 'customers' | 'tools';
@@ -1326,6 +1622,15 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [customerSourceFilter,setCustomerSourceFilter]= useState<'all'|'online'|'walkin'|'both'>('all');
   const [staffSearch,         setStaffSearch]         = useState('');
 
+  // Ticking clock — re-evaluates which 'pending' bookings have crossed
+  // PENDING_NOTIFY_DELAY_MS so they "appear" in the Pending tab without
+  // requiring a Firestore write.
+  const [nowTick, setNowTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), 15_000);
+    return () => clearInterval(id);
+  }, []);
+
   // ── Notification state ────────────────────────────────────────────────────
   const [newBookingQueue, setNewBookingQueue] = useState<Booking[]>([]);
   const [notifPermission, setNotifPermission] = useState<NotificationPermission>(
@@ -1337,6 +1642,13 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   // Track booking IDs that arrived as 'pending' so we can notify when they
   // transition to 'paid' after Razorpay completes (that's a 'modified' change, not 'added').
   const pendingIdsRef = useRef<Set<string>>(new Set());
+  // Timers for delayed "still pending" notifications — keyed by booking id.
+  // A pending booking is created the instant a customer reaches the Razorpay
+  // screen, before they've actually paid. We wait PENDING_NOTIFY_DELAY_MS to
+  // see if it transitions to paid/confirmed on its own; only if it's still
+  // pending after the grace period do we ring/notify (genuinely abandoned
+  // or failed payment that needs admin review).
+  const pendingNotifyTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   // Live listener — first verify the admin doc exists so we can give a
   // clear setup instruction if it's missing, rather than a cryptic error.
@@ -1429,10 +1741,13 @@ Your uid is: ${user.uid}
             )
             .map(c => {
               pendingIdsRef.current.delete(c.doc.id); // no longer pending
+              // Cancel any scheduled "still pending" notification — payment completed in time
+              const t = pendingNotifyTimersRef.current.get(c.doc.id);
+              if (t) { clearTimeout(t); pendingNotifyTimersRef.current.delete(c.doc.id); }
               return { id: c.doc.id, ...c.doc.data() } as Booking;
             });
 
-          // Notify for: newly-added paid/confirmed bookings + pending→paid transitions
+          // Notify immediately for: newly-added non-pending bookings + pending→paid transitions
           const toNotify = [
             ...addedBookings.filter(b => b.status !== 'pending'),
             ...justPaidBookings,
@@ -1442,6 +1757,24 @@ Your uid is: ${user.uid}
             setNewBookingQueue(prev => [...prev, ...toNotify]);
             toNotify.forEach(b => fireDesktopNotification(b));
           }
+
+          // Newly-added pending bookings — don't notify yet. The customer may
+          // still be completing Razorpay payment. Wait for the grace period;
+          // only notify if it's still pending afterwards (abandoned/failed payment).
+          addedBookings.filter(b => b.status === 'pending').forEach(b => {
+            const timer = setTimeout(async () => {
+              pendingNotifyTimersRef.current.delete(b.id);
+              try {
+                const fresh = await getDoc(doc(db, 'bookings', b.id));
+                if (fresh.exists() && fresh.data().status === 'pending') {
+                  const freshBooking = { id: b.id, ...fresh.data() } as Booking;
+                  setNewBookingQueue(prev => [...prev, freshBooking]);
+                  fireDesktopNotification(freshBooking);
+                }
+              } catch {}
+            }, PENDING_NOTIFY_DELAY_MS);
+            pendingNotifyTimersRef.current.set(b.id, timer);
+          });
         },
         err => {
           console.error('[FIRESTORE LISTEN]', err);
@@ -1459,7 +1792,11 @@ Your uid is: ${user.uid}
     };
 
     init();
-    return () => unsub();
+    return () => {
+      unsub();
+      pendingNotifyTimersRef.current.forEach(t => clearTimeout(t));
+      pendingNotifyTimersRef.current.clear();
+    };
   }, [user.uid, user.email, refreshKey]);
 
   const handleStatusChange = async (id: string, status: BookingStatus) => {
@@ -1479,6 +1816,19 @@ Your uid is: ${user.uid}
     setNewBookingQueue(q => {
       const next = q.filter(b => b.id !== booking.id);
       if (next.length === 0) stopRinging(); // nothing left to ring for
+      return next;
+    });
+  }, []);
+
+  // Review a pending booking from the notification banner:
+  // jump to the Pending tab so admin can confirm payment / mark pay-at-salon,
+  // and remove it from the ring queue → if queue becomes empty, ring stops.
+  const reviewPendingBooking = useCallback((booking: Booking) => {
+    setView('bookings');
+    setActiveTab('pending');
+    setNewBookingQueue(q => {
+      const next = q.filter(b => b.id !== booking.id);
+      if (next.length === 0) stopRinging();
       return next;
     });
   }, []);
@@ -2132,15 +2482,25 @@ Your uid is: ${user.uid}
   // pending   = payment not yet completed (status === 'pending')
   // active    = payment done, service not yet completed
   // completed = service done
-  const pendingTabBookings = useMemo(() => bookings.filter(b => b.status === 'pending'),   [bookings]);
+  // Hide newly-created pending bookings until PENDING_NOTIFY_DELAY_MS has
+  // elapsed — gives the customer time to complete Razorpay payment before
+  // it shows up as "needs review" (mirrors the notification delay).
+  const pendingTabBookings = useMemo(() => bookings.filter(b => {
+    if (b.status !== 'pending') return false;
+    const createdMs = b.createdAt?.toMillis?.();
+    if (!createdMs) return true; // no createdAt — show immediately
+    return nowTick - createdMs >= PENDING_NOTIFY_DELAY_MS;
+  }), [bookings, nowTick]);
   const activeBookings     = useMemo(() => bookings.filter(b => b.status !== 'completed' && b.status !== 'pending'), [bookings]);
   const completedBookings  = useMemo(() => bookings.filter(b => b.status === 'completed'), [bookings]);
+  const rescheduledBookings = useMemo(() => bookings.filter(b => !!b.rescheduledAt), [bookings]);
 
   // ── Filtered + sorted bookings ─────────────────────────────────────────────
   const filtered = useMemo(() => {
-    let list = activeTab === 'completed' ? [...completedBookings]
-             : activeTab === 'pending'   ? [...pendingTabBookings]
-             :                            [...activeBookings];
+    let list = activeTab === 'completed'   ? [...completedBookings]
+             : activeTab === 'pending'     ? [...pendingTabBookings]
+             : activeTab === 'rescheduled' ? [...rescheduledBookings]
+             :                              [...activeBookings];
     if (statusFilter !== 'all' && activeTab === 'active') list = list.filter(b => b.status === statusFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -2168,7 +2528,7 @@ Your uid is: ${user.uid}
       return 0;
     });
     return list;
-  }, [bookings, activeTab, statusFilter, search, sortKey, sortDir, pendingTabBookings, completedBookings, activeBookings]);
+  }, [bookings, activeTab, statusFilter, search, sortKey, sortDir, pendingTabBookings, completedBookings, activeBookings, rescheduledBookings]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -2306,6 +2666,7 @@ Your uid is: ${user.uid}
             booking={newBookingQueue[0]}
             onDismiss={dismissBanner}
             onAccept={() => acceptBooking(newBookingQueue[0])}
+            onReview={() => reviewPendingBooking(newBookingQueue[0])}
           />
         )}
       </AnimatePresence>
@@ -3452,9 +3813,10 @@ Your uid is: ${user.uid}
         {/* ── Tabs ── */}
         <div className="flex items-center gap-1 mb-4 bg-zinc-900 border border-white/12 rounded-2xl p-1.5 w-fit flex-wrap">
           {([
-            { id: 'active',    label: 'Active',    count: activeBookings.length,      icon: <Clock size={13} />,       activeStyle: 'bg-gold/10 border border-gold/20 text-gold' },
-            { id: 'pending',   label: 'Pending',   count: pendingTabBookings.length,  icon: <AlertCircle size={13} />, activeStyle: 'bg-amber-500/20 border border-amber-500/30 text-amber-400' },
-            { id: 'completed', label: 'Completed', count: completedBookings.length,   icon: <ListChecks size={13} />,  activeStyle: 'bg-purple-500/20 border border-purple-500/30 text-purple-400' },
+            { id: 'active',      label: 'Active',      count: activeBookings.length,      icon: <Clock size={13} />,       activeStyle: 'bg-gold/10 border border-gold/20 text-gold' },
+            { id: 'pending',     label: 'Pending',     count: pendingTabBookings.length,  icon: <AlertCircle size={13} />, activeStyle: 'bg-amber-500/20 border border-amber-500/30 text-amber-400' },
+            { id: 'completed',   label: 'Completed',   count: completedBookings.length,   icon: <ListChecks size={13} />,  activeStyle: 'bg-purple-500/20 border border-purple-500/30 text-purple-400' },
+            { id: 'rescheduled', label: 'Rescheduled', count: rescheduledBookings.length, icon: <Edit2 size={13} />,       activeStyle: 'bg-blue-500/20 border border-blue-500/30 text-blue-400' },
           ] as const).map(tab => (
             <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); setStatusFilter('all'); setSearch(''); }}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${

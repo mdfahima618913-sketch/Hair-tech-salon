@@ -17,7 +17,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   Search, UserPlus, X, Plus, Minus,
   Receipt, CreditCard, Banknote, Smartphone, CheckCircle2,
-  Loader2, AlertCircle, User, Phone,
+  Loader2, AlertCircle, User, Phone, Users,
   ArrowLeft, Printer, Star, Wallet, Tag, Crown,
 } from 'lucide-react';
 import {
@@ -538,6 +538,7 @@ function ServiceStep({
   const [addForm,      setAddForm]      = useState<QuickAddForm>({ ...QUICK_BLANK });
   const [addSaving,    setAddSaving]    = useState(false);
   const [addError,     setAddError]     = useState('');
+  const [applyAllStaff, setApplyAllStaff] = useState('');
 
   const allCategories_memo = useMemo(
     () => Array.from(new Set(firestoreServices.map(s => s.category))),
@@ -661,6 +662,27 @@ function ServiceStep({
       {/* ── Cart items (CartItemRow per line) ── */}
       {items.length > 0 && (
         <div className="space-y-3">
+          {/* Apply one staff member to all services, still editable per-row below */}
+          {items.length > 1 && (
+            <div className="flex items-center gap-2 bg-zinc-800/40 border border-white/10 rounded-xl px-3 py-2">
+              <Users size={13} className="text-gray-400 shrink-0" />
+              <select value={applyAllStaff} onChange={e => setApplyAllStaff(e.target.value)}
+                className="flex-1 min-w-0 bg-zinc-900 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-gold/40 cursor-pointer"
+              >
+                <option value="">— Set staff for all services —</option>
+                {activeStaff.map(s => (
+                  <option key={s.id} value={s.id}>{s.name}{s.role ? ` · ${s.role}` : ''} · {s.commissionRate}% comm</option>
+                ))}
+              </select>
+              <button
+                onClick={() => items.forEach((_, idx) => onUpdateStaff(idx, applyAllStaff))}
+                disabled={!applyAllStaff}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-gold/15 border border-gold/30 text-gold text-[10px] font-black uppercase tracking-wide hover:bg-gold/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Apply to All
+              </button>
+            </div>
+          )}
           {items.map((item, idx) => (
             <CartItemRow key={idx} item={item} idx={idx} staff={staff}
               onRemove={onRemove} onUpdateQty={onUpdateQty}
@@ -1285,8 +1307,10 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
       const amt = splits[0].amount > 0 ? splits[0].amount : Math.max(0, Math.round(unaccounted));
       onSplitsChange([{ method, amount: amt }]);
     } else {
-      // Split mode: add new entry
-      onSplitsChange([...splits, { method, amount: Math.max(0, Math.round(unaccounted)) }]);
+      // Split mode: update the most recently added row's method instead of
+      // appending yet another row
+      const lastIdx = splits.length - 1;
+      onSplitsChange(splits.map((s, i) => i === lastIdx ? { ...s, method } : s));
     }
   };
 
@@ -1383,9 +1407,13 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
             {/* Compact amount input */}
             <div className="relative flex-1">
               <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs font-bold pointer-events-none">₹</span>
-              <input type="number" min={0} value={split.amount || ''}
+              <input type="text" inputMode="decimal" value={split.amount || ''}
                 placeholder="0"
-                onChange={e => updateAmount(i, Number(e.target.value))}
+                onFocus={e => e.target.select()}
+                onChange={e => {
+                  const raw = e.target.value.replace(/[^0-9.]/g, '');
+                  updateAmount(i, raw === '' ? 0 : Number(raw));
+                }}
                 className="w-full bg-zinc-800 border border-white/10 rounded-xl py-2.5 pl-6 pr-2 text-white text-sm font-black text-right focus:outline-none focus:border-gold/50 transition-all"
               />
             </div>
@@ -1397,7 +1425,11 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
           </div>
         ))}
 
-        <button onClick={() => onSplitsChange([...splits, { method: 'cash', amount: Math.max(0, Math.round(unaccounted)) }])}
+        <button onClick={() => {
+            const usedMethods = new Set(splits.map(s => s.method));
+            const nextMethod = (TILE_METHODS.find(m => !usedMethods.has(m.id))?.id ?? 'card') as PaymentMethod;
+            onSplitsChange([...splits, { method: nextMethod, amount: Math.max(0, Math.round(unaccounted)) }]);
+          }}
           className="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-white/15 rounded-xl text-sm text-gray-400 hover:text-white hover:border-white/25 transition-all">
           <Plus size={13} /> Add another payment mode
         </button>
@@ -1871,6 +1903,16 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   const discountAmount      = Math.round(subtotal * discountPercent / 100);
   const dueSettlementAmount = settleDues ? outstandingDue : 0;
   const total               = subtotal - discountAmount + dueSettlementAmount;
+
+  // Auto-populate the default Cash split's amount once the payment step is
+  // reached — otherwise it sits at 0 until the user switches tiles.
+  useEffect(() => {
+    if (step !== 2) return;
+    if (paymentSplits.length !== 1 || paymentSplits[0].amount !== 0) return;
+    const remainingToCover = Math.max(0, total - alreadyPaidAmount);
+    const due = Math.max(0, Math.round(remainingToCover - amountDue));
+    if (due > 0) setSplits([{ ...paymentSplits[0], amount: due }]);
+  }, [step, total, alreadyPaidAmount, amountDue, paymentSplits]);
 
   // Recompute line price and commission from current item fields
   const recompute = (item: BillItem, overrides: Partial<BillItem> = {}): BillItem => {

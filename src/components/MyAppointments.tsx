@@ -42,6 +42,11 @@ interface Booking {
   invoiceBreakdown?: InvoiceLineItem[];
   finalAmount?: number;
   paymentMethod?: string;
+  originalBookingDate?: string;
+  originalBookingTime?: string;
+  originalStartTime?: string;
+  originalEndTime?: string;
+  rescheduleCount?: number;
 }
 
 type AppTab = 'upcoming' | 'pending' | 'completed';
@@ -376,7 +381,7 @@ export default function MyAppointments() {
   const [slotsLoading,   setSlotsLoading]   = useState(false);
   const [editSaving,     setEditSaving]     = useState(false);
   const [editSuccess,    setEditSuccess]    = useState<string | null>(null);
-  const dateStrip = Array.from({ length: 7 }, (_, i) => addDays(new Date(), i + 1));
+  const dateStrip = Array.from({ length: 8 }, (_, i) => addDays(new Date(), i));
 
   // Retry payment state
   const [payingId,  setPayingId]  = useState<string | null>(null);
@@ -452,12 +457,12 @@ export default function MyAppointments() {
   }, [phone, search]);
 
   // Slot loading for reschedule
-  const loadSlots = useCallback(async (date: Date, durationMins: number) => {
+  const loadSlots = useCallback(async (date: Date, durationMins: number, excludeBookingId?: string) => {
     setSlotsLoading(true); setEditSelSlot(null);
     try {
       const s = startOfDay(date).toISOString(), e = startOfDay(addDays(date, 1)).toISOString();
       const snap = await getDocs(query(collection(db, 'bookings'), where('startTime', '>=', s), where('startTime', '<', e), where('status', 'in', ['paid', 'confirmed', 'pending'])));
-      const existing: ExistingBooking[] = snap.docs.flatMap(d => { const x = d.data(); return x.startTime && x.endTime ? [{ startTime: x.startTime, endTime: x.endTime }] : []; });
+      const existing: ExistingBooking[] = snap.docs.flatMap(d => { if (d.id === excludeBookingId) return []; const x = d.data(); return x.startTime && x.endTime ? [{ startTime: x.startTime, endTime: x.endTime }] : []; });
       setEditSlots(computeSlots(date, durationMins || 60, existing));
     } catch { setEditSlots([]); }
     finally { setSlotsLoading(false); }
@@ -467,13 +472,23 @@ export default function MyAppointments() {
     if (!editSelSlot) return;
     setEditSaving(true);
     try {
-      await updateDoc(doc(db, 'bookings', booking.id), {
-        bookingDate: startOfDay(editDate).toISOString(),
+      const newDate = startOfDay(editDate).toISOString();
+      const updates: Record<string, unknown> = {
+        bookingDate: newDate,
         bookingTime: editSelSlot.label,
         startTime:   editSelSlot.startISO,
         endTime:     editSelSlot.endISO,
-      });
-      setBookings(prev => prev?.map(b => b.id === booking.id ? { ...b, bookingDate: startOfDay(editDate).toISOString(), bookingTime: editSelSlot.label, startTime: editSelSlot.startISO, endTime: editSelSlot.endISO } : b) ?? null);
+        rescheduledAt: serverTimestamp(),
+        rescheduleCount: (booking.rescheduleCount ?? 0) + 1,
+      };
+      if (!booking.originalBookingDate) {
+        updates.originalBookingDate = booking.bookingDate ?? null;
+        updates.originalBookingTime = booking.bookingTime ?? null;
+        updates.originalStartTime   = booking.startTime ?? null;
+        updates.originalEndTime     = booking.endTime ?? null;
+      }
+      await updateDoc(doc(db, 'bookings', booking.id), updates);
+      setBookings(prev => prev?.map(b => b.id === booking.id ? { ...b, bookingDate: newDate, bookingTime: editSelSlot.label, startTime: editSelSlot.startISO, endTime: editSelSlot.endISO } : b) ?? null);
       setEditSuccess(`Rescheduled to ${format(editDate, 'EEE, MMM d')} · ${editSelSlot.label}`);
       setTimeout(() => { setEditingId(null); setEditSuccess(null); }, 2200);
     } catch { /* silent */ } finally { setEditSaving(false); }
@@ -786,8 +801,10 @@ export default function MyAppointments() {
                                   <button
                                     onClick={() => {
                                       if (isEditing) { setEditingId(null); } else {
-                                        setEditingId(b.id); setEditDate(addDays(new Date(), 1));
-                                        setEditSelSlot(null); setEditSlots([]); setEditSuccess(null);
+                                        const today = new Date();
+                                        setEditingId(b.id); setEditDate(today);
+                                        setEditSelSlot(null); setEditSuccess(null);
+                                        loadSlots(today, b.serviceDurationMins ?? 60, b.id);
                                       }
                                     }}
                                     className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:border-gold/30 text-xs font-black uppercase tracking-wider transition-all"
@@ -818,9 +835,9 @@ export default function MyAppointments() {
                                               {dateStrip.map(d => {
                                                 const active = isSameDay(d, editDate);
                                                 return (
-                                                  <button key={d.toString()} onClick={() => { setEditDate(d); loadSlots(d, b.serviceDurationMins ?? 60); }}
+                                                  <button key={d.toString()} onClick={() => { setEditDate(d); loadSlots(d, b.serviceDurationMins ?? 60, b.id); }}
                                                     className={`shrink-0 w-11 h-13 rounded-xl flex flex-col items-center justify-center transition-all border py-2 ${active ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.04] text-gray-400 hover:border-gold/40'}`}>
-                                                    <span className={`text-[9px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{format(d,'EEE')}</span>
+                                                    <span className={`text-[9px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{isToday(d) ? 'Today' : format(d,'EEE')}</span>
                                                     <span className="text-sm font-black">{format(d,'d')}</span>
                                                   </button>
                                                 );
@@ -832,7 +849,7 @@ export default function MyAppointments() {
                                                 <Loader2 size={13} className="animate-spin text-gold"/>Checking availability…
                                               </div>
                                             ) : editSlots.length === 0 ? (
-                                              <p className="text-gray-400 text-xs text-center py-2">Select a date above to see slots</p>
+                                              <p className="text-gray-400 text-xs text-center py-2">No slots available for this date — try another date</p>
                                             ) : (
                                               <div className="space-y-2">
                                                 {(['morning','afternoon','evening'] as const).filter(sess => editSlots.some(s => s.session === sess)).map(sess => {
