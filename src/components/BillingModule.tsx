@@ -40,6 +40,8 @@ export interface Customer {
   firstVisit: string;    // ISO
   lastVisit: string;     // ISO
   notes?: string;
+  /** Unused credit balance carried forward from over-payments (e.g. no change available) */
+  advanceBalance?: number;
 }
 
 export interface StaffMember {
@@ -103,8 +105,14 @@ export interface Invoice {
   amountPaid: number;
   /** Unpaid balance the customer owes later */
   amountDue: number;
+  /** Difference between total and amountPaid written off as round-off (not a payment line item) */
+  roundOffAmount?: number;
   /** Amount from previous due invoices settled in this bill */
   dueSettlementAmount?: number;
+  /** Over-payment on this bill saved as a credit for the customer's next visit */
+  advanceAmount?: number;
+  /** Previously-saved advance credit applied to reduce this bill's total */
+  advanceSettlementAmount?: number;
   status: 'paid' | 'due';
   source: 'walkin' | 'online';
   /** VIP tier — defaults to 'standard' when absent */
@@ -464,6 +472,22 @@ function CustomerStep({
                   </p>
                   <p className="text-gray-500 text-xs mt-1">
                     Unpaid balance from a previous visit. Remind the customer to settle this.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+            {/* Advance credit alert — shown for customers with unused over-payment credit */}
+            {(found.advanceBalance ?? 0) > 0 && (
+              <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                className="mt-3 flex items-start gap-2.5 p-3 bg-sky-500/10 border border-sky-500/30 rounded-xl"
+              >
+                <Wallet size={15} className="text-sky-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sky-400 text-sm font-black leading-none">
+                    Advance Available: ₹{(found.advanceBalance ?? 0).toLocaleString('en-IN')}
+                  </p>
+                  <p className="text-gray-500 text-xs mt-1">
+                    Credit from a previous over-payment — can be applied to this bill.
                   </p>
                 </div>
               </motion.div>
@@ -1244,7 +1268,7 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
 
 // ─── Summary Panel (right side, step 1) ──────────────────────────────────────
 
-function SummaryPanel({ subtotal, discountPercent, onDiscountChange, total, itemCount, onContinue, dueSettlementAmount = 0 }: {
+function SummaryPanel({ subtotal, discountPercent, onDiscountChange, total, itemCount, onContinue, dueSettlementAmount = 0, advanceSettlementAmount = 0 }: {
   subtotal: number;
   discountPercent: number;
   onDiscountChange: (v: number) => void;
@@ -1252,6 +1276,7 @@ function SummaryPanel({ subtotal, discountPercent, onDiscountChange, total, item
   itemCount: number;
   onContinue: () => void;
   dueSettlementAmount?: number;
+  advanceSettlementAmount?: number;
 }) {
   const { t } = useLanguage();
   const discAmt = Math.round(subtotal * discountPercent / 100);
@@ -1279,6 +1304,12 @@ function SummaryPanel({ subtotal, discountPercent, onDiscountChange, total, item
           <div className="flex justify-between text-sm">
             <span className="text-amber-400 flex items-center gap-1"><AlertCircle size={11} /> Previous Dues</span>
             <span className="text-amber-400 font-bold">+₹{dueSettlementAmount.toLocaleString('en-IN')}</span>
+          </div>
+        )}
+        {advanceSettlementAmount > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-sky-400 flex items-center gap-1"><CheckCircle2 size={11} /> Advance Applied</span>
+            <span className="text-sky-400 font-bold">-₹{advanceSettlementAmount.toLocaleString('en-IN')}</span>
           </div>
         )}
         <div className="flex justify-between text-sm">
@@ -1314,6 +1345,7 @@ const TILE_METHODS = [
 ] as const;
 
 function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, amountDue, onDueChange,
+  roundOffAmount, onRoundOffChange, newAdvanceAmount, onNewAdvanceChange,
   onCheckout, onBack, saving, isOnline, paidLabel = 'Paid online', dueSettlementAmount = 0 }: {
   total: number;
   alreadyPaidAmount: number;
@@ -1321,6 +1353,10 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
   onSplitsChange: (s: PaymentSplit[]) => void;
   amountDue: number;
   onDueChange: (v: number) => void;
+  roundOffAmount: number;
+  onRoundOffChange: (v: number) => void;
+  newAdvanceAmount: number;
+  onNewAdvanceChange: (v: number) => void;
   onCheckout: () => void;
   onBack: () => void;
   saving: boolean;
@@ -1330,7 +1366,7 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
 }) {
   const remainingToCover = Math.max(0, total - alreadyPaidAmount);
   const splitTotal       = splits.reduce((a, s) => a + (Number(s.amount) || 0), 0);
-  const unaccounted      = Math.round((remainingToCover - splitTotal - amountDue) * 100) / 100;
+  const unaccounted      = Math.round((remainingToCover - splitTotal - amountDue - roundOffAmount + newAdvanceAmount) * 100) / 100;
   const isBalanced       = Math.abs(unaccounted) < 1;
 
   const addTile = (method: PaymentMethod) => {
@@ -1379,6 +1415,38 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
           {amountDue > 0 ? `Due: ₹${amountDue.toLocaleString('en-IN')}` : `Bal: ₹${Math.max(0, unaccounted).toLocaleString('en-IN')}`}
         </span>
       </div>
+
+      {/* Round-off notice */}
+      {roundOffAmount !== 0 && (
+        <div className="flex items-center justify-between px-3 py-2.5 bg-sky-500/8 border border-sky-500/25 rounded-xl">
+          <span className="flex items-center gap-2 text-sky-400 text-xs font-bold">
+            <Tag size={13} /> Round Off
+          </span>
+          <div className="flex items-center gap-2">
+            <p className="text-sky-400 font-black text-sm">₹{roundOffAmount.toLocaleString('en-IN')}</p>
+            <button onClick={() => onRoundOffChange(0)}
+              className="text-gray-500 hover:text-white transition-all">
+              <X size={12} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* New advance-credit notice — over-payment saved for the customer's next visit */}
+      {newAdvanceAmount > 0 && (
+        <div className="flex items-center justify-between px-3 py-2.5 bg-emerald-500/8 border border-emerald-500/25 rounded-xl">
+          <span className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
+            <Wallet size={13} /> Saved as Advance
+          </span>
+          <div className="flex items-center gap-2">
+            <p className="text-emerald-400 font-black text-sm">₹{newAdvanceAmount.toLocaleString('en-IN')}</p>
+            <button onClick={() => onNewAdvanceChange(0)}
+              className="text-gray-500 hover:text-white transition-all">
+              <X size={12} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Due settlement notice */}
       {dueSettlementAmount > 0 && (
@@ -1472,11 +1540,24 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
           <Plus size={13} /> Add another payment mode
         </button>
 
-        {/* Mark as due */}
+        {/* Mark as due / round off — alternative ways to settle a small shortfall */}
         {!isBalanced && unaccounted > 0 && (
-          <button onClick={() => onDueChange(amountDue + Math.round(unaccounted))}
-            className="w-full text-center text-xs text-amber-400 font-bold py-2 rounded-xl hover:bg-amber-500/10 border border-dashed border-amber-500/25 transition-all">
-            Mark ₹{unaccounted.toLocaleString('en-IN')} as Due
+          <div className="flex gap-2">
+            <button onClick={() => onDueChange(amountDue + Math.round(unaccounted))}
+              className="flex-1 text-center text-xs text-amber-400 font-bold py-2 rounded-xl hover:bg-amber-500/10 border border-dashed border-amber-500/25 transition-all">
+              Mark ₹{unaccounted.toLocaleString('en-IN')} as Due
+            </button>
+            <button onClick={() => onRoundOffChange(roundOffAmount + Math.round(unaccounted))}
+              className="flex-1 text-center text-xs text-sky-400 font-bold py-2 rounded-xl hover:bg-sky-500/10 border border-dashed border-sky-500/25 transition-all">
+              Round Off ₹{unaccounted.toLocaleString('en-IN')}
+            </button>
+          </div>
+        )}
+        {/* Over-paid (e.g. no change available) — save the extra as advance credit */}
+        {!isBalanced && unaccounted < 0 && (
+          <button onClick={() => onNewAdvanceChange(newAdvanceAmount + Math.round(-unaccounted))}
+            className="w-full text-center text-xs text-emerald-400 font-bold py-2 rounded-xl hover:bg-emerald-500/10 border border-dashed border-emerald-500/25 transition-all">
+            Save ₹{Math.abs(unaccounted).toLocaleString('en-IN')} as Advance
           </button>
         )}
         {amountDue > 0 && (
@@ -1520,6 +1601,9 @@ function InvoicePreview({ invoice, customer, onClose }: {
       : '';
     const dueSettledLine = (invoice.dueSettlementAmount ?? 0) > 0
       ? `<div class="row"><span>&#9888; Previous Dues Settled</span><span style="color:#c07000">+&#8377;${(invoice.dueSettlementAmount!).toLocaleString('en-IN')}</span></div>`
+      : '';
+    const advanceSettledLine = (invoice.advanceSettlementAmount ?? 0) > 0
+      ? `<div class="row"><span>Advance Applied</span><span style="color:#0077aa">-&#8377;${(invoice.advanceSettlementAmount!).toLocaleString('en-IN')}</span></div>`
       : '';
     const commissionRows = Object.entries(
       invoice.items.reduce((acc: Record<string,number>, it) => {
@@ -1583,6 +1667,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
       <div class="row"><span>Subtotal</span><span>&#8377;${invoice.subtotal.toLocaleString('en-IN')}</span></div>
       ${discountLine}
       ${dueSettledLine}
+      ${advanceSettledLine}
       <div class="row total"><span>TOTAL</span><span>&#8377;${invoice.total.toLocaleString('en-IN')}</span></div>
       ${(() => {
         const ep = invoice.amountPaid ?? (invoice.total - (invoice.amountDue ?? 0));
@@ -1595,7 +1680,13 @@ function InvoicePreview({ invoice, customer, onClose }: {
         const bal = hd
           ? `<div class="row sm" style="color:#c00;font-weight:700"><span>Balance Due (&#8377;${invoice.total.toLocaleString('en-IN')} &minus; &#8377;${ep.toLocaleString('en-IN')})</span><span>&#8377;${(invoice.amountDue ?? 0).toLocaleString('en-IN')}</span></div>`
           : `<div class="row sm" style="color:#007700"><span>&#10003; Fully Paid</span><span>&#8377;${ep.toLocaleString('en-IN')}</span></div>`;
-        return splits + bal;
+        const roundOff = (invoice.roundOffAmount ?? 0) !== 0
+          ? `<div class="row sm"><span>Round Off</span><span>&#8377;${invoice.roundOffAmount!.toLocaleString('en-IN')}</span></div>`
+          : '';
+        const newAdvance = (invoice.advanceAmount ?? 0) > 0
+          ? `<div class="row sm" style="color:#007700"><span>Saved as Advance</span><span>&#8377;${invoice.advanceAmount!.toLocaleString('en-IN')}</span></div>`
+          : '';
+        return splits + bal + roundOff + newAdvance;
       })()}
       ${invoice.paymentId ? `<div class="row sm"><span>Ref ID</span><span>${invoice.paymentId}</span></div>` : ''}
       ${commissionRows ? `<div class="dash"></div><div class="sm bold">Staff Commission</div>${commissionRows}` : ''}
@@ -1715,6 +1806,12 @@ function InvoicePreview({ invoice, customer, onClose }: {
               <span>+₹{(invoice.dueSettlementAmount!).toLocaleString('en-IN')}</span>
             </div>
           )}
+          {(invoice.advanceSettlementAmount ?? 0) > 0 && (
+            <div className="flex justify-between text-xs text-sky-600 font-bold">
+              <span>Advance Applied</span>
+              <span>-₹{(invoice.advanceSettlementAmount!).toLocaleString('en-IN')}</span>
+            </div>
+          )}
           <div className="flex justify-between font-black text-sm pt-1.5 border-t border-dashed border-gray-300">
             <span>TOTAL</span>
             <span style={{ color: '#B8941F' }}>₹{invoice.total.toLocaleString('en-IN')}</span>
@@ -1760,6 +1857,18 @@ function InvoicePreview({ invoice, customer, onClose }: {
                   </span>
                   <span>{hasDue ? `₹${(invoice.amountDue ?? 0).toLocaleString('en-IN')}` : `₹${effectivePaid.toLocaleString('en-IN')}`}</span>
                 </div>
+                {(invoice.roundOffAmount ?? 0) !== 0 && (
+                  <div className="flex justify-between text-xs text-sky-600">
+                    <span>Round Off</span>
+                    <span className="font-bold">₹{invoice.roundOffAmount!.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
+                {(invoice.advanceAmount ?? 0) > 0 && (
+                  <div className="flex justify-between text-xs text-emerald-700">
+                    <span>Saved as Advance</span>
+                    <span className="font-bold">₹{invoice.advanceAmount!.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
                 {invoice.paymentId && (
                   <div className="flex justify-between text-[9px] text-gray-400">
                     <span>Ref ID</span><span className="font-mono">{invoice.paymentId}</span>
@@ -1820,6 +1929,8 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   const [discountPercent, setDiscount] = useState(0);
   const [paymentSplits, setSplits]     = useState<PaymentSplit[]>([{ method: 'cash', amount: 0 }]);
   const [amountDue, setAmountDue]      = useState(0);
+  // Small shortfall written off as "round off" — not a payment line item, tracked separately
+  const [roundOffAmount, setRoundOffAmount] = useState(0);
   const [staff, setStaff]              = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading] = useState(true);
   // Default staff member silently credited for services left unassigned (configured in Tools > Settings)
@@ -1829,6 +1940,11 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   const [invoice, setInvoice]          = useState<Invoice | null>(null);
   const [outstandingDue, setOutstandingDue] = useState(0);
   const [settleDues, setSettleDues]    = useState(false);
+  // Customer's existing advance credit (e.g. overpaid last visit, no change given) and whether to apply it now
+  const [advanceBalance, setAdvanceBalance] = useState(0);
+  const [useAdvance, setUseAdvance]    = useState(false);
+  // New advance credit being created from an over-payment on this bill
+  const [newAdvanceAmount, setNewAdvanceAmount] = useState(0);
   const [billingType, setBillingType]  = useState<'standard' | 'vvip'>('standard');
   // Date the bill is for — defaults to today, editable for back-dating (e.g. forgot to bill yesterday)
   const [billingDate, setBillingDate]  = useState(() => toDateInputValue(new Date()));
@@ -1927,6 +2043,14 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
     }).catch(() => setOutstandingDue(0));
   }, [customer]);
 
+  // Fetch existing advance credit whenever customer is set (shown on service step)
+  useEffect(() => {
+    if (!customer) { setAdvanceBalance(0); setUseAdvance(false); return; }
+    getDoc(doc(db, 'customers', customer.phone))
+      .then(snap => setAdvanceBalance(snap.exists() ? (snap.data().advanceBalance ?? 0) : 0))
+      .catch(() => setAdvanceBalance(0));
+  }, [customer]);
+
   // Load staff from Firestore
   useEffect(() => {
     getDocs(query(collection(db, 'staff'), where('isActive', '==', true), orderBy('name')))
@@ -1951,7 +2075,9 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   );
   const discountAmount      = Math.round(subtotal * discountPercent / 100);
   const dueSettlementAmount = settleDues ? outstandingDue : 0;
-  const total               = subtotal - discountAmount + dueSettlementAmount;
+  const preAdvanceTotal     = subtotal - discountAmount + dueSettlementAmount;
+  const advanceSettlementAmount = useAdvance ? Math.min(advanceBalance, Math.max(0, preAdvanceTotal)) : 0;
+  const total               = preAdvanceTotal - advanceSettlementAmount;
 
   // Auto-populate the default Cash split's amount once when the payment step is
   // first reached — but only once, so clearing the field for part-payments sticks.
@@ -2054,13 +2180,23 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
       // Silently credit unassigned services to the configured default staff member —
       // does not touch the on-screen cart (`items`), only what's saved to Firestore.
       const defaultStaff = staff.find(s => s.id === defaultStaffId);
-      const effectiveItems = defaultStaff
+      const itemsWithDefaultStaff = defaultStaff
         ? items.map(item => item.staffId ? item : recompute(item, {
             staffId:         defaultStaff.id,
             staffName:       defaultStaff.name,
             commissionRate:  defaultStaff.commissionRate,
           }))
         : items;
+
+      // Commission is paid on money actually collected, not the billed total —
+      // a round-off write-off (or unpaid due) proportionally reduces every item's commission.
+      const collectionRatio = total > 0 ? Math.min(1, amountPaid / total) : 1;
+      const effectiveItems = collectionRatio < 1
+        ? itemsWithDefaultStaff.map(item => ({
+            ...item,
+            commissionAmount: Math.round(item.commissionAmount * collectionRatio),
+          }))
+        : itemsWithDefaultStaff;
 
       const inv: Omit<Invoice, 'id'> = {
         invoiceNumber:  generateInvoiceNumber(),
@@ -2073,10 +2209,13 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
         discountAmount,
         total,
         ...(dueSettlementAmount > 0 && { dueSettlementAmount }),
+        ...(advanceSettlementAmount > 0 && { advanceSettlementAmount }),
+        ...(newAdvanceAmount > 0 && { advanceAmount: newAdvanceAmount }),
         paymentMethod:  primaryMethod,
         paymentSplits:  validSplits,
         amountPaid,
         amountDue,
+        ...(roundOffAmount !== 0 && { roundOffAmount }),
         ...(prefill?.paymentId && { paymentId: prefill.paymentId }),
         status:    amountDue > 0 ? 'due' : 'paid',
         source:    isRealOnline ? 'online' : 'walkin',
@@ -2104,6 +2243,9 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
       const invoiceSource = isRealOnline ? 'online' : 'walkin';
       const custRef  = doc(db, 'customers', customer.phone);
       const custSnap = await getDoc(custRef);
+      // Net change to the customer's advance credit balance — spend existing credit
+      // applied to this bill, then add any new credit saved from over-payment.
+      const advanceDelta = newAdvanceAmount - advanceSettlementAmount;
       if (custSnap.exists()) {
         const existing   = custSnap.data() as Customer & { source?: string };
         const prevSource = existing.source ?? 'walkin';
@@ -2113,6 +2255,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
           name:      customer.name || existing.name,
           source:    mergedSource,
           lastVisit: billingDateToTimestamp(billingDate).toISOString(),
+          advanceBalance: Math.max(0, (existing.advanceBalance ?? 0) + advanceDelta),
         });
       } else {
         await setDoc(custRef, {
@@ -2121,6 +2264,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
           source:     invoiceSource,
           firstVisit: billingDateToTimestamp(billingDate).toISOString(),
           lastVisit:  billingDateToTimestamp(billingDate).toISOString(),
+          advanceBalance: Math.max(0, advanceDelta),
         });
       }
 
@@ -2176,9 +2320,9 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
 
   const balanceDue             = Math.max(0, total - alreadyPaidAmount);
   const canProceedFromServices = items.length > 0;
-  // Splits + due must account for the full remaining balance (within ₹1 tolerance)
+  // Splits + due + round-off + new advance must account for the full remaining balance (within ₹1 tolerance)
   const splitTotal             = paymentSplits.reduce((a, s) => a + (Number(s.amount) || 0), 0);
-  const unaccounted            = Math.round((balanceDue - splitTotal - amountDue) * 100) / 100;
+  const unaccounted            = Math.round((balanceDue - splitTotal - amountDue - roundOffAmount + newAdvanceAmount) * 100) / 100;
   const canProceedFromPayment  = (isOnlineFlow && balanceDue === 0) || Math.abs(unaccounted) < 1;
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -2304,6 +2448,30 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
                 </div>
               )}
 
+              {/* Advance credit available — from a previous over-payment */}
+              {customer && advanceBalance > 0 && (
+                <div className="mb-4 rounded-2xl border bg-sky-500/8 border-sky-500/25">
+                  <div className="flex items-center justify-between gap-3 px-4 py-3">
+                    <span className="text-sky-400 text-xs font-black">Advance Available: ₹{advanceBalance.toLocaleString('en-IN')}</span>
+                    <button
+                      onClick={() => setUseAdvance(s => !s)}
+                      className={`px-2.5 py-1 rounded-lg text-[10px] font-black border transition-all ${
+                        useAdvance
+                          ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                          : 'bg-sky-500/10 border-sky-500/25 text-sky-400 hover:bg-sky-500/20'
+                      }`}
+                    >
+                      {useAdvance ? '✓ Applying' : 'Apply to Bill'}
+                    </button>
+                  </div>
+                  <p className={`text-[10px] px-4 pb-3 -mt-1 ${useAdvance ? 'text-emerald-400/70' : 'text-sky-300/70'}`}>
+                    {useAdvance
+                      ? `₹${advanceSettlementAmount.toLocaleString('en-IN')} will be deducted from this bill's total.`
+                      : 'Credit from a previous over-payment — apply it to reduce this bill.'}
+                  </p>
+                </div>
+              )}
+
               {staffLoading ? (
                 <div className="flex items-center gap-3 py-12 justify-center text-gray-500">
                   <Loader2 size={20} className="animate-spin text-gold" />
@@ -2335,6 +2503,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
                       itemCount={items.length}
                       onContinue={() => setStep(2)}
                       dueSettlementAmount={dueSettlementAmount}
+                      advanceSettlementAmount={advanceSettlementAmount}
                     />
                   </motion.div>
                 )}
@@ -2344,6 +2513,8 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
                       total={total} alreadyPaidAmount={alreadyPaidAmount}
                       splits={paymentSplits} onSplitsChange={setSplits}
                       amountDue={amountDue} onDueChange={setAmountDue}
+                      roundOffAmount={roundOffAmount} onRoundOffChange={setRoundOffAmount}
+                      newAdvanceAmount={newAdvanceAmount} onNewAdvanceChange={setNewAdvanceAmount}
                       onCheckout={handleGenerateInvoice} onBack={() => setStep(1)}
                       saving={saving} isOnline={isOnlineFlow}
                       paidLabel={isAdvancePay ? `Advance via ${advanceMethod.toUpperCase()}` : 'Paid via Razorpay'}

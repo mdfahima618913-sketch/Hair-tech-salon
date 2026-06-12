@@ -142,6 +142,15 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
     const dueSettledLine = (data.dueSettlementAmount ?? 0) > 0
       ? `<div class="row"><span>&#9888; Previous Dues Settled</span><span style="color:#c07000">+&#8377;${data.dueSettlementAmount.toLocaleString('en-IN')}</span></div>`
       : '';
+    const advanceSettledLine = (data.advanceSettlementAmount ?? 0) > 0
+      ? `<div class="row"><span>Advance Applied</span><span style="color:#0077aa">-&#8377;${data.advanceSettlementAmount.toLocaleString('en-IN')}</span></div>`
+      : '';
+    const roundOffLine = (data.roundOffAmount ?? 0) !== 0
+      ? `<div class="row sm"><span>Round Off</span><span>&#8377;${data.roundOffAmount.toLocaleString('en-IN')}</span></div>`
+      : '';
+    const newAdvanceLine = (data.advanceAmount ?? 0) > 0
+      ? `<div class="row sm" style="color:#007700"><span>Saved as Advance</span><span>&#8377;${data.advanceAmount.toLocaleString('en-IN')}</span></div>`
+      : '';
     const items: any[] = data.items ?? [];
     const splits: any[] = data.paymentSplits ?? [];
     const effectivePaid = data.amountPaid ?? (data.total - (data.amountDue ?? 0));
@@ -189,7 +198,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
         </div>`).join('')}
       <div class="dash"></div>
       <div class="row"><span>Subtotal</span><span>&#8377;${data.subtotal?.toLocaleString('en-IN')}</span></div>
-      ${discountLine}${dueSettledLine}
+      ${discountLine}${dueSettledLine}${advanceSettledLine}
       <div class="row total"><span>TOTAL</span><span>&#8377;${data.total?.toLocaleString('en-IN')}</span></div>
       <div class="sm bold" style="margin-top:4px">Payment</div>
       ${paymentRows}
@@ -197,6 +206,8 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
         <span>${hasDue ? 'Balance Due' : '&#10003; Fully Paid'}</span>
         <span>&#8377;${hasDue ? (data.amountDue ?? 0).toLocaleString('en-IN') : effectivePaid.toLocaleString('en-IN')}</span>
       </div>
+      ${roundOffLine}
+      ${newAdvanceLine}
       ${data.paymentId ? `<div class="row sm"><span>Ref ID</span><span>${data.paymentId}</span></div>` : ''}
       <div class="dash"></div>
       <div class="center sm" style="margin-top:6px">Thank you for visiting Hair Tech Salon!<br/>Follow us &#64;hairtech111</div>
@@ -300,6 +311,12 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
                     <span>+₹{data.dueSettlementAmount.toLocaleString('en-IN')}</span>
                   </div>
                 )}
+                {(data.advanceSettlementAmount ?? 0) > 0 && (
+                  <div className="flex justify-between text-xs text-sky-600 font-bold">
+                    <span>Advance Applied</span>
+                    <span>-₹{data.advanceSettlementAmount.toLocaleString('en-IN')}</span>
+                  </div>
+                )}
                 <div className="flex justify-between font-black text-sm pt-1.5 border-t border-dashed border-gray-300">
                   <span>TOTAL</span>
                   <span style={{ color: '#B8941F' }}>₹{data.total?.toLocaleString('en-IN')}</span>
@@ -344,6 +361,18 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
                     </span>
                     <span>{hasDue ? `₹${(data.amountDue ?? 0).toLocaleString('en-IN')}` : `₹${effectivePaid.toLocaleString('en-IN')}`}</span>
                   </div>
+                  {(data.roundOffAmount ?? 0) !== 0 && (
+                    <div className="flex justify-between text-xs text-sky-600">
+                      <span>Round Off</span>
+                      <span className="font-bold">₹{data.roundOffAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
+                  {(data.advanceAmount ?? 0) > 0 && (
+                    <div className="flex justify-between text-xs text-emerald-700">
+                      <span>Saved as Advance</span>
+                      <span className="font-bold">₹{data.advanceAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
                   {data.paymentId && (
                     <div className="flex justify-between text-[9px] text-gray-400">
                       <span>Ref ID</span><span className="font-mono">{data.paymentId}</span>

@@ -1154,6 +1154,15 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
     const dueRow = hasDue
       ? `<div class="row sm" style="color:#c00;font-weight:700"><span>Balance Due (&#8377;${invoice.total.toLocaleString('en-IN')} &minus; &#8377;${effectivePaid.toLocaleString('en-IN')})</span><span>&#8377;${inv.amountDue.toLocaleString('en-IN')}</span></div>`
       : `<div class="row sm" style="color:#007700"><span>&#10003; Fully Paid</span><span>&#8377;${effectivePaid.toLocaleString('en-IN')}</span></div>`;
+    const roundOffRow = (inv.roundOffAmount ?? 0) !== 0
+      ? `<div class="row sm"><span>Round Off</span><span>&#8377;${inv.roundOffAmount.toLocaleString('en-IN')}</span></div>`
+      : '';
+    const advanceSettledLine = (inv.advanceSettlementAmount ?? 0) > 0
+      ? `<div class="row" style="color:#0077aa"><span>Advance Applied</span><span>-&#8377;${inv.advanceSettlementAmount.toLocaleString('en-IN')}</span></div>`
+      : '';
+    const newAdvanceRow = (inv.advanceAmount ?? 0) > 0
+      ? `<div class="row sm" style="color:#007700"><span>Saved as Advance</span><span>&#8377;${inv.advanceAmount.toLocaleString('en-IN')}</span></div>`
+      : '';
     const commRows = Object.entries(
       invoice.items.reduce((acc: Record<string, number>, it) => {
         if (it.staffId) acc[it.staffName] = (acc[it.staffName] ?? 0) + it.commissionAmount;
@@ -1198,9 +1207,12 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
       <div class="row sm"><span>Subtotal</span><span>&#8377;${invoice.subtotal.toLocaleString('en-IN')}</span></div>
       ${disc}
       ${dueLine}
+      ${advanceSettledLine}
       <div class="row total"><span>TOTAL</span><span>&#8377;${invoice.total.toLocaleString('en-IN')}</span></div>
       ${payRows}
       ${dueRow}
+      ${roundOffRow}
+      ${newAdvanceRow}
       ${invoice.paymentId ? `<div class="row sm"><span>Razorpay ID</span><span>${invoice.paymentId}</span></div>` : ''}
       ${commRows ? `<div class="dash"></div><div class="sm bold">Staff Commission</div>${commRows}` : ''}
       <div class="dash"></div>
@@ -1316,6 +1328,12 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                       <span>+₹{inv.dueSettlementAmount.toLocaleString('en-IN')}</span>
                     </div>
                   )}
+                  {(inv.advanceSettlementAmount ?? 0) > 0 && (
+                    <div className="flex justify-between text-xs text-sky-600 font-bold">
+                      <span>Advance Applied</span>
+                      <span>-₹{inv.advanceSettlementAmount.toLocaleString('en-IN')}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between font-black text-sm pt-1.5 border-t border-dashed border-gray-300">
                     <span>TOTAL</span><span style={{ color: '#B8941F' }}>₹{invoice.total.toLocaleString('en-IN')}</span>
                   </div>
@@ -1364,6 +1382,18 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                           </span>
                           <span>{hasDue ? `₹${inv.amountDue.toLocaleString('en-IN')}` : `₹${effectivePaid.toLocaleString('en-IN')}`}</span>
                         </div>
+                        {(inv.roundOffAmount ?? 0) !== 0 && (
+                          <div className="flex justify-between text-xs text-sky-600">
+                            <span>Round Off</span>
+                            <span className="font-bold">₹{inv.roundOffAmount.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
+                        {(inv.advanceAmount ?? 0) > 0 && (
+                          <div className="flex justify-between text-xs text-emerald-700">
+                            <span>Saved as Advance</span>
+                            <span className="font-bold">₹{inv.advanceAmount.toLocaleString('en-IN')}</span>
+                          </div>
+                        )}
                         {invoice.paymentId && (
                           <div className="flex justify-between text-[9px] text-gray-400">
                             <span>Razorpay ID</span>
@@ -1459,6 +1489,8 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
     discountPercent: number;
     paymentSplits: PaymentSplit[];
     billingType: 'standard' | 'vvip';
+    advanceAmount: number;
+    dueAmount: number;
   } | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError,  setEditError]  = useState<string | null>(null);
@@ -1485,6 +1517,8 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
       discountPercent: inv.discountPercent ?? 0,
       paymentSplits:   (inv.paymentSplits ?? []).map(s => ({ ...s })),
       billingType:     (inv as any).billingType === 'vvip' ? 'vvip' : 'standard',
+      advanceAmount:   (inv as any).advanceAmount ?? 0,
+      dueAmount:       inv.amountDue ?? 0,
     });
     setEditingInvId(inv.id);
     setExpandedInv(inv.id);
@@ -1547,9 +1581,10 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
       const dueSettlementAmount = (inv as any).dueSettlementAmount ?? 0;
       const total          = subtotal - discountAmount + dueSettlementAmount;
       const validSplits    = editForm.paymentSplits.filter(s => s.amount > 0);
-      const amountPaid     = validSplits.reduce((a, s) => a + s.amount, 0);
-      const amountDue      = Math.max(0, Math.round((total - amountPaid) * 100) / 100);
+      const amountDue      = Math.min(total, Math.max(0, Math.round(editForm.dueAmount)));
+      const amountPaid     = Math.max(0, Math.round((total - amountDue) * 100) / 100);
       const primaryMethod: PaymentMethod = validSplits[0]?.method ?? inv.paymentMethod ?? 'cash';
+      const advanceAmount  = Math.max(0, Math.round(editForm.advanceAmount));
 
       const updates = {
         customerName:    editForm.customerName,
@@ -1565,9 +1600,24 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
         amountDue,
         status:          amountDue > 0 ? 'due' as const : 'paid' as const,
         billingType:     editForm.billingType,
+        advanceAmount,
       };
       await updateDoc(doc(db, 'invoices', inv.id), updates);
       setBillingInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, ...updates } : i));
+
+      // Adjust the customer's advance credit balance by the change in "saved as advance" amount.
+      const prevAdvanceAmount = (inv as any).advanceAmount ?? 0;
+      const advanceDelta = advanceAmount - prevAdvanceAmount;
+      if (advanceDelta !== 0 && editForm.customerPhone) {
+        const custRef  = doc(db, 'customers', editForm.customerPhone);
+        const custSnap = await getDoc(custRef);
+        if (custSnap.exists()) {
+          const existing = custSnap.data() as { advanceBalance?: number };
+          await updateDoc(custRef, {
+            advanceBalance: Math.max(0, (existing.advanceBalance ?? 0) + advanceDelta),
+          });
+        }
+      }
       setEditingInvId(null);
       setEditForm(null);
     } catch (e: any) {
@@ -4480,6 +4530,34 @@ Your uid is: ${user.uid}
                                         {editForm.paymentSplits.length === 0 && (
                                           <p className="text-[10px] text-gray-500">No payment splits — invoice will be marked fully due.</p>
                                         )}
+                                        {editForm.paymentSplits.length > 1 && (
+                                          <div className="flex justify-between text-xs text-gray-400 border-t border-dashed border-white/10 pt-1">
+                                            <span>Collected</span>
+                                            <span className="font-bold text-white">₹{editForm.paymentSplits.reduce((a, s) => a + (Number(s.amount) || 0), 0).toLocaleString('en-IN')}</span>
+                                          </div>
+                                        )}
+                                      </div>
+
+                                      {/* Saved as advance */}
+                                      <div className="flex items-center gap-2">
+                                        <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Saved as Advance (₹)</label>
+                                        <input type="number" min={0} value={editForm.advanceAmount}
+                                          onChange={e => setEditForm(prev => prev ? { ...prev, advanceAmount: Math.max(0, Number(e.target.value)) } : prev)}
+                                          className="w-24 bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
+                                        <span className="text-[9px] text-gray-500">Adjusts customer's advance credit balance</span>
+                                      </div>
+
+                                      {/* Outstanding due */}
+                                      <div className="flex items-center gap-2">
+                                        <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Outstanding Due (₹)</label>
+                                        <input type="number" min={0} value={editForm.dueAmount}
+                                          onChange={e => setEditForm(prev => prev ? { ...prev, dueAmount: Math.max(0, Number(e.target.value)) } : prev)}
+                                          className="w-24 bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
+                                        {editForm.dueAmount > 0 && (
+                                          <button onClick={() => setEditForm(prev => prev ? { ...prev, dueAmount: 0 } : prev)}
+                                            className="text-[9px] font-black text-emerald-400 hover:underline">Mark Recovered</button>
+                                        )}
+                                        <span className="text-[9px] text-gray-500">e.g. set to ₹0 once recovery team collects payment</span>
                                       </div>
 
                                       {/* Computed totals */}
@@ -4488,8 +4566,8 @@ Your uid is: ${user.uid}
                                         const discountAmount = Math.round(subtotal * editForm.discountPercent / 100);
                                         const dueSettlementAmount = (inv as any).dueSettlementAmount ?? 0;
                                         const total = subtotal - discountAmount + dueSettlementAmount;
-                                        const amountPaid = editForm.paymentSplits.filter(s => s.amount > 0).reduce((a, s) => a + s.amount, 0);
-                                        const amountDue = Math.max(0, Math.round((total - amountPaid) * 100) / 100);
+                                        const amountDue = Math.min(total, Math.max(0, Math.round(editForm.dueAmount)));
+                                        const amountPaid = Math.max(0, Math.round((total - amountDue) * 100) / 100);
                                         return (
                                           <div className="pt-2 border-t border-white/10 space-y-1 text-xs">
                                             <div className="flex justify-between text-gray-400"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
@@ -4539,6 +4617,28 @@ Your uid is: ${user.uid}
                                           )}
                                         </div>
                                       ))}
+                                      {(inv.paymentSplits?.length ?? 0) > 0 && (
+                                        <div className="pt-2 border-t border-white/10 space-y-1">
+                                          <p className="text-[9px] uppercase tracking-widest font-black text-gray-400">Payment Breakup</p>
+                                          {inv.paymentSplits!.map((s: any, i: number) => {
+                                            const label = s.method === 'online' ? 'Razorpay' : s.method;
+                                            return (
+                                              <div key={i} className="flex justify-between text-xs">
+                                                <span className={`capitalize ${s.isAdvance ? 'text-amber-400 font-bold' : 'text-gray-400'}`}>
+                                                  {s.isAdvance ? `Advance (${label})` : label}
+                                                </span>
+                                                <span className="font-bold text-white">₹{s.amount.toLocaleString('en-IN')}</span>
+                                              </div>
+                                            );
+                                          })}
+                                          {inv.paymentSplits!.length > 1 && (
+                                            <div className="flex justify-between text-xs text-gray-500 border-t border-dashed border-white/10 pt-0.5">
+                                              <span>Collected</span>
+                                              <span className="font-bold">₹{inv.paymentSplits!.reduce((a, s) => a + (Number(s.amount) || 0), 0).toLocaleString('en-IN')}</span>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
                                       <div className="pt-2 border-t border-white/10 space-y-1">
                                         {inv.discountAmount > 0 && (
                                           <div className="flex justify-between text-xs text-red-400">
@@ -4552,10 +4652,28 @@ Your uid is: ${user.uid}
                                             <span>+₹{(inv as any).dueSettlementAmount.toLocaleString('en-IN')}</span>
                                           </div>
                                         )}
+                                        {(inv as any).advanceSettlementAmount > 0 && (
+                                          <div className="flex justify-between text-xs text-sky-400 font-bold">
+                                            <span>Advance Applied</span>
+                                            <span>-₹{(inv as any).advanceSettlementAmount.toLocaleString('en-IN')}</span>
+                                          </div>
+                                        )}
                                         <div className="flex justify-between text-xs text-white font-black pt-1 border-t border-white/10">
                                           <span>Total</span>
                                           <span className="text-gold">₹{(inv.total ?? 0).toLocaleString('en-IN')}</span>
                                         </div>
+                                        {((inv as any).roundOffAmount ?? 0) !== 0 && (
+                                          <div className="flex justify-between text-xs text-sky-400">
+                                            <span>Round Off</span>
+                                            <span>₹{(inv as any).roundOffAmount.toLocaleString('en-IN')}</span>
+                                          </div>
+                                        )}
+                                        {((inv as any).advanceAmount ?? 0) > 0 && (
+                                          <div className="flex justify-between text-xs text-emerald-400">
+                                            <span>Saved as Advance</span>
+                                            <span>₹{(inv as any).advanceAmount.toLocaleString('en-IN')}</span>
+                                          </div>
+                                        )}
                                       </div>
                                     </div>
                                   )}
