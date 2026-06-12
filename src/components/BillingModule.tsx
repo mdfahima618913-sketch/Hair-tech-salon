@@ -18,7 +18,7 @@ import {
   Search, UserPlus, X, Plus, Minus,
   Receipt, CreditCard, Banknote, Smartphone, CheckCircle2,
   Loader2, AlertCircle, User, Phone, Users,
-  ArrowLeft, Printer, Star, Wallet, Tag, Crown,
+  ArrowLeft, Printer, Star, Wallet, Tag, Crown, Calendar,
 } from 'lucide-react';
 import {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
@@ -162,6 +162,18 @@ function normalisePhone(raw: string): string {
   if (digits.length === 10) return digits;
   if (digits.startsWith('91') && digits.length === 12) return digits.slice(2);
   return digits;
+}
+
+// 'YYYY-MM-DD' in local time — for <input type="date"> values
+function toDateInputValue(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// Combine a 'YYYY-MM-DD' date with the current time-of-day
+function billingDateToTimestamp(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const now = new Date();
+  return new Date(y, (m ?? 1) - 1, d ?? 1, now.getHours(), now.getMinutes(), now.getSeconds(), now.getMilliseconds());
 }
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
@@ -416,16 +428,16 @@ function CustomerStep({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-black">
-                  {found.name.charAt(0).toUpperCase()}
+                  {(found.name || '?').charAt(0).toUpperCase()}
                 </div>
                 <div>
-                  <p className="text-white font-bold">{found.name}</p>
+                  <p className="text-white font-bold">{found.name || '—'}</p>
                   <p className="text-gray-400 text-xs">{found.phone}</p>
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="text-[9px] text-emerald-400 font-black uppercase">{found.visitCount} visits</span>
+                    <span className="text-[9px] text-emerald-400 font-black uppercase">{found.visitCount ?? 0} visits</span>
                     <span className="text-[9px] text-gray-500">·</span>
-                    <span className="text-[9px] text-gray-400">₹{found.totalSpend.toLocaleString('en-IN')} total spend</span>
-                    {found.visitCount > 0 && (
+                    <span className="text-[9px] text-gray-400">₹{(found.totalSpend ?? 0).toLocaleString('en-IN')} total spend</span>
+                    {(found.visitCount ?? 0) > 0 && (
                       <span className="flex items-center gap-0.5 text-[9px] text-amber-400 font-black">
                         <Star size={8} className="fill-current" /> Returning
                       </span>
@@ -1810,12 +1822,16 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   const [amountDue, setAmountDue]      = useState(0);
   const [staff, setStaff]              = useState<StaffMember[]>([]);
   const [staffLoading, setStaffLoading] = useState(true);
+  // Default staff member silently credited for services left unassigned (configured in Tools > Settings)
+  const [defaultStaffId, setDefaultStaffId] = useState('');
   const [saving, setSaving]            = useState(false);
   const [saveError, setSaveError]      = useState<string | null>(null);
   const [invoice, setInvoice]          = useState<Invoice | null>(null);
   const [outstandingDue, setOutstandingDue] = useState(0);
   const [settleDues, setSettleDues]    = useState(false);
   const [billingType, setBillingType]  = useState<'standard' | 'vvip'>('standard');
+  // Date the bill is for — defaults to today, editable for back-dating (e.g. forgot to bill yesterday)
+  const [billingDate, setBillingDate]  = useState(() => toDateInputValue(new Date()));
   // Remember last-used staff so new service additions pre-populate it
   const lastStaffRef = useRef<string>('');
 
@@ -1921,6 +1937,13 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
       .finally(() => setStaffLoading(false));
   }, []);
 
+  // Load default-staff setting (silently credited for unassigned services)
+  useEffect(() => {
+    getDoc(doc(db, 'settings', 'salon'))
+      .then(snap => setDefaultStaffId(snap.exists() ? (snap.data().defaultStaffId ?? '') : ''))
+      .catch(() => setDefaultStaffId(''));
+  }, []);
+
   // Derived totals
   const subtotal = useMemo(
     () => items.reduce((a, i) => a + i.price, 0),
@@ -1930,15 +1953,18 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   const dueSettlementAmount = settleDues ? outstandingDue : 0;
   const total               = subtotal - discountAmount + dueSettlementAmount;
 
-  // Auto-populate the default Cash split's amount once the payment step is
-  // reached — otherwise it sits at 0 until the user switches tiles.
+  // Auto-populate the default Cash split's amount once when the payment step is
+  // first reached — but only once, so clearing the field for part-payments sticks.
+  const cashAutoFilledRef = useRef(false);
   useEffect(() => {
-    if (step !== 2) return;
+    if (step !== 2) { cashAutoFilledRef.current = false; return; }
+    if (cashAutoFilledRef.current) return;
+    cashAutoFilledRef.current = true;
     if (paymentSplits.length !== 1 || paymentSplits[0].amount !== 0) return;
     const remainingToCover = Math.max(0, total - alreadyPaidAmount);
     const due = Math.max(0, Math.round(remainingToCover - amountDue));
     if (due > 0) setSplits([{ ...paymentSplits[0], amount: due }]);
-  }, [step, total, alreadyPaidAmount, amountDue, paymentSplits]);
+  }, [step]);
 
   // Recompute line price and commission from current item fields
   const recompute = (item: BillItem, overrides: Partial<BillItem> = {}): BillItem => {
@@ -2025,12 +2051,23 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
       const primaryMethod: PaymentMethod = isRealOnline ? 'online'
         : (validSplits[0]?.method ?? 'cash');
 
+      // Silently credit unassigned services to the configured default staff member —
+      // does not touch the on-screen cart (`items`), only what's saved to Firestore.
+      const defaultStaff = staff.find(s => s.id === defaultStaffId);
+      const effectiveItems = defaultStaff
+        ? items.map(item => item.staffId ? item : recompute(item, {
+            staffId:         defaultStaff.id,
+            staffName:       defaultStaff.name,
+            commissionRate:  defaultStaff.commissionRate,
+          }))
+        : items;
+
       const inv: Omit<Invoice, 'id'> = {
         invoiceNumber:  generateInvoiceNumber(),
         customerPhone:  customer.phone,
         customerName:   customer.name,
         ...(prefill?.bookingId && { bookingId: prefill.bookingId }),
-        items,
+        items: effectiveItems,
         subtotal,
         discountPercent,
         discountAmount,
@@ -2044,7 +2081,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
         status:    amountDue > 0 ? 'due' : 'paid',
         source:    isRealOnline ? 'online' : 'walkin',
         billingType,
-        createdAt: serverTimestamp() as any,
+        createdAt: Timestamp.fromDate(billingDateToTimestamp(billingDate)),
       };
 
       // Write invoice
@@ -2075,20 +2112,20 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
           ...existing,
           name:      customer.name || existing.name,
           source:    mergedSource,
-          lastVisit: new Date().toISOString(),
+          lastVisit: billingDateToTimestamp(billingDate).toISOString(),
         });
       } else {
         await setDoc(custRef, {
           phone:      customer.phone,
           name:       customer.name,
           source:     invoiceSource,
-          firstVisit: new Date().toISOString(),
-          lastVisit:  new Date().toISOString(),
+          firstVisit: billingDateToTimestamp(billingDate).toISOString(),
+          lastVisit:  billingDateToTimestamp(billingDate).toISOString(),
         });
       }
 
       // Update staff commission totals
-      const staffCommissions = items.reduce((acc, item) => {
+      const staffCommissions = effectiveItems.reduce((acc, item) => {
         if (!item.staffId) return acc;
         acc[item.staffId] = (acc[item.staffId] ?? 0) + item.commissionAmount;
         return acc;
@@ -2102,7 +2139,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
           await setDoc(staffRef, {
             ...s,
             totalCommission: (s.totalCommission ?? 0) + commission,
-            totalServices:   (s.totalServices ?? 0) + items.filter(i => i.staffId === staffId).length,
+            totalServices:   (s.totalServices ?? 0) + effectiveItems.filter(i => i.staffId === staffId).length,
           });
         }
       }));
@@ -2112,7 +2149,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
         await updateDoc(doc(db, 'bookings', prefill.bookingId), {
           status:           'completed',
           invoiceId:        invoiceRef.id,
-          invoiceBreakdown: items.map(i => ({
+          invoiceBreakdown: effectiveItems.map(i => ({
             name:           i.serviceName,
             price:          i.price,
             staffName:      i.staffName  || null,
@@ -2198,6 +2235,26 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
             )}
           </div>
         </div>
+
+        {/* ── Billing date row ── */}
+        {!invoice && (
+          <div className="flex items-center justify-end px-6 py-2 border-b border-white/10 shrink-0 bg-zinc-900/30">
+            <label
+              title="Date this bill is for — change to back-date (e.g. forgot to bill yesterday)"
+              className="flex items-center gap-1.5 bg-white/[0.04] border border-white/10 rounded-xl px-2.5 py-1.5 cursor-pointer hover:border-gold/40 transition-all"
+            >
+              <Calendar size={12} className="text-gray-400 shrink-0" />
+              <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wide">Bill Date</span>
+              <input
+                type="date"
+                value={billingDate}
+                max={toDateInputValue(new Date())}
+                onChange={e => e.target.value && setBillingDate(e.target.value)}
+                className="bg-transparent text-white text-[11px] font-bold focus:outline-none cursor-pointer [color-scheme:dark]"
+              />
+            </label>
+          </div>
+        )}
 
         {/* ── Two-panel body (steps 1 + 2) ── */}
         {isTwoPanel && (

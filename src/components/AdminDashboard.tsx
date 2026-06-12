@@ -1591,7 +1591,7 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   }, [isStaffMode, toolsTab]);
 
   // Salon settings (Tools > Settings tab)
-  const [sSettings, setSSettings] = useState({ staffCount: 3, openHour: 10, closeHour: 22, slotStepMins: 15, bufferMins: 30 });
+  const [sSettings, setSSettings] = useState({ staffCount: 3, openHour: 10, closeHour: 22, slotStepMins: 15, bufferMins: 30, defaultStaffId: '' });
   const [sSettingsLoaded,  setSSettingsLoaded]  = useState(false);
   const [sSettingsSaving,  setSSettingsSaving]  = useState(false);
   const [sSettingsError,   setSSettingsError]   = useState<string | null>(null);
@@ -1603,11 +1603,12 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
       if (snap.exists()) {
         const d = snap.data();
         setSSettings({
-          staffCount:   d.staffCount   ?? 3,
-          openHour:     d.openHour     ?? 10,
-          closeHour:    d.closeHour    ?? 22,
-          slotStepMins: d.slotStepMins ?? 15,
-          bufferMins:   d.bufferMins   ?? 30,
+          staffCount:    d.staffCount    ?? 3,
+          openHour:      d.openHour      ?? 10,
+          closeHour:     d.closeHour     ?? 22,
+          slotStepMins:  d.slotStepMins  ?? 15,
+          bufferMins:    d.bufferMins    ?? 30,
+          defaultStaffId: d.defaultStaffId ?? '',
         });
       }
       setSSettingsLoaded(true);
@@ -1908,13 +1909,14 @@ Your uid is: ${user.uid}
       .finally(() => setBillingLoading(false));
   }, [view]);
 
-  // Load staff list for the invoice-edit staff dropdown
+  // Load staff list for the invoice-edit staff dropdown and the default-staff setting
   useEffect(() => {
-    if (view !== 'billing' || staff.length > 0) return;
+    if (staff.length > 0) return;
+    if (view !== 'billing' && !(view === 'tools' && toolsTab === 'settings')) return;
     getDocs(query(collection(db, 'staff'), orderBy('name')))
       .then(snap => setStaff(snap.docs.map(d => ({ id: d.id, ...d.data() } as StaffMember))))
       .catch(console.error);
-  }, [view, staff.length]);
+  }, [view, toolsTab, staff.length]);
 
   // Billing tab stats — filtered by selected period or custom date range
   const billingStats = useMemo(() => {
@@ -5211,6 +5213,24 @@ Your uid is: ${user.uid}
                         onChange={e => setSSettings(p => ({ ...p, bufferMins: +e.target.value }))}
                         className="w-40 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40">
                         {[0, 15, 30, 45, 60, 90, 120].map(v => <option key={v} value={v}>{v === 0 ? 'None' : `${v} minutes`}</option>)}
+                      </select>
+                    </div>
+
+                    {/* Default staff for unassigned services */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-300 mb-1">Default Staff (for unassigned services)</label>
+                      <p className="text-[10px] text-gray-500 mb-2">
+                        If a service is billed without a staff member selected, it's silently credited to this
+                        staff member's commission &amp; service count. The Billing screen is unaffected — no staff
+                        appears selected there, but invoices and staff totals reflect this default.
+                      </p>
+                      <select value={sSettings.defaultStaffId}
+                        onChange={e => setSSettings(p => ({ ...p, defaultStaffId: e.target.value }))}
+                        className="w-full max-w-xs bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40">
+                        <option value="">— None —</option>
+                        {staff.map(s => (
+                          <option key={s.id} value={s.id}>{s.name}{s.role ? ` · ${s.role}` : ''} · {s.commissionRate}% comm</option>
+                        ))}
                       </select>
                     </div>
 
