@@ -28,10 +28,22 @@ import { Link } from 'react-router-dom';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
-type Screen = 'browse' | 'slots' | 'details' | 'review' | 'success';
+type Screen = 'browse' | 'slots' | 'details' | 'pendingFound' | 'review' | 'success';
 
 interface CartItem   { service: Service; qty: number; }
 interface ClientInfo { name: string; phone: string; }
+
+interface PendingExisting {
+  id: string;
+  customerName?: string;
+  serviceNames?: string;
+  serviceItems?: { id: string; name: string; qty: number; priceValue: number }[];
+  bookingTime?: string;
+  bookingDate?: string;
+  startTime?: string;
+  endTime?: string;
+  totalAmount?: number;
+}
 
 interface ExistingBooking { startTime: string; endTime: string; }
 
@@ -692,6 +704,8 @@ export default function BookingSystem() {
   const [payErr,             setPayErr]           = useState<string|null>(null);
   const [autoFilled,         setAutoFilled]        = useState(false);
   const [phoneLookupLoading, setPhoneLookupLoading]= useState(false);
+  const [pendingExisting,    setPendingExisting]   = useState<PendingExisting|null>(null);
+  const [ignorePending,      setIgnorePending]     = useState(false);
 
   // Coupon
   const [couponInput,   setCouponInput]   = useState('');
@@ -785,7 +799,7 @@ export default function BookingSystem() {
 
   const lookupPhone = useCallback(async (phone: string) => {
     const digits = phone.replace(/\D/g, '').slice(-10);
-    if (digits.length !== 10) return;
+    if (digits.length !== 10) { setPendingExisting(null); return; }
     setPhoneLookupLoading(true);
     try {
       // 1. Check customers collection first — instant O(1) lookup by document ID
@@ -796,7 +810,6 @@ export default function BookingSystem() {
         if (name) {
           setInfo(prev => ({ ...prev, name }));
           setAutoFilled(true);
-          return;
         }
       }
 
@@ -806,15 +819,38 @@ export default function BookingSystem() {
           fmt => getDocs(query(collection(db, 'bookings'), where('customerPhone', '==', fmt)))
         )
       );
-      for (const snap of snaps) {
-        if (!snap.empty) {
-          const name = (snap.docs[0].data().customerName ?? '').trim();
-          if (name) {
-            setInfo(prev => ({ ...prev, name }));
-            setAutoFilled(true);
-            break;
+      if (!custSnap.exists() || !(custSnap.data()?.name ?? '').trim()) {
+        for (const snap of snaps) {
+          if (!snap.empty) {
+            const name = (snap.docs[0].data().customerName ?? '').trim();
+            if (name) {
+              setInfo(prev => ({ ...prev, name }));
+              setAutoFilled(true);
+              break;
+            }
           }
         }
+      }
+
+      // 3. Check for a recent pending booking (created but never paid) for this number
+      const dayMs = 24 * 60 * 60 * 1000;
+      const pendingDocs = snaps.flatMap(snap => snap.docs)
+        .filter(d => {
+          const data = d.data();
+          if (data.status !== 'pending') return false;
+          if (!data.startTime) return false;
+          return new Date(data.startTime).getTime() > Date.now() - dayMs;
+        });
+      pendingDocs.sort((a, b) => {
+        const aT = a.data().createdAt?.toDate?.() ?? new Date(0);
+        const bT = b.data().createdAt?.toDate?.() ?? new Date(0);
+        return bT.getTime() - aT.getTime();
+      });
+      if (pendingDocs.length) {
+        const d = pendingDocs[0];
+        setPendingExisting({ id: d.id, ...(d.data() as any) });
+      } else {
+        setPendingExisting(null);
       }
     } catch { /* silent */ }
     finally { setPhoneLookupLoading(false); }
@@ -944,6 +980,54 @@ export default function BookingSystem() {
     }).open();
   };
 
+  // Resume payment for an existing pending booking (avoid creating a duplicate)
+  const payExisting = async (b: PendingExisting) => {
+    setLoading(true); setPayErr(null);
+    const ok = await loadRazorpay();
+    if (!ok){setPayErr('Payment failed to load.');setLoading(false);return;}
+
+    const amount = b.totalAmount ?? 0;
+    new window.Razorpay({
+      key: "rzp_live_SmNepW6x97QG64", amount: Math.round(amount*100), currency:'INR',
+      name:'Hair Tech Salon', description: b.serviceNames ?? '',
+      prefill:{name: b.customerName ?? info.name, contact:info.phone, email:''},
+      theme:{color:'#D4AF37'},
+      notes:{ bookingId: b.id },
+      handler:(res:any)=>{
+        updateDoc(doc(db,'bookings', b.id),{
+          status:    'paid',
+          paymentId: res.razorpay_payment_id,
+          updatedAt: serverTimestamp(),
+        })
+        .then(()=>{
+          setSelDate(b.startTime ? new Date(b.startTime) : selDate);
+          setSelSlot({
+            label: b.bookingTime ?? '',
+            startISO: b.startTime ?? '',
+            endISO: b.endTime ?? '',
+            available: 0,
+            session: 'morning',
+          });
+          setCart((b.serviceItems ?? []).map(item => ({
+            service: services.find(s=>s.id===item.id) ?? {
+              id: item.id, name: item.name, category: '', price: `₹${item.priceValue}`, priceValue: item.priceValue, time: '0 min',
+            },
+            qty: item.qty,
+          })));
+          setScreen('success');
+        })
+        .catch(()=>setPayErr(`Payment received (ID:${res.razorpay_payment_id}) but confirmation failed. Please contact the salon with this ID.`))
+        .finally(()=>setLoading(false));
+      },
+      modal:{
+        ondismiss:()=>{
+          setLoading(false);
+          setPayErr('Payment was not completed.');
+        },
+      },
+    }).open();
+  };
+
   // ── Success ─────────────────────────────────────────────────────────────────
 
   if (screen==='success') return (
@@ -1016,6 +1100,7 @@ export default function BookingSystem() {
                 const val=e.target.value;
                 setInfo(p=>({...p,phone:val}));
                 setAutoFilled(false);
+                setIgnorePending(false);
                 lookupPhone(val);
               }}
               className="w-full border-2 border-gray-200 rounded-2xl py-4 pl-11 pr-10 text-gray-900 text-sm focus:outline-none focus:border-[#D4AF37] transition-all placeholder:text-gray-300"
@@ -1026,6 +1111,14 @@ export default function BookingSystem() {
             <p className="text-orange-500 text-xs mt-1 flex items-center gap-1">
               <AlertCircle size={11}/>Enter a valid 10-digit number
             </p>
+          )}
+          {pendingExisting&&!ignorePending&&(
+            <div className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+              <Clock size={14} className="text-amber-500 shrink-0 mt-0.5"/>
+              <p className="text-amber-700 text-xs font-bold leading-snug">
+                You already have a pending appointment with this number. Tap "Review Order" to view and confirm it.
+              </p>
+            </div>
           )}
         </div>
 
@@ -1055,9 +1148,68 @@ export default function BookingSystem() {
 
       </div>
       <div className="p-4 bg-white border-t border-gray-100">
-        <button disabled={!step2OK} onClick={()=>setScreen('review')}
+        <button disabled={!step2OK || phoneLookupLoading}
+          onClick={()=>setScreen(pendingExisting&&!ignorePending ? 'pendingFound' : 'review')}
           className="w-full py-4 bg-gray-900 disabled:bg-gray-300 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all">
-          Review Order <ArrowRight size={16}/>
+          {phoneLookupLoading ? <Loader2 size={16} className="animate-spin"/> : <>Review Order <ArrowRight size={16}/></>}
+        </button>
+      </div>
+    </div>
+  );
+
+  // ── Pending booking found screen ────────────────────────────────────────────
+
+  if (screen==='pendingFound' && pendingExisting) return (
+    <div className="fixed inset-0 z-[200] bg-white flex flex-col">
+      <div className="bg-white border-b border-gray-100 px-4 py-3 flex items-center gap-3">
+        <button onClick={()=>setScreen('details')} className="p-2 rounded-full hover:bg-gray-100">
+          <ChevronLeft size={20} className="text-gray-700"/>
+        </button>
+        <h2 className="font-bold text-gray-900 text-base">Pending Appointment</h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex items-start gap-2 px-3 py-2.5 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+          <AlertCircle size={14} className="text-amber-500 shrink-0 mt-0.5"/>
+          <p className="text-amber-700 text-xs font-bold leading-snug">
+            You already have an appointment waiting for payment confirmation. Pay now to confirm it, or continue to book a new appointment.
+          </p>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
+          <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
+            <Calendar size={15} className="text-[#D4AF37]"/>
+            <p className="text-sm font-bold text-gray-800">
+              {pendingExisting.startTime ? format(new Date(pendingExisting.startTime),'EEEE, MMMM d, yyyy') : ''}
+            </p>
+          </div>
+          <div className="px-4 py-3 space-y-2">
+            <p className="text-sm text-gray-400">{pendingExisting.bookingTime}</p>
+            <p className="text-xs text-gray-500">{pendingExisting.serviceNames}</p>
+            <div className="pt-2 border-t border-gray-100 flex justify-between font-black text-sm">
+              <span>Total</span>
+              <span className="text-[#D4AF37]">₹{(pendingExisting.totalAmount ?? 0).toLocaleString('en-IN')}</span>
+            </div>
+          </div>
+        </div>
+
+        {payErr&&(
+          <div className="flex items-start gap-2 px-3 py-2.5 rounded-2xl bg-red-50 border border-red-200">
+            <AlertCircle size={14} className="text-red-500 shrink-0 mt-0.5"/>
+            <p className="text-red-600 text-xs font-bold leading-snug">{payErr}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="p-4 bg-white border-t border-gray-100 space-y-2">
+        <button disabled={loading} onClick={()=>payExisting(pendingExisting)}
+          className="w-full py-4 bg-gray-900 disabled:opacity-60 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 transition-all">
+          {loading ? <Loader2 size={16} className="animate-spin"/> : <Lock size={16}/>}
+          Pay ₹{(pendingExisting.totalAmount ?? 0).toLocaleString('en-IN')} to Confirm
+        </button>
+        <button disabled={loading} onClick={()=>{setIgnorePending(true);setScreen('review');}}
+          className="w-full py-3.5 bg-white border-2 border-gray-200 disabled:opacity-60 rounded-2xl text-gray-700 font-bold text-sm transition-all">
+          Book a New Appointment Instead
         </button>
       </div>
     </div>

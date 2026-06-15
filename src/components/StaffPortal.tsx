@@ -1,22 +1,26 @@
 /**
  * StaffPortal.tsx
  * Mobile-first staff portal. Bilingual via LanguageContext (English default, Hindi toggle).
+ * Focused on appointments — booking, follow-up calls, reschedule, assign/reassign.
+ * No billing or commission — kept simple for low-literacy staff use.
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
-  CalendarDays, Receipt, TrendingUp, User, LogOut,
-  Loader2, Award, Wallet, Sun, Coffee, Moon,
-  Sparkles, Scissors, Home, CalendarPlus,
+  CalendarDays, User, LogOut, Loader2, Wallet,
+  Sun, Coffee, Moon, CloudSun, CalendarPlus, Home, Scissors,
+  Phone, RefreshCw, Edit2, X, Check, CalendarCheck, CheckSquare, Clock, MessageSquare, Send,
+  Bell, AlertCircle, PhoneOff,
 } from 'lucide-react';
-import { collection, query, where, orderBy, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, onSnapshot, doc, updateDoc, limit, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
-import BillingModule from './BillingModule';
 import WalkInBooking from './WalkInBooking';
 import type { StaffMember } from './BillingModule';
 import { useLanguage } from '../lib/LanguageContext';
 import LanguageToggle from './LanguageToggle';
+import { format, addDays, isSameDay, isToday, startOfDay } from 'date-fns';
+import { startRinging, stopRinging, fireDesktopNotification, requestNotificationPermission } from '../lib/notificationSound';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -27,12 +31,59 @@ interface Booking {
   serviceNames?: string;
   serviceName?: string;
   bookingTime?: string;
+  bookingDate?: string;
   startTime?: string;
+  endTime?: string;
+  serviceDurationMins?: number;
   status: string;
   totalAmount?: number;
+  assignedStaffId?: string;
+  assignedStaffName?: string;
+  lastCalledAt?: string;
+  originalBookingDate?: string;
+  originalBookingTime?: string;
+  originalStartTime?: string;
+  originalEndTime?: string;
+  rescheduleCount?: number;
+  staffNotes?: StaffNote[];
 }
 
-type Tab = 'home' | 'bill' | 'earnings' | 'profile';
+interface StaffNote { text: string; byName: string; at: string; }
+
+interface StaffOption { id: string; name: string; }
+
+type Tab = 'home' | 'appointments' | 'profile';
+
+// ─── Slot helpers (mirrors AdminDashboard reschedule logic) ──────────────────
+
+const STAFF_COUNT = 3, SALON_OPEN_H = 10, SALON_CLOSE_H = 22;
+const SLOT_STEP_MINS = 15, BUFFER_MINS = 30;
+
+interface SlotOption { label: string; startISO: string; endISO: string; session: 'morning' | 'afternoon' | 'evening'; }
+interface ExistingBooking { startTime: string; endTime: string; }
+
+function fmtSlotTime(d: Date) {
+  let h = d.getHours(), mi = d.getMinutes();
+  const p = h >= 12 ? 'PM' : 'AM'; h = h % 12 || 12;
+  return `${h}:${String(mi).padStart(2, '0')} ${p}`;
+}
+
+function computeSlots(date: Date, mins: number, existing: ExistingBooking[]): SlotOption[] {
+  if (mins <= 0) return [];
+  const now = new Date(), buf = new Date(now.getTime() + BUFFER_MINS * 60_000);
+  const openMs = new Date(date).setHours(SALON_OPEN_H, 0, 0, 0);
+  const latestMs = new Date(date).setHours(SALON_CLOSE_H, 0, 0, 0) - mins * 60_000;
+  const out: SlotOption[] = [];
+  for (let t = openMs; t <= latestMs; t += SLOT_STEP_MINS * 60_000) {
+    const e = t + mins * 60_000;
+    if (isSameDay(date, now) && t < buf.getTime()) continue;
+    const concurrent = existing.filter(b => new Date(b.startTime).getTime() < e && new Date(b.endTime).getTime() > t).length;
+    if (concurrent >= STAFF_COUNT) continue;
+    const sd = new Date(t), ed = new Date(e), h = sd.getHours();
+    out.push({ label: `${fmtSlotTime(sd)} – ${fmtSlotTime(ed)}`, startISO: sd.toISOString(), endISO: ed.toISOString(), session: h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening' });
+  }
+  return out;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -48,6 +99,7 @@ function statusInfo(status: string, t: (k: any) => string): { label: string; col
     case 'confirmed': return { label: t('statusConfirmed'), color: 'text-blue-400',    bg: 'bg-blue-500/15 border-blue-500/30',       dot: 'bg-blue-400'    };
     case 'paid':      return { label: t('statusPaid'),      color: 'text-emerald-400', bg: 'bg-emerald-500/15 border-emerald-500/30', dot: 'bg-emerald-400' };
     case 'pending':   return { label: t('statusPending'),   color: 'text-amber-400',   bg: 'bg-amber-500/15 border-amber-500/30',     dot: 'bg-amber-400'   };
+    case 'completed': return { label: t('statusCompleted'), color: 'text-purple-400',  bg: 'bg-purple-500/15 border-purple-500/30',   dot: 'bg-purple-400'  };
     default:          return { label: t('statusCancelled'), color: 'text-red-400',     bg: 'bg-red-500/15 border-red-500/30',         dot: 'bg-red-400'     };
   }
 }
@@ -59,55 +111,436 @@ function fmtTime(iso?: string, slot?: string): string {
   catch { return '—'; }
 }
 
+function fmtCardDate(iso?: string): string {
+  if (!iso) return '—';
+  try { return new Date(iso).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' }); }
+  catch { return '—'; }
+}
+
+function timeAgo(iso?: string): string {
+  if (!iso) return '';
+  const ms = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(ms / 60_000);
+  if (mins < 1) return 'now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.round(hrs / 24)}d ago`;
+}
+
+// ─── Staff picker (assign / reassign sheet) ───────────────────────────────────
+
+function StaffPickerSheet({ staffList, currentId, me, onPick, onClose, t }: {
+  staffList: StaffOption[];
+  currentId?: string;
+  me: StaffOption;
+  onPick: (id: string, name: string) => void;
+  onClose: () => void;
+  t: (k: any) => string;
+}) {
+  return (
+    <div className="fixed inset-0 z-[200] flex items-end justify-center bg-black/60" onClick={onClose}>
+      <motion.div
+        initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
+        transition={{ type: 'spring', damping: 28, stiffness: 320 }}
+        onClick={e => e.stopPropagation()}
+        className="w-full max-w-md bg-zinc-900 border-t border-white/10 rounded-t-3xl p-4 pb-8 max-h-[70vh] overflow-y-auto"
+      >
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-white font-black text-lg">{t('assignStaff')}</p>
+          <button onClick={onClose} className="w-9 h-9 rounded-xl bg-white/8 flex items-center justify-center text-gray-400">
+            <X size={18} />
+          </button>
+        </div>
+        <div className="space-y-2">
+          <button onClick={() => onPick(me.id, me.name)}
+            className="w-full flex items-center gap-3 p-4 rounded-2xl bg-gold/10 border border-gold/30 transition-all"
+          >
+            <div className="w-11 h-11 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center text-gold font-black text-lg shrink-0">
+              {me.name.charAt(0).toUpperCase()}
+            </div>
+            <p className="flex-1 text-left text-white font-black text-base">{me.name} ({t('me')})</p>
+            {currentId === me.id && <Check size={20} className="text-gold shrink-0" />}
+          </button>
+          {staffList.filter(s => s.id !== me.id).map(s => (
+            <button key={s.id} onClick={() => onPick(s.id, s.name)}
+              className="w-full flex items-center gap-3 p-4 rounded-2xl bg-white/[0.04] border border-white/10 transition-all"
+            >
+              <div className="w-11 h-11 rounded-full bg-white/8 border border-white/10 flex items-center justify-center text-white font-black text-lg shrink-0">
+                {s.name.charAt(0).toUpperCase()}
+              </div>
+              <p className="flex-1 text-left text-white font-bold text-base">{s.name}</p>
+              {currentId === s.id && <Check size={20} className="text-gold shrink-0" />}
+            </button>
+          ))}
+          {currentId && (
+            <button onClick={() => onPick('', '')}
+              className="w-full flex items-center justify-center gap-2 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 font-black text-sm transition-all"
+            >
+              <X size={16} /> {t('unassign')}
+            </button>
+          )}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ─── Appointment card ─────────────────────────────────────────────────────────
+
+function AppointmentCard({ booking, staffList, me, t, showDate, highlight }: {
+  booking: Booking;
+  staffList: StaffOption[];
+  me: StaffOption;
+  t: (k: any) => string;
+  showDate?: boolean;
+  highlight?: boolean;
+}) {
+  const [showAssign, setShowAssign] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  // Reschedule state
+  const [isRescheduling, setIsRescheduling] = useState(false);
+  const [editDate, setEditDate] = useState(() => new Date());
+  const [editSlots, setEditSlots] = useState<SlotOption[]>([]);
+  const [editSelSlot, setEditSelSlot] = useState<SlotOption | null>(null);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editSuccess, setEditSuccess] = useState<string | null>(null);
+  const dateStrip = Array.from({ length: 8 }, (_, i) => addDays(new Date(), i));
+
+  // Notes
+  const [showNotes, setShowNotes] = useState(false);
+  const [noteText, setNoteText] = useState('');
+  const [noteSaving, setNoteSaving] = useState(false);
+  const notes = booking.staffNotes ?? [];
+
+  const st = statusInfo(booking.status, t);
+  const time = fmtTime(booking.startTime, booking.bookingTime);
+  const svc = booking.serviceNames || booking.serviceName || '—';
+  const isPending = booking.status === 'pending';
+  const active = ['paid', 'confirmed'].includes(booking.status);
+
+  const handleCall = async () => {
+    if (!booking.customerPhone) return;
+    try { await updateDoc(doc(db, 'bookings', booking.id), { lastCalledAt: new Date().toISOString() }); } catch {}
+    window.location.href = `tel:${booking.customerPhone}`;
+  };
+
+  const handleAssign = async (staffId: string, staffName: string) => {
+    setBusy(true);
+    try {
+      await updateDoc(doc(db, 'bookings', booking.id), {
+        assignedStaffId: staffId || null,
+        assignedStaffName: staffName || null,
+      });
+    } catch {} finally { setBusy(false); setShowAssign(false); }
+  };
+
+  const handleDone = async () => {
+    setBusy(true);
+    try { await updateDoc(doc(db, 'bookings', booking.id), { status: 'completed' }); } catch {} finally { setBusy(false); }
+  };
+
+  const handleAddNote = async () => {
+    const text = noteText.trim();
+    if (!text) return;
+    setNoteSaving(true);
+    try {
+      await updateDoc(doc(db, 'bookings', booking.id), {
+        staffNotes: arrayUnion({ text, byName: me.name, at: new Date().toISOString() }),
+      });
+      setNoteText('');
+    } catch {} finally { setNoteSaving(false); }
+  };
+
+  const loadSlots = async (date: Date, mins: number) => {
+    setSlotsLoading(true); setEditSelSlot(null);
+    try {
+      const s = startOfDay(date).toISOString(), e = startOfDay(addDays(date, 1)).toISOString();
+      const snap = await getDocs(query(collection(db, 'bookings'), where('startTime', '>=', s), where('startTime', '<', e), where('status', 'in', ['paid', 'confirmed', 'pending'])));
+      const existing: ExistingBooking[] = snap.docs.flatMap(d => {
+        if (d.id === booking.id) return [];
+        const x = d.data();
+        return x.startTime && x.endTime ? [{ startTime: x.startTime, endTime: x.endTime }] : [];
+      });
+      setEditSlots(computeSlots(date, mins || 60, existing));
+    } catch { setEditSlots([]); }
+    finally { setSlotsLoading(false); }
+  };
+
+  const saveReschedule = async () => {
+    if (!editSelSlot) return;
+    setEditSaving(true);
+    try {
+      const updates: Record<string, unknown> = {
+        bookingDate: startOfDay(editDate).toISOString(),
+        bookingTime: editSelSlot.label,
+        startTime:   editSelSlot.startISO,
+        endTime:     editSelSlot.endISO,
+        rescheduledAt:   new Date().toISOString(),
+        rescheduleCount: (booking.rescheduleCount ?? 0) + 1,
+      };
+      if (!booking.originalBookingDate) {
+        updates.originalBookingDate = booking.bookingDate ?? null;
+        updates.originalBookingTime = booking.bookingTime ?? null;
+        updates.originalStartTime   = booking.startTime ?? null;
+        updates.originalEndTime     = booking.endTime ?? null;
+      }
+      await updateDoc(doc(db, 'bookings', booking.id), updates);
+      setEditSuccess(`${t('rescheduled')} ${format(editDate, 'EEE, MMM d')} · ${editSelSlot.label}`);
+      setTimeout(() => { setIsRescheduling(false); setEditSuccess(null); }, 2000);
+    } catch {} finally { setEditSaving(false); }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+      className={`relative rounded-3xl border p-4 ${highlight ? 'bg-gradient-to-br from-gold/12 to-gold/5 border-gold/30' : 'bg-zinc-900 border-white/10'}`}
+    >
+      {highlight && (
+        <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 bg-gold text-black text-[10px] font-black uppercase rounded-full">
+          <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
+          {t('nextCustomer')}
+        </div>
+      )}
+
+      {/* Time + date + status */}
+      <div className="flex items-start gap-4">
+        <div className="shrink-0 w-16 text-center pt-1">
+          <p className="text-white font-black text-base leading-none">{time.split(' ')[0]}</p>
+          <p className="text-gray-400 text-xs mt-0.5">{time.split(' ')[1] ?? ''}</p>
+          {showDate && <p className="text-gray-500 text-[10px] mt-1.5 font-bold">{fmtCardDate(booking.startTime)}</p>}
+        </div>
+        <div className="shrink-0 flex flex-col items-center gap-1 mt-1.5">
+          <div className={`w-3 h-3 rounded-full ${st.dot}`} />
+          <div className="w-px flex-1 bg-white/10 min-h-[20px]" />
+        </div>
+        <div className="flex-1 min-w-0 pr-14">
+          <p className="text-white font-black text-lg leading-tight">{booking.customerName || t('customer')}</p>
+          <p className="text-gray-400 text-sm mt-0.5 truncate">{svc}</p>
+          <div className="flex items-center gap-2 mt-2 flex-wrap">
+            <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black border ${st.bg} ${st.color}`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
+              {st.label}
+            </span>
+            {booking.lastCalledAt && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-white/5 border border-white/10 text-gray-400">
+                <Phone size={10} /> {t('called')} {timeAgo(booking.lastCalledAt)}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Assigned-to badge — tap to assign/reassign */}
+      <button onClick={() => setShowAssign(true)} disabled={busy}
+        className={`w-full mt-3 flex items-center gap-2 px-3 py-2.5 rounded-2xl border text-left transition-all ${
+          booking.assignedStaffId ? 'bg-white/[0.04] border-white/10' : 'bg-amber-500/8 border-amber-500/25'
+        }`}
+      >
+        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0 ${
+          booking.assignedStaffId ? 'bg-gold/15 border border-gold/30 text-gold' : 'bg-amber-500/15 border border-amber-500/30 text-amber-400'
+        }`}>
+          {booking.assignedStaffId ? booking.assignedStaffName?.charAt(0).toUpperCase() : <User size={14} />}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-[9px] uppercase tracking-widest font-black text-gray-500">{t('assignedTo')}</p>
+          <p className={`text-sm font-black truncate ${booking.assignedStaffId ? 'text-white' : 'text-amber-400'}`}>
+            {booking.assignedStaffId ? booking.assignedStaffName : t('unassigned')}
+          </p>
+        </div>
+        <RefreshCw size={15} className="text-gray-500 shrink-0" />
+      </button>
+
+      {/* Pending hint — nudges staff to call & check on payment */}
+      {isPending && (
+        <div className="mt-3 flex items-start gap-2 px-3 py-2.5 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+          <Clock size={14} className="text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-amber-300 text-xs font-bold leading-snug">{t('pendingCallHint')}</p>
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex items-center gap-2 mt-3">
+        <a href={booking.customerPhone ? `tel:${booking.customerPhone}` : undefined} onClick={handleCall}
+          className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-500/12 border border-emerald-500/25 text-emerald-400 font-black text-sm"
+        >
+          <Phone size={16} /> {t('call')}
+        </a>
+        {active && (
+          <button onClick={() => {
+              if (isRescheduling) { setIsRescheduling(false); return; }
+              const today = new Date();
+              setIsRescheduling(true); setEditDate(today); setEditSelSlot(null); setEditSuccess(null);
+              loadSlots(today, booking.serviceDurationMins ?? 60);
+            }}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-blue-500/12 border border-blue-500/25 text-blue-300 font-black text-sm"
+          >
+            <Edit2 size={16} /> {t('reschedule')}
+          </button>
+        )}
+        {active && (
+          <button onClick={handleDone} disabled={busy}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-purple-500/12 border border-purple-500/25 text-purple-300 font-black text-sm disabled:opacity-50"
+          >
+            {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckSquare size={16} />} {t('markDone')}
+          </button>
+        )}
+        <button onClick={() => setShowNotes(v => !v)}
+          className={`relative flex items-center justify-center gap-2 py-3 px-4 rounded-2xl border font-black text-sm transition-all ${
+            isPending && !active ? 'flex-1' : ''
+          } ${showNotes ? 'bg-gold/15 border-gold/30 text-gold' : 'bg-white/[0.04] border-white/10 text-gray-300'}`}
+        >
+          <MessageSquare size={16} />
+          {(isPending && !active) && t('notes')}
+          {notes.length > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gold text-black text-[10px] font-black flex items-center justify-center">
+              {notes.length}
+            </span>
+          )}
+        </button>
+      </div>
+
+      {/* Notes panel */}
+      <AnimatePresence>
+        {showNotes && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="pt-3 mt-3 border-t border-white/10 space-y-2">
+              {notes.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center py-1">{t('noNotes')}</p>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto">
+                  {notes.map((n, i) => (
+                    <div key={i} className="bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2">
+                      <p className="text-white text-sm">{n.text}</p>
+                      <p className="text-gray-500 text-[10px] mt-1 font-bold">{n.byName} · {timeAgo(n.at)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center gap-2">
+                <input value={noteText} onChange={e => setNoteText(e.target.value)}
+                  placeholder={t('writeNote')}
+                  className="flex-1 bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-gold/40"
+                />
+                <button onClick={handleAddNote} disabled={!noteText.trim() || noteSaving}
+                  className="w-11 h-11 shrink-0 rounded-xl bg-gold text-black flex items-center justify-center disabled:opacity-40"
+                >
+                  {noteSaving ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Reschedule panel */}
+      <AnimatePresence>
+        {isRescheduling && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="pt-3 mt-3 border-t border-white/10 space-y-3">
+              {editSuccess ? (
+                <div className="flex items-center gap-2 text-emerald-400 text-sm font-bold py-2">
+                  <Check size={16} /> {editSuccess}
+                </div>
+              ) : (
+                <>
+                  <p className="text-[11px] font-black uppercase tracking-wider text-gold flex items-center gap-1.5">
+                    <CalendarCheck size={13} /> {t('pickNewSlot')}
+                  </p>
+                  {/* Date strip */}
+                  <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
+                    {dateStrip.map(d => {
+                      const ds = isSameDay(d, editDate);
+                      return (
+                        <button key={d.toString()} onClick={() => { setEditDate(d); loadSlots(d, booking.serviceDurationMins ?? 60); }}
+                          className={`shrink-0 w-12 h-14 rounded-xl flex flex-col items-center justify-center transition-all border py-2 ${ds ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.04] text-gray-400'}`}>
+                          <span className={`text-[10px] font-bold ${ds ? 'text-black/70' : 'text-gray-500'}`}>{isToday(d) ? t('today') : format(d, 'EEE')}</span>
+                          <span className="text-base font-black">{format(d, 'd')}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                  {/* Slots */}
+                  {slotsLoading ? (
+                    <div className="flex items-center justify-center gap-2 py-4 text-gray-500 text-sm">
+                      <Loader2 size={15} className="animate-spin text-gold" /> {t('checkingSlots')}
+                    </div>
+                  ) : editSlots.length === 0 ? (
+                    <p className="text-gray-400 text-sm text-center py-2">{t('noSlotsForDate')}</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {(['morning', 'afternoon', 'evening'] as const).filter(sess => editSlots.some(s => s.session === sess)).map(sess => {
+                        const Icon = sess === 'morning' ? Sun : sess === 'afternoon' ? CloudSun : Moon;
+                        return (
+                          <div key={sess}>
+                            <div className="flex items-center gap-1.5 mb-1"><Icon size={11} className="text-gray-500" /><span className="text-[10px] text-gray-500 font-bold capitalize">{t(sess)}</span></div>
+                            <div className="grid grid-cols-3 gap-1.5">
+                              {editSlots.filter(s => s.session === sess).map(slot => (
+                                <button key={slot.startISO} onClick={() => setEditSelSlot(slot)}
+                                  className={`py-2.5 text-[11px] font-bold rounded-xl border transition-all ${editSelSlot?.startISO === slot.startISO ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.03] text-gray-400'}`}>
+                                  {slot.label.split('–')[0].trim()}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <button onClick={saveReschedule} disabled={!editSelSlot || editSaving}
+                    className="w-full py-3.5 rounded-2xl bg-gold text-black text-sm font-black disabled:opacity-40 flex items-center justify-center gap-2"
+                  >
+                    {editSaving ? <Loader2 size={14} className="animate-spin" /> : <CalendarCheck size={14} />}
+                    {t('confirmReschedule')}
+                  </button>
+                </>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Assign sheet */}
+      <AnimatePresence>
+        {showAssign && (
+          <StaffPickerSheet
+            staffList={staffList}
+            currentId={booking.assignedStaffId}
+            me={me}
+            onPick={handleAssign}
+            onClose={() => setShowAssign(false)}
+            t={t}
+          />
+        )}
+      </AnimatePresence>
+    </motion.div>
+  );
+}
+
 // ─── Home Screen ──────────────────────────────────────────────────────────────
 
-function HomeScreen({ staffMember, onOpenBill, onOpenAppointment }: {
+function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointment }: {
   staffMember: StaffMember;
-  onOpenBill: () => void;
+  bookings: Booking[];
+  loading: boolean;
+  staffList: StaffOption[];
   onOpenAppointment: () => void;
 }) {
   const { t } = useLanguage();
-  const [bookings,  setBookings]  = useState<Booking[]>([]);
-  const [loading,   setLoading]   = useState(true);
-  const [todayComm, setTodayComm] = useState(0);
-  const [todaySvcs, setTodaySvcs] = useState(0);
   const greeting = timeGreeting(t);
+  const me: StaffOption = { id: staffMember.id, name: staffMember.name };
 
-  useEffect(() => {
-    const s = new Date(); s.setHours(0, 0, 0, 0);
-    const e = new Date(); e.setHours(23, 59, 59, 999);
-    const q = query(
-      collection(db, 'bookings'),
-      where('startTime', '>=', s.toISOString()),
-      where('startTime', '<=', e.toISOString()),
-      orderBy('startTime', 'asc'),
-    );
-    const unsub = onSnapshot(q, snap => {
-      setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() } as Booking)));
-      setLoading(false);
-    }, () => setLoading(false));
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    const todayS = new Date(); todayS.setHours(0, 0, 0, 0);
-    getDocs(query(collection(db, 'invoices'), where('createdAt', '>=', todayS), orderBy('createdAt', 'desc')))
-      .then(snap => {
-        let comm = 0, svcs = 0;
-        snap.docs.forEach(d => {
-          (d.data().items ?? []).forEach((item: any) => {
-            if (item.staffId === staffMember.id) { comm += item.commissionAmount ?? 0; svcs++; }
-          });
-        });
-        setTodayComm(comm); setTodaySvcs(svcs);
-      }).catch(() => {});
-  }, [staffMember.id]);
-
-  const activeBookings = useMemo(
-    () => bookings.filter(b => b.status !== 'failed' && b.status !== 'cancelled'),
+  const todayAll = useMemo(
+    () => bookings.filter(b => b.startTime && isToday(new Date(b.startTime)) && b.status !== 'failed'),
     [bookings],
   );
-  const nextIdx = activeBookings.findIndex(b => b.status === 'confirmed' || b.status === 'pending');
+  const completedToday = todayAll.filter(b => b.status === 'completed').length;
+  const todayBookings  = useMemo(() => todayAll.filter(b => b.status !== 'completed'), [todayAll]);
+  const confirmedToday = useMemo(() => todayBookings.filter(b => b.status !== 'pending'), [todayBookings]);
+  const pendingToday   = useMemo(() => todayBookings.filter(b => b.status === 'pending'), [todayBookings]);
+  const nextIdx = confirmedToday.findIndex(b => ['confirmed', 'paid'].includes(b.status));
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide pb-28">
@@ -134,43 +567,26 @@ function HomeScreen({ staffMember, onOpenBill, onOpenAppointment }: {
           </div>
 
           {/* Stats strip */}
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 gap-2">
             <div className="bg-black/35 rounded-2xl p-3 text-center">
-              <p className="text-2xl font-black text-white">{activeBookings.length}</p>
+              <p className="text-2xl font-black text-white">{todayBookings.length}</p>
               <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{t('appointmentsToday')}</p>
             </div>
             <div className="bg-black/35 rounded-2xl p-3 text-center">
-              <p className="text-2xl font-black text-emerald-400">{todaySvcs}</p>
+              <p className="text-2xl font-black text-emerald-400">{completedToday}</p>
               <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{t('doneToday')}</p>
-            </div>
-            <div className="bg-black/35 rounded-2xl p-3 text-center">
-              <p className="text-2xl font-black text-gold">₹{todayComm.toLocaleString('en-IN')}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{t('commission')}</p>
             </div>
           </div>
         </motion.div>
       </div>
 
-      {/* Two giant action buttons */}
-      <div className="px-4 pb-4 grid grid-cols-2 gap-3">
-        <motion.button whileTap={{ scale: 0.95 }} onClick={onOpenBill}
-          className="flex flex-col items-center justify-center gap-2 rounded-3xl p-5 h-32 bg-gradient-to-br from-[#D4AF37] to-[#F0D060] text-black shadow-[0_8px_32px_-4px_rgba(212,175,55,0.55)]"
+      {/* Big action button */}
+      <div className="px-4 pb-4">
+        <motion.button whileTap={{ scale: 0.97 }} onClick={onOpenAppointment}
+          className="w-full flex items-center justify-center gap-3 rounded-3xl p-5 bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-[0_8px_32px_-4px_rgba(59,130,246,0.5)]"
         >
-          <Receipt size={36} strokeWidth={2.5} />
-          <div className="text-center leading-tight">
-            <p className="text-xl font-black">{t('makeBill')}</p>
-            <p className="text-[11px] font-bold opacity-70">New Bill</p>
-          </div>
-        </motion.button>
-
-        <motion.button whileTap={{ scale: 0.95 }} onClick={onOpenAppointment}
-          className="flex flex-col items-center justify-center gap-2 rounded-3xl p-5 h-32 bg-gradient-to-br from-blue-600 to-blue-500 text-white shadow-[0_8px_32px_-4px_rgba(59,130,246,0.5)]"
-        >
-          <CalendarPlus size={36} strokeWidth={2.5} />
-          <div className="text-center leading-tight">
-            <p className="text-xl font-black">{t('makeAppointment')}</p>
-            <p className="text-[11px] font-bold opacity-70">Walk-in</p>
-          </div>
+          <CalendarPlus size={32} strokeWidth={2.5} />
+          <p className="text-xl font-black">{t('makeAppointment')}</p>
         </motion.button>
       </div>
 
@@ -190,217 +606,123 @@ function HomeScreen({ staffMember, onOpenBill, onOpenAppointment }: {
             <Loader2 size={36} className="animate-spin text-gold" />
             <p className="text-gray-400 text-base">{t('loading')}</p>
           </div>
-        ) : activeBookings.length === 0 ? (
+        ) : todayBookings.length === 0 ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             className="flex flex-col items-center justify-center py-14 gap-5 text-center"
           >
             <div className="w-24 h-24 rounded-3xl bg-gold/10 border border-gold/20 flex items-center justify-center">
               <CalendarDays size={44} className="text-gold" />
             </div>
-            <div>
-              <p className="text-white font-black text-xl">{t('noAppointments')}</p>
-            </div>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={onOpenBill}
-              className="flex items-center gap-2 px-7 py-4 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] rounded-2xl text-black font-black text-base"
+            <p className="text-white font-black text-xl">{t('noAppointments')}</p>
+            <motion.button whileTap={{ scale: 0.95 }} onClick={onOpenAppointment}
+              className="flex items-center gap-2 px-7 py-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl text-white font-black text-base"
             >
-              <Receipt size={18} /> {t('createBillNow')}
+              <CalendarPlus size={18} /> {t('makeAppointment')}
             </motion.button>
           </motion.div>
         ) : (
           <div className="space-y-3">
-            {activeBookings.map((b, i) => {
-              const st   = statusInfo(b.status, t);
-              const time = fmtTime(b.startTime, b.bookingTime);
-              const svc  = b.serviceNames || b.serviceName || '—';
-              const isNext = i === nextIdx;
-              return (
-                <motion.div key={b.id}
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.05 }}
-                  className={`relative rounded-3xl border p-4 ${isNext ? 'bg-gradient-to-br from-gold/12 to-gold/5 border-gold/30' : 'bg-zinc-900 border-white/10'}`}
-                >
-                  {isNext && (
-                    <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 bg-gold text-black text-[10px] font-black uppercase rounded-full">
-                      <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
-                      {t('nextCustomer')}
-                    </div>
-                  )}
-                  <div className="flex items-start gap-4">
-                    <div className="shrink-0 w-16 text-center pt-1">
-                      <p className="text-white font-black text-base leading-none">{time.split(' ')[0]}</p>
-                      <p className="text-gray-400 text-xs mt-0.5">{time.split(' ')[1] ?? ''}</p>
-                    </div>
-                    <div className="shrink-0 flex flex-col items-center gap-1 mt-1.5">
-                      <div className={`w-3 h-3 rounded-full ${st.dot}`} />
-                      <div className="w-px flex-1 bg-white/10 min-h-[30px]" />
-                    </div>
-                    <div className="flex-1 min-w-0 pr-16">
-                      <p className="text-white font-black text-lg leading-tight">{b.customerName}</p>
-                      <p className="text-gray-400 text-sm mt-0.5 truncate">{svc}</p>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black border ${st.bg} ${st.color}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
-                          {st.label}
-                        </span>
-                        {(b.totalAmount ?? 0) > 0 && (
-                          <span className="text-[11px] text-gray-400 font-bold">₹{(b.totalAmount ?? 0).toLocaleString('en-IN')}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
+            {confirmedToday.map((b, i) => (
+              <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t}
+                highlight={i === nextIdx} />
+            ))}
           </div>
         )}
       </div>
-    </div>
-  );
-}
 
-// ─── Bill Tab ─────────────────────────────────────────────────────────────────
-
-function BillScreen({ onOpenBill }: { onOpenBill: () => void }) {
-  const { t } = useLanguage();
-  return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-8 px-6 pb-28">
-      <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
-        transition={{ type: 'spring', stiffness: 250, damping: 20 }}
-        className="w-32 h-32 rounded-[36px] bg-gradient-to-br from-gold/20 to-gold/5 border-2 border-gold/30 flex items-center justify-center"
-      >
-        <Receipt size={56} className="text-gold" />
-      </motion.div>
-      <div className="text-center">
-        <h2 className="text-white font-black text-3xl">{t('makeBill')}</h2>
-        <p className="text-gray-400 text-sm mt-3 leading-relaxed">
-          {t('customer')} → {t('services')} → {t('payment')}
-        </p>
-      </div>
-      <motion.button whileTap={{ scale: 0.95 }} onClick={onOpenBill}
-        className="flex items-center justify-center gap-3 px-10 py-5 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] rounded-3xl text-black font-black text-xl shadow-[0_8px_40px_-4px_rgba(212,175,55,0.55)] w-full max-w-xs"
-      >
-        <Receipt size={26} /> {t('newBill')}
-      </motion.button>
-      <p className="text-gray-600 text-sm text-center">
-        {t('staff')} auto-assign hoga ✓
-      </p>
-    </div>
-  );
-}
-
-// ─── Earnings Screen ──────────────────────────────────────────────────────────
-
-function EarningsScreen({ staffMember }: { staffMember: StaffMember }) {
-  const { t } = useLanguage();
-  const [loading,   setLoading]   = useState(true);
-  const [todayComm, setTodayComm] = useState(0);
-  const [weekComm,  setWeekComm]  = useState(0);
-  const [monthComm, setMonthComm] = useState(0);
-  const [todaySvcs, setTodaySvcs] = useState<{ name: string; commission: number }[]>([]);
-
-  useEffect(() => {
-    const now    = new Date();
-    const todayS = new Date(now); todayS.setHours(0, 0, 0, 0);
-    const weekS  = new Date(now); weekS.setDate(now.getDate() - 7);
-    const monthS = new Date(now); monthS.setDate(1); monthS.setHours(0, 0, 0, 0);
-
-    getDocs(query(collection(db, 'invoices'), where('createdAt', '>=', monthS), orderBy('createdAt', 'desc')))
-      .then(snap => {
-        let td = 0, wk = 0, mo = 0;
-        const svcs: { name: string; commission: number }[] = [];
-        snap.docs.forEach(d => {
-          const inv  = d.data();
-          const date = inv.createdAt?.toDate?.() ?? new Date(0);
-          (inv.items ?? []).forEach((item: any) => {
-            if (item.staffId !== staffMember.id) return;
-            const c = item.commissionAmount ?? 0;
-            mo += c;
-            if (date >= weekS)  wk += c;
-            if (date >= todayS) { td += c; svcs.push({ name: item.serviceName ?? '—', commission: c }); }
-          });
-        });
-        setTodayComm(td); setWeekComm(wk); setMonthComm(mo); setTodaySvcs(svcs);
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [staffMember.id]);
-
-  const salary = (staffMember as any).salary ?? 0;
-
-  if (loading) return (
-    <div className="flex-1 flex flex-col items-center justify-center gap-4">
-      <Loader2 size={40} className="animate-spin text-gold" />
-      <p className="text-gray-400 text-base">{t('loading')}</p>
-    </div>
-  );
-
-  return (
-    <div className="flex-1 overflow-y-auto scrollbar-hide pb-28 px-4 pt-5 space-y-4">
-      <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-        className="relative bg-gradient-to-br from-gold/18 to-gold/5 border border-gold/30 rounded-3xl p-7 text-center overflow-hidden"
-      >
-        <Award size={36} className="text-gold mx-auto mb-3" />
-        <p className="text-gray-300 text-base font-bold">{t('todayEarnings')}</p>
-        <p className="text-6xl font-black text-gold mt-2">₹{todayComm.toLocaleString('en-IN')}</p>
-        <p className="text-gray-400 text-sm mt-3">
-          {todaySvcs.length} {t('serviceDone')}
-        </p>
-      </motion.div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { label: t('thisWeek'), val: weekComm },
-          { label: t('thisMonth'), val: monthComm },
-        ].map((row, i) => (
-          <motion.div key={i} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 + i * 0.05 }}
-            className="bg-zinc-900 border border-white/12 rounded-3xl p-5"
-          >
-            <p className="text-gray-400 text-sm font-bold">{row.label}</p>
-            <p className="text-3xl font-black text-white mt-2">₹{row.val.toLocaleString('en-IN')}</p>
-            <p className="text-[11px] text-gray-500 mt-1">{t('commission')}</p>
-          </motion.div>
-        ))}
-      </div>
-
-      {salary > 0 && (
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
-          className="bg-emerald-500/10 border border-emerald-500/25 rounded-3xl p-5 flex items-center justify-between"
-        >
-          <div>
-            <p className="text-gray-400 text-sm font-bold">{t('salary')}</p>
-            <p className="text-3xl font-black text-emerald-400 mt-1">₹{salary.toLocaleString('en-IN')}</p>
+      {/* Pending bookings — kept visually separate from confirmed schedule */}
+      {!loading && pendingToday.length > 0 && (
+        <div className="px-4 mt-6">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
+              <Clock size={15} className="text-amber-400" />
+            </div>
+            <div>
+              <p className="text-amber-400 font-black text-base leading-none">{t('pendingBookings')}</p>
+              <p className="text-gray-500 text-[11px] mt-0.5">{t('pendingHint')}</p>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-gray-400 text-sm font-bold">{t('totalPayable')}</p>
-            <p className="text-2xl font-black text-white mt-1">₹{(salary + monthComm).toLocaleString('en-IN')}</p>
-          </div>
-        </motion.div>
-      )}
-
-      {todaySvcs.length > 0 ? (
-        <div>
-          <p className="text-white font-black text-lg mb-3">{t('todaySchedule')}</p>
-          <div className="space-y-2">
-            {todaySvcs.map((s, i) => (
-              <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }}
-                className="flex items-center justify-between bg-zinc-900 border border-white/10 rounded-2xl px-5 py-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gold/10 border border-gold/20 flex items-center justify-center shrink-0">
-                    <Scissors size={16} className="text-gold" />
-                  </div>
-                  <span className="text-white font-bold text-base">{s.name}</span>
-                </div>
-                <span className="text-gold font-black text-lg">₹{s.commission.toLocaleString('en-IN')}</span>
-              </motion.div>
+          <div className="space-y-3">
+            {pendingToday.map(b => (
+              <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t} />
             ))}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Appointments (upcoming) Screen ───────────────────────────────────────────
+
+function AppointmentsScreen({ staffMember, bookings, loading, staffList }: {
+  staffMember: StaffMember;
+  bookings: Booking[];
+  loading: boolean;
+  staffList: StaffOption[];
+}) {
+  const { t } = useLanguage();
+  const me: StaffOption = { id: staffMember.id, name: staffMember.name };
+  const [subTab, setSubTab] = useState<'confirmed' | 'pending'>('confirmed');
+
+  const upcoming = useMemo(
+    () => bookings.filter(b => b.startTime && b.status !== 'failed' && b.status !== 'completed'),
+    [bookings],
+  );
+  const confirmedUpcoming = useMemo(() => upcoming.filter(b => b.status !== 'pending'), [upcoming]);
+  const pendingUpcoming   = useMemo(() => upcoming.filter(b => b.status === 'pending'), [upcoming]);
+  const list = subTab === 'confirmed' ? confirmedUpcoming : pendingUpcoming;
+
+  return (
+    <div className="flex-1 overflow-y-auto scrollbar-hide pb-28 px-4 pt-5">
+      <div className="mb-3">
+        <p className="text-white font-black text-xl">{t('appointments')}</p>
+      </div>
+
+      {/* Confirmed / Pending sub-tabs */}
+      <div className="flex items-center gap-2 mb-4 p-1 rounded-2xl bg-white/[0.04] border border-white/10">
+        <button onClick={() => setSubTab('confirmed')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm transition-all ${
+            subTab === 'confirmed' ? 'bg-emerald-500 text-black' : 'text-gray-400'
+          }`}
+        >
+          <CalendarCheck size={15} /> {t('confirmedTab')}
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${subTab === 'confirmed' ? 'bg-black/15' : 'bg-white/10'}`}>{confirmedUpcoming.length}</span>
+        </button>
+        <button onClick={() => setSubTab('pending')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm transition-all ${
+            subTab === 'pending' ? 'bg-amber-500 text-black' : 'text-gray-400'
+          }`}
+        >
+          <Clock size={15} /> {t('pendingTab')}
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${subTab === 'pending' ? 'bg-black/15' : 'bg-white/10'}`}>{pendingUpcoming.length}</span>
+        </button>
+      </div>
+
+      {subTab === 'pending' && pendingUpcoming.length > 0 && (
+        <div className="flex items-start gap-2 px-3 py-2.5 mb-3 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+          <Clock size={14} className="text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-amber-300 text-xs font-bold leading-snug">{t('pendingHint')}</p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-16 gap-4">
+          <Loader2 size={36} className="animate-spin text-gold" />
+          <p className="text-gray-400 text-base">{t('loading')}</p>
+        </div>
+      ) : list.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-14 gap-5 text-center">
+          <div className="w-24 h-24 rounded-3xl bg-gold/10 border border-gold/20 flex items-center justify-center">
+            <CalendarDays size={44} className="text-gold" />
+          </div>
+          <p className="text-white font-black text-xl">{t('noAppointments')}</p>
+        </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-10 gap-4 text-center">
-          <Sparkles size={44} className="text-gray-600" />
-          <p className="text-gray-400 text-base">{t('noServiceToday')}</p>
-          <p className="text-gray-600 text-sm">{t('startBilling')}</p>
+        <div className="space-y-3">
+          {list.map(b => (
+            <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t} showDate />
+          ))}
         </div>
       )}
     </div>
@@ -411,6 +733,7 @@ function EarningsScreen({ staffMember }: { staffMember: StaffMember }) {
 
 function ProfileScreen({ staffMember, onSignOut }: { staffMember: StaffMember; onSignOut: () => void }) {
   const { t } = useLanguage();
+  const salary = (staffMember as any).salary ?? 0;
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide pb-28 px-4 pt-5 space-y-5">
       <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
@@ -425,25 +748,19 @@ function ProfileScreen({ staffMember, onSignOut }: { staffMember: StaffMember; o
         </div>
       </motion.div>
 
-      <div className="space-y-3">
-        {[
-          { label: t('commissionRate'), value: `${staffMember.commissionRate}%`, icon: <TrendingUp size={20} className="text-gold" /> },
-          ...(((staffMember as any).salary ?? 0) > 0 ? [{
-            label: t('salary'), value: `₹${((staffMember as any).salary).toLocaleString('en-IN')}`,
-            icon: <Wallet size={20} className="text-emerald-400" />,
-          }] : []),
-        ].map((item, i) => (
-          <motion.div key={i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }}
-            className="flex items-center justify-between bg-zinc-900 border border-white/12 rounded-2xl px-5 py-5"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-white/8 flex items-center justify-center shrink-0">{item.icon}</div>
-              <p className="text-white font-black text-base">{item.label}</p>
+      {salary > 0 && (
+        <motion.div initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+          className="flex items-center justify-between bg-zinc-900 border border-white/12 rounded-2xl px-5 py-5"
+        >
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-white/8 flex items-center justify-center shrink-0">
+              <Wallet size={20} className="text-emerald-400" />
             </div>
-            <span className="text-white font-black text-xl">{item.value}</span>
-          </motion.div>
-        ))}
-      </div>
+            <p className="text-white font-black text-base">{t('salary')}</p>
+          </div>
+          <span className="text-white font-black text-xl">₹{salary.toLocaleString('en-IN')}</span>
+        </motion.div>
+      )}
 
       {/* Language toggle — full variant in profile */}
       <div>
@@ -468,6 +785,69 @@ function ProfileScreen({ staffMember, onSignOut }: { staffMember: StaffMember; o
   );
 }
 
+// ─── New appointment banner — rings until staff dismisses it ──────────────────
+
+function NewAppointmentBanner({ booking, offset, onDismiss }: { booking: Booking; offset: number; onDismiss: () => void }) {
+  const { t } = useLanguage();
+  const isPending = booking.status === 'pending';
+
+  useEffect(() => {
+    startRinging(isPending ? 'pending' : 'confirmed');
+  }, [isPending]);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: -80, scale: 0.95 }}
+      animate={{ opacity: 1, y: offset * 8, scale: 1 }}
+      exit={{ opacity: 0, y: -80, scale: 0.95 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+      className="fixed top-4 left-1/2 -translate-x-1/2 z-[200] w-full max-w-lg px-4"
+      style={{ zIndex: 200 - offset }}
+    >
+      <div className={`relative bg-zinc-900 border ${isPending ? 'border-amber-500/50 shadow-[0_8px_60px_rgba(245,158,11,0.3)]' : 'border-emerald-500/50 shadow-[0_8px_60px_rgba(16,185,129,0.3)]'} rounded-2xl overflow-hidden`}>
+        <div className={`absolute top-0 left-0 right-0 h-[2px] ${isPending ? 'bg-amber-500' : 'bg-emerald-500'} animate-pulse`} />
+
+        <div className="p-4 flex items-start gap-4">
+          <div className="relative shrink-0 mt-0.5">
+            <div className={`w-11 h-11 rounded-xl flex items-center justify-center ${isPending ? 'bg-amber-500/15 border border-amber-500/30' : 'bg-emerald-500/15 border border-emerald-500/30'}`}>
+              {isPending ? <AlertCircle size={20} className="text-amber-400" /> : <Bell size={20} className="text-emerald-400" />}
+            </div>
+            <span className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full ${isPending ? 'bg-amber-500' : 'bg-emerald-500'}`}>
+              <span className={`absolute inset-0 rounded-full animate-ping opacity-75 ${isPending ? 'bg-amber-400' : 'bg-emerald-400'}`} />
+            </span>
+          </div>
+
+          <div className="flex-1 min-w-0">
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isPending ? 'text-amber-400' : 'text-emerald-400'}`}>
+              {isPending ? '⏳ New Pending Booking' : '🔔 New Appointment'}
+            </p>
+            <p className="text-white font-bold text-sm leading-tight truncate">
+              {booking.customerName ?? booking.customerPhone ?? t('customer')}
+            </p>
+            <p className="text-gray-400 text-xs mt-0.5 truncate">{booking.serviceNames ?? booking.serviceName ?? '—'}</p>
+            {booking.bookingTime && (
+              <span className="flex items-center gap-1 text-[10px] text-gray-500 font-bold mt-2">
+                <Clock size={10} /> {booking.bookingTime}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="px-4 pb-4">
+          <button
+            onClick={onDismiss}
+            className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${
+              isPending ? 'bg-amber-500 hover:bg-amber-400 text-black' : 'bg-emerald-500 hover:bg-emerald-400 text-black'
+            }`}
+          >
+            <PhoneOff size={14} /> {t('confirm')}
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 interface StaffPortalProps {
@@ -477,30 +857,78 @@ interface StaffPortalProps {
 
 export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps) {
   const { t } = useLanguage();
-  const [tab,         setTab]         = useState<Tab>('home');
-  const [billingOpen, setBillingOpen] = useState(false);
-  const [walkInOpen,  setWalkInOpen]  = useState(false);
+  const [tab,        setTab]        = useState<Tab>('home');
+  const [walkInOpen, setWalkInOpen] = useState(false);
+  const [bookings,   setBookings]   = useState<Booking[]>([]);
+  const [loading,    setLoading]    = useState(true);
+  const [staffList,  setStaffList]  = useState<StaffOption[]>([]);
+  const [newBookingQueue, setNewBookingQueue] = useState<Booking[]>([]);
 
   const firebaseUser = auth.currentUser;
+  const initialIdsRef = useRef<Set<string> | null>(null);
+
+  // Live bookings — from start of today onward
+  useEffect(() => {
+    const s = startOfDay(new Date()).toISOString();
+    const q = query(
+      collection(db, 'bookings'),
+      where('startTime', '>=', s),
+      orderBy('startTime', 'asc'),
+      limit(200),
+    );
+    const unsub = onSnapshot(q, snap => {
+      setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() } as Booking)));
+      setLoading(false);
+
+      // ── New appointment detection — ring same as admin dashboard ──────────
+      if (initialIdsRef.current === null) {
+        initialIdsRef.current = new Set(snap.docs.map(d => d.id));
+        return;
+      }
+      const added = snap.docChanges()
+        .filter(c => c.type === 'added' && !initialIdsRef.current!.has(c.doc.id))
+        .map(c => {
+          initialIdsRef.current!.add(c.doc.id);
+          return { id: c.doc.id, ...c.doc.data() } as Booking;
+        })
+        .filter(b => b.status !== 'failed');
+
+      if (added.length > 0) {
+        setNewBookingQueue(prev => [...prev, ...added]);
+        added.forEach(b => fireDesktopNotification(b));
+      }
+    }, () => setLoading(false));
+    return unsub;
+  }, []);
+
+  // Stop ringing once the new-appointment queue is cleared
+  useEffect(() => {
+    if (newBookingQueue.length === 0) stopRinging();
+  }, [newBookingQueue.length]);
+
+  // Ask for desktop notification permission on first load (best-effort)
+  useEffect(() => { requestNotificationPermission().catch(() => {}); }, []);
+
+  const dismissNewBooking = (id: string) => {
+    setNewBookingQueue(prev => {
+      const next = prev.filter(b => b.id !== id);
+      if (next.length === 0) stopRinging();
+      return next;
+    });
+  };
+
+  // Staff list for assign/reassign
+  useEffect(() => {
+    getDocs(query(collection(db, 'staff'), where('isActive', '==', true), orderBy('name')))
+      .then(snap => setStaffList(snap.docs.map(d => ({ id: d.id, name: (d.data() as any).name as string }))))
+      .catch(() => {});
+  }, []);
 
   const tabs: { id: Tab; icon: React.ReactNode; label: string }[] = [
-    { id: 'home',     icon: <Home       size={24} />, label: t('home')     },
-    { id: 'bill',     icon: <Receipt    size={24} />, label: t('bill')     },
-    { id: 'earnings', icon: <TrendingUp size={24} />, label: t('earnings') },
-    { id: 'profile',  icon: <User       size={24} />, label: t('profile')  },
+    { id: 'home',         icon: <Home          size={24} />, label: t('home')         },
+    { id: 'appointments', icon: <CalendarDays  size={24} />, label: t('appointments') },
+    { id: 'profile',      icon: <User          size={24} />, label: t('profile')      },
   ];
-
-  // ── Full-screen billing takeover ─────────────────────────────────────────
-  if (billingOpen) {
-    return (
-      <div className="h-screen bg-[#0d0d0d] text-white flex flex-col overflow-hidden">
-        <BillingModule
-          onClose={() => setBillingOpen(false)}
-          onInvoiceCreated={() => setBillingOpen(false)}
-        />
-      </div>
-    );
-  }
 
   // ── Full-screen walk-in booking takeover ──────────────────────────────────
   if (walkInOpen) {
@@ -523,15 +951,14 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
           <button onClick={() => setWalkInOpen(false)}
             className="flex items-center gap-2 text-gray-400 hover:text-white transition-colors">
             <CalendarPlus size={16} className="text-teal-400" />
-            <span className="text-white font-black text-sm">Walk-in Appointment</span>
+            <span className="text-white font-black text-sm">{t('makeAppointment')}</span>
           </button>
-          <span className="ml-auto text-gray-500 text-xs">← Back to portal</span>
+          <span className="ml-auto text-gray-500 text-xs">← {t('back')}</span>
           <button onClick={() => setWalkInOpen(false)}
             className="w-8 h-8 rounded-lg bg-white/8 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white transition-all">
-            <LogOut size={14} />
+            <X size={14} />
           </button>
         </div>
-        {/* WalkInBooking fills remaining space; its fixed-inset overlay is removed by rendering inline */}
         <div className="flex-1 overflow-y-auto">
           <WalkInBooking user={firebaseUser} staffMember={staffMember} createdBy="staff"
             onClose={() => setWalkInOpen(false)} onCreated={() => setWalkInOpen(false)} />
@@ -543,6 +970,13 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
   // ── Normal portal view ────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
+      {/* New appointment banners — ring until staff dismisses */}
+      <AnimatePresence>
+        {newBookingQueue.map((b, i) => (
+          <NewAppointmentBanner key={b.id} booking={b} offset={i} onDismiss={() => dismissNewBooking(b.id)} />
+        ))}
+      </AnimatePresence>
+
       {/* Header */}
       <header className="sticky top-0 z-30 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-white/10 shrink-0">
         <div className="px-4 h-14 flex items-center justify-between">
@@ -563,17 +997,12 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
         <AnimatePresence mode="wait">
           {tab === 'home' && (
             <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col overflow-hidden">
-              <HomeScreen staffMember={staffMember} onOpenBill={() => setBillingOpen(true)} onOpenAppointment={() => setWalkInOpen(true)} />
+              <HomeScreen staffMember={staffMember} bookings={bookings} loading={loading} staffList={staffList} onOpenAppointment={() => setWalkInOpen(true)} />
             </motion.div>
           )}
-          {tab === 'bill' && (
-            <motion.div key="bill" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col overflow-hidden">
-              <BillScreen onOpenBill={() => setBillingOpen(true)} />
-            </motion.div>
-          )}
-          {tab === 'earnings' && (
-            <motion.div key="earnings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col overflow-hidden">
-              <EarningsScreen staffMember={staffMember} />
+          {tab === 'appointments' && (
+            <motion.div key="appointments" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col overflow-hidden">
+              <AppointmentsScreen staffMember={staffMember} bookings={bookings} loading={loading} staffList={staffList} />
             </motion.div>
           )}
           {tab === 'profile' && (

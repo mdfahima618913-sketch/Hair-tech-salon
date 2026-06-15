@@ -356,6 +356,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
         bookingType:         'appointment',
         createdBy:           createdByUid,
         createdByName,
+        ...(staffMember && { assignedStaffId: staffMember.id, assignedStaffName: staffMember.name }),
 
         // Timestamps
         createdAt:           serverTimestamp(),
