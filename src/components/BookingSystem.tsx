@@ -17,7 +17,7 @@ import {
   User, Phone, CheckCircle2, Loader2, AlertCircle, Lock,
   CreditCard, Star, Users, CalendarX, Sun, CloudSun, Moon,
   Mic, MicOff, Wand2, RotateCcw, Sparkles, ShoppingBag,
-  ArrowRight, Scissors, Tag, Coffee,
+  ArrowRight, Scissors, Tag, Coffee, Zap,
 } from 'lucide-react';
 import { format, addDays, isSameDay, startOfDay } from 'date-fns';
 import { db } from '../lib/firebase';
@@ -707,6 +707,9 @@ export default function BookingSystem() {
   const [pendingExisting,    setPendingExisting]   = useState<PendingExisting|null>(null);
   const [ignorePending,      setIgnorePending]     = useState(false);
 
+  // Express service
+  const [isExpress, setIsExpress] = useState(false);
+
   // Coupon
   const [couponInput,   setCouponInput]   = useState('');
   const [couponData,    setCouponData]    = useState<{ code:string; type:'percent'|'flat'; value:number; discount:number } | null>(null);
@@ -763,7 +766,9 @@ export default function BookingSystem() {
   }, [services]);
 
   // Derived
-  const totalAmount = useMemo(()=>cart.reduce((a,i)=>a+i.service.priceValue*i.qty,0),[cart]);
+  const expressFee  = isExpress ? salonConfig.expressServiceFee : 0;
+  const cartAmount  = useMemo(()=>cart.reduce((a,i)=>a+i.service.priceValue*i.qty,0),[cart]);
+  const totalAmount = cartAmount + expressFee;
   const totalMins   = useMemo(()=>cart.reduce((a,i)=>a+parseMins(i.service.time)*i.qty,0),[cart]);
   const totalItems  = useMemo(()=>cart.reduce((a,i)=>a+i.qty,0),[cart]);
   const step2OK     = info.name.trim().length>0 && info.phone.trim().length>=10;
@@ -919,6 +924,10 @@ export default function BookingSystem() {
     const ok = await loadRazorpay();
     if (!ok){setPayErr('Payment failed to load.');setLoading(false);return;}
 
+    const expressItem = isExpress ? [{ id:'express-service', name:'Express Service', qty:1, priceValue: salonConfig.expressServiceFee }] : [];
+    const allServiceItems = [...cart.map(i=>({ id:i.service.id, name:i.service.name, qty:i.qty, priceValue:i.service.priceValue })), ...expressItem];
+    const allServiceNames = [...cart.map(i=>i.service.name + (i.qty>1?` ×${i.qty}`:'')), ...(isExpress ? ['Express Service'] : [])].join(', ');
+
     const bookingData = {
       customerName:        info.name,
       customerPhone:       info.phone.replace(/\D/g, '').slice(-10),
@@ -926,13 +935,14 @@ export default function BookingSystem() {
       endTime:             selSlot.endISO,
       bookingTime:         selSlot.label,
       bookingDate:         startOfDay(selDate).toISOString(),
-      serviceNames:        cart.map(i=>i.service.name + (i.qty>1?` ×${i.qty}`:'')).join(', '),
-      serviceItems:        cart.map(i=>({ id:i.service.id, name:i.service.name, qty:i.qty, priceValue:i.service.priceValue })),
+      serviceNames:        allServiceNames,
+      serviceItems:        allServiceItems,
       serviceDurationMins: totalMins,
       totalAmount:         finalAmount,
       originalAmount:      totalAmount,
+      ...(isExpress && { isExpress: true, expressServiceFee: salonConfig.expressServiceFee }),
       ...(couponData && { couponCode: couponData.code, discountAmount: couponData.discount }),
-      status: 'pending' as const,   // ← pending BEFORE payment
+      status: 'pending' as const,
       createdAt: serverTimestamp(),
     };
 
@@ -1048,6 +1058,12 @@ export default function BookingSystem() {
               <span className="font-bold text-gray-900">₹{(service.priceValue*qty).toLocaleString('en-IN')}</span>
             </div>
           ))}
+          {expressFee > 0 && (
+            <div className="flex justify-between text-sm">
+              <span className="text-orange-400 flex items-center gap-1"><Zap size={12}/> Express Service</span>
+              <span className="font-bold text-orange-600">₹{expressFee.toLocaleString('en-IN')}</span>
+            </div>
+          )}
           <div className="pt-2 border-t border-gray-200 flex justify-between font-black">
             <span>Total</span><span className="text-[#D4AF37]">₹{totalAmount.toLocaleString('en-IN')}</span>
           </div>
@@ -1081,10 +1097,11 @@ export default function BookingSystem() {
       </div>
       <div className="flex-1 overflow-y-auto p-5 space-y-4">
         {/* Appointment summary */}
-        <div className="bg-[#D4AF37]/8 border border-[#D4AF37]/20 rounded-2xl p-4">
+        <div className={`rounded-2xl p-4 border ${isExpress ? 'bg-orange-500/8 border-orange-400/20' : 'bg-[#D4AF37]/8 border-[#D4AF37]/20'}`}>
           <div className="flex items-center gap-2 mb-1">
-            <Calendar size={14} className="text-[#D4AF37]"/>
+            {isExpress ? <Zap size={14} className="text-orange-500"/> : <Calendar size={14} className="text-[#D4AF37]"/>}
             <span className="text-sm font-bold text-gray-800">{format(selDate,'EEE, MMM d')} · {selSlot?.label}</span>
+            {isExpress && <span className="text-[9px] font-black text-white bg-orange-500 rounded-md px-1.5 py-0.5 uppercase">Express</span>}
           </div>
           <p className="text-xs text-gray-500 pl-5">{cart.map(i=>i.service.name).join(', ')}</p>
         </div>
@@ -1257,6 +1274,18 @@ export default function BookingSystem() {
                 <p className="font-bold text-gray-900 text-sm">₹{(service.priceValue*q).toLocaleString('en-IN')}</p>
               </div>
             ))}
+            {isExpress && (
+              <div className="flex items-center gap-3 px-4 py-3 bg-orange-50">
+                <div className="w-12 h-12 rounded-xl bg-orange-500 flex items-center justify-center shrink-0">
+                  <Zap size={20} className="text-white"/>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-orange-700">Express Service</p>
+                  <p className="text-xs text-orange-400">Priority — skip the queue</p>
+                </div>
+                <p className="font-bold text-orange-600 text-sm">₹{salonConfig.expressServiceFee.toLocaleString('en-IN')}</p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -1519,26 +1548,63 @@ export default function BookingSystem() {
           <motion.div
             initial={{y:100,opacity:0}} animate={{y:0,opacity:1}} exit={{y:100,opacity:0}}
             transition={{type:'spring',stiffness:300,damping:30}}
-            className="absolute bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-2 bg-gradient-to-t from-white via-white/95 to-transparent"
+            className="absolute bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-2 bg-gradient-to-t from-white via-white/95 to-transparent space-y-2"
           >
-            <button onClick={()=>setScreen('slots')}
+            {/* Express toggle */}
+            <button onClick={()=>setIsExpress(v=>!v)}
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all ${
+                isExpress
+                  ? 'bg-orange-50 border-orange-400 shadow-[0_4px_20px_-4px_rgba(251,146,60,0.3)]'
+                  : 'bg-white border-gray-200 hover:border-orange-300'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${isExpress ? 'bg-orange-500' : 'bg-gray-100'}`}>
+                  <Zap size={14} className={isExpress ? 'text-white' : 'text-gray-400'} />
+                </div>
+                <div className="text-left">
+                  <p className={`text-sm font-black leading-none ${isExpress ? 'text-orange-600' : 'text-gray-700'}`}>Express Service</p>
+                  <p className="text-[10px] text-gray-400 mt-0.5">Skip the queue — walk in within 15 min</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs font-black ${isExpress ? 'text-orange-500' : 'text-gray-400'}`}>+₹{salonConfig.expressServiceFee}</span>
+                <div className={`w-10 h-6 rounded-full flex items-center px-0.5 transition-all ${isExpress ? 'bg-orange-500' : 'bg-gray-200'}`}>
+                  <div className={`w-5 h-5 rounded-full bg-white shadow transition-transform ${isExpress ? 'translate-x-4' : ''}`}/>
+                </div>
+              </div>
+            </button>
+
+            {/* Main CTA */}
+            <button onClick={()=>{
+              if (isExpress) {
+                const now = new Date();
+                const start = new Date(now.getTime() + 15*60*1000);
+                const end   = new Date(start.getTime() + totalMins*60*1000);
+                const fmt = (d: Date) => { const h=d.getHours(),m=d.getMinutes(); return `${h>12?h-12:h||12}:${String(m).padStart(2,'0')} ${h>=12?'PM':'AM'}`; };
+                setSelDate(now);
+                setSelSlot({ label:`${fmt(start)} – ${fmt(end)} (Express)`, startISO:start.toISOString(), endISO:end.toISOString(), available:1, session: start.getHours()<12?'morning':start.getHours()<17?'afternoon':'evening' });
+                setScreen('details');
+              } else {
+                setScreen('slots');
+              }
+            }}
               className="w-full flex items-center justify-between px-5 py-4 bg-gray-900 rounded-2xl shadow-[0_8px_30px_-8px_rgba(0,0,0,0.4)] hover:bg-gray-800 transition-all">
               <div className="flex items-center gap-3">
-                {/* Cart badge */}
-                <div className="w-8 h-8 bg-[#D4AF37] rounded-xl flex items-center justify-center">
-                  <span className="text-black font-black text-sm">{totalItems}</span>
+                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${isExpress ? 'bg-orange-500' : 'bg-[#D4AF37]'}`}>
+                  {isExpress ? <Zap size={16} className="text-white"/> : <span className="text-black font-black text-sm">{totalItems}</span>}
                 </div>
                 <div className="text-left">
                   <p className="text-white font-bold text-sm leading-none">
-                    {totalItems} service{totalItems!==1?'s':''} added
+                    {isExpress ? 'Book Express' : `${totalItems} service${totalItems!==1?'s':''} added`}
                   </p>
                   <p className="text-gray-400 text-[11px] mt-0.5">
-                    {cart.map(i=>i.service.name.split(':')[0].trim()).join(', ').slice(0,32)}{cart.map(i=>i.service.name).join(', ').length>32?'…':''}
+                    {isExpress ? 'Walk in within 15 min — priority service' : cart.map(i=>i.service.name.split(':')[0].trim()).join(', ').slice(0,32)+(cart.map(i=>i.service.name).join(', ').length>32?'…':'')}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-[#D4AF37] font-black text-base">₹{totalAmount.toLocaleString('en-IN')}</span>
+                <span className={`font-black text-base ${isExpress ? 'text-orange-400' : 'text-[#D4AF37]'}`}>₹{totalAmount.toLocaleString('en-IN')}</span>
                 <div className="flex items-center gap-1 text-white text-sm font-bold">
                   Next <ArrowRight size={16}/>
                 </div>

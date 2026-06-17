@@ -1496,7 +1496,7 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   }, [isStaffMode, toolsTab]);
 
   // Salon settings (Tools > Settings tab)
-  const [sSettings, setSSettings] = useState({ staffCount: 3, openHour: 10, closeHour: 22, slotStepMins: 15, bufferMins: 30, defaultStaffId: '' });
+  const [sSettings, setSSettings] = useState({ staffCount: 3, openHour: 10, closeHour: 22, slotStepMins: 15, bufferMins: 30, defaultStaffId: '', expressServiceFee: 499 });
   const [sSettingsLoaded,  setSSettingsLoaded]  = useState(false);
   const [sSettingsSaving,  setSSettingsSaving]  = useState(false);
   const [sSettingsError,   setSSettingsError]   = useState<string | null>(null);
@@ -1524,6 +1524,7 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
           slotStepMins:  d.slotStepMins  ?? 15,
           bufferMins:    d.bufferMins    ?? 30,
           defaultStaffId: d.defaultStaffId ?? '',
+          expressServiceFee: d.expressServiceFee ?? 499,
         });
         setAdminPin(d.adminPin ?? '');
       }
@@ -5201,6 +5202,17 @@ Your uid is: ${user.uid}
                         className="w-40 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40">
                         {[0, 15, 30, 45, 60, 90, 120].map(v => <option key={v} value={v}>{v === 0 ? 'None' : `${v} minutes`}</option>)}
                       </select>
+                    </div>
+
+                    {/* Express service fee */}
+                    <div>
+                      <label className="block text-xs font-bold text-gray-300 mb-1">Express Service Fee (₹)</label>
+                      <p className="text-[10px] text-gray-500 mb-2">Extra charge for priority/express bookings (customers skip the queue)</p>
+                      <input type="number" min={0}
+                        value={sSettings.expressServiceFee}
+                        onChange={e => setSSettings(p => ({ ...p, expressServiceFee: Math.max(0, +e.target.value) }))}
+                        className="w-32 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40"
+                      />
                     </div>
 
                     {/* Default staff for unassigned services */}
