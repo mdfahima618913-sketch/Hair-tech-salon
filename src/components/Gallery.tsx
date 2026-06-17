@@ -131,32 +131,6 @@ export default function Gallery() {
               />
             </AnimatePresence>
 
-            {/* Gradient overlay */}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/20 to-transparent pointer-events-none" />
-
-            {/* Caption overlay */}
-            <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-8">
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={current}
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.4 }}
-                >
-                  <div className="flex items-start gap-3 mb-2">
-                    <Quote size={20} className="text-gold/50 shrink-0 mt-0.5" />
-                    <p className="text-white text-sm sm:text-base font-light leading-relaxed">
-                      {item.caption}
-                    </p>
-                  </div>
-                  {item.name && (
-                    <p className="text-gold/70 text-xs sm:text-sm font-bold pl-8">{item.name}</p>
-                  )}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-
             {/* Prev / Next arrows */}
             {items.length > 1 && (
               <>
@@ -177,6 +151,31 @@ export default function Gallery() {
               </>
             )}
           </div>
+
+          {/* Caption — below the image */}
+          {(item.caption || item.name) && (
+            <div className="px-5 sm:px-8 py-4 bg-zinc-900 border-t border-white/8">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={current}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.35 }}
+                >
+                  {item.caption && (
+                    <div className="flex items-start gap-3">
+                      <Quote size={16} className="text-gold/40 shrink-0 mt-0.5" />
+                      <p className="text-gray-300 text-sm font-light leading-relaxed">{item.caption}</p>
+                    </div>
+                  )}
+                  {item.name && (
+                    <p className="text-gold/60 text-xs font-bold mt-2 pl-7">— {item.name}</p>
+                  )}
+                </motion.div>
+              </AnimatePresence>
+            </div>
+          )}
 
           {/* Dot indicators */}
           {items.length > 1 && (

@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { flushSync } from 'react-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   LogIn, LogOut, Eye, EyeOff, AlertCircle, Loader2,
@@ -10,7 +11,7 @@ import {
   TrendingDown, BarChart3, CalendarDays, ChevronRight as ChevronRightIcon,
   Receipt, UserCheck, Plus, Trash2, Edit2, Save, Building2,
   Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer, CalendarPlus, IndianRupee, Crown,
-  CalendarCheck, Sun, CloudSun, Moon,
+  CalendarCheck, Sun, CloudSun, Moon, Lock,
 } from 'lucide-react';
 import { format, addDays, startOfDay, isSameDay, isToday } from 'date-fns';
 import BannerManager  from './BannerManager';
@@ -109,9 +110,10 @@ function fmtDate(iso: string) {
   catch { return iso; }
 }
 
-function fmtTs(ts?: Timestamp) {
+function fmtTs(ts?: Timestamp | string) {
   if (!ts) return '—';
-  return ts.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const d = typeof ts === 'string' ? new Date(ts) : ts.toDate();
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 // ─── Reschedule slot helpers (mirrors MyAppointments) ─────────────────────────
@@ -157,6 +159,75 @@ function exportCSV(bookings: Booking[]) {
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   a.download = `bookings_${new Date().toISOString().slice(0, 10)}.csv`;
   a.click();
+}
+
+// ─── PIN prompt (own component — typing doesn't re-render Dashboard) ──────────
+// No framer-motion, no backdrop-blur — pure CSS, renders instantly.
+
+function PinPromptModal({ targetView, pin, onSuccess, onCancel }: {
+  targetView: string; pin: string; onSuccess: () => void; onCancel: () => void;
+}) {
+  const [digits, setDigits] = useState(['', '', '', '']);
+  const [error, setError]   = useState(false);
+  const refs = [useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null), useRef<HTMLInputElement>(null)];
+
+  useEffect(() => { refs[0].current?.focus(); }, []);
+
+  const handleDigit = (idx: number, val: string) => {
+    const d = val.replace(/\D/g, '');
+    if (!d) return;
+    const next = [...digits];
+    next[idx] = d[0];
+    setDigits(next);
+    setError(false);
+
+    if (idx < 3) { refs[idx + 1].current?.focus(); return; }
+
+    // All 4 filled — verify
+    const code = next.join('');
+    if (code === pin) { onSuccess(); }
+    else { setError(true); setDigits(['', '', '', '']); setTimeout(() => refs[0].current?.focus(), 50); }
+  };
+
+  const handleKey = (idx: number, e: React.KeyboardEvent) => {
+    if (e.key === 'Backspace') {
+      e.preventDefault();
+      if (digits[idx]) {
+        const next = [...digits]; next[idx] = ''; setDigits(next);
+      } else if (idx > 0) {
+        const next = [...digits]; next[idx - 1] = ''; setDigits(next);
+        refs[idx - 1].current?.focus();
+      }
+    }
+    if (e.key === 'Escape') onCancel();
+  };
+
+  return (
+    <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center" onClick={onCancel}>
+      <div className="bg-zinc-900 border border-white/15 rounded-2xl p-6 w-[280px] text-center" onClick={e => e.stopPropagation()}>
+        <Lock size={20} className="text-gold mx-auto mb-3" />
+        <p className="text-white font-black text-sm mb-1">Enter PIN</p>
+        <p className="text-gray-500 text-[10px] mb-5 capitalize">{targetView}</p>
+        <div className="flex justify-center gap-3 mb-4">
+          {digits.map((d, i) => (
+            <input
+              key={i} ref={refs[i]}
+              type="tel" inputMode="numeric" maxLength={1}
+              value={d ? '●' : ''}
+              onChange={e => handleDigit(i, e.target.value)}
+              onKeyDown={e => handleKey(i, e)}
+              onFocus={e => e.target.select()}
+              className={`w-12 h-14 text-center text-xl font-black rounded-xl bg-zinc-800 border-2 text-white focus:outline-none ${
+                error ? 'border-red-500' : d ? 'border-gold/60' : 'border-white/15 focus:border-gold/40'
+              }`}
+            />
+          ))}
+        </div>
+        {error && <p className="text-red-400 text-xs font-bold mb-3">Wrong PIN</p>}
+        <button onClick={onCancel} className="text-gray-500 text-xs hover:text-white">Cancel</button>
+      </div>
+    </div>
+  );
 }
 
 // ─── In-app new booking banner ─────────────────────────────────────────────────
@@ -889,14 +960,17 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
     const newAdvanceRow = (inv.advanceAmount ?? 0) > 0
       ? `<div class="row sm" style="color:#007700"><span>Saved as Advance</span><span>&#8377;${inv.advanceAmount.toLocaleString('en-IN')}</span></div>`
       : '';
-    const commRows = Object.entries(
-      invoice.items.reduce((acc: Record<string, number>, it) => {
-        if (it.staffId) acc[it.staffName] = (acc[it.staffName] ?? 0) + it.commissionAmount;
-        return acc;
-      }, {})
-    ).map(([name, amt]) =>
-      `<div class="row sm"><span>${name}</span><span>&#8377;${(amt as number).toLocaleString('en-IN')}</span></div>`
-    ).join('');
+    const commAgg: Record<string, number> = {};
+    invoice.items.forEach((it: any) => {
+      if (it.staffSplits && it.staffSplits.length > 1) {
+        it.staffSplits.forEach((sp: any) => { if (sp.staffId) commAgg[sp.staffName] = (commAgg[sp.staffName] ?? 0) + sp.commissionAmount; });
+      } else if (it.staffId) {
+        commAgg[it.staffName] = (commAgg[it.staffName] ?? 0) + it.commissionAmount;
+      }
+    });
+    const commRows = Object.entries(commAgg)
+      .map(([name, amt]) => `<div class="row sm"><span>${name}</span><span>&#8377;${(amt as number).toLocaleString('en-IN')}</span></div>`)
+      .join('');
     w.document.write(`<!DOCTYPE html><html><head>
       <title>Invoice ${invoice.invoiceNumber}</title><meta charset="utf-8"/>
       <style>
@@ -927,7 +1001,9 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
         <div style="margin:3px 0">
           <div class="row"><span>${it.serviceName}${(it.quantity ?? 1) > 1 ? ` ×${it.quantity}` : ''}</span><span class="bold">&#8377;${it.price.toLocaleString('en-IN')}</span></div>
           ${(it.quantity ?? 1) > 1 ? `<div class="qty-hint">&#8377;${it.unitPrice.toLocaleString('en-IN')} × ${it.quantity}</div>` : ''}
-          ${it.staffName ? `<div class="staff">Staff: ${it.staffName} · ${it.commissionRate}% = &#8377;${it.commissionAmount.toLocaleString('en-IN')}</div>` : ''}
+          ${(it as any).staffSplits && (it as any).staffSplits.length > 1
+            ? (it as any).staffSplits.map((sp: any) => `<div class="staff">${sp.staffName} · ${sp.splitPercent}% = &#8377;${sp.commissionAmount.toLocaleString('en-IN')}</div>`).join('')
+            : (it.staffName ? `<div class="staff">Staff: ${it.staffName} · ${it.commissionRate}% = &#8377;${it.commissionAmount.toLocaleString('en-IN')}</div>` : '')}
         </div>`).join('')}
       <div class="dash"></div>
       <div class="row sm"><span>Subtotal</span><span>&#8377;${invoice.subtotal.toLocaleString('en-IN')}</span></div>
@@ -941,6 +1017,7 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
       ${newAdvanceRow}
       ${invoice.paymentId ? `<div class="row sm"><span>Razorpay ID</span><span>${invoice.paymentId}</span></div>` : ''}
       ${commRows ? `<div class="dash"></div><div class="sm bold">Staff Commission</div>${commRows}` : ''}
+      ${(invoice as any).promoCoupons?.length ? `<div class="dash"></div><div class="sm bold">&#127915; Promo Coupons</div>${(invoice as any).promoCoupons.map((c: string) => `<div class="row sm"><span>&#9733;</span><span class="bold" style="letter-spacing:2px">${c}</span></div>`).join('')}` : ''}
       <div class="dash"></div>
       <div class="center sm" style="margin-top:6px">Thank you for visiting Hair Tech Salon!<br/>Follow us &#64;hairtech111</div>
     </body></html>`);
@@ -1034,7 +1111,17 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                       {item.lineDiscount > 0 && (
                         <p className="text-[9px] text-red-500 pl-1">Line discount: {item.lineDiscount}%</p>
                       )}
-                      {item.staffName && <p className="text-[9px] text-gray-400 pl-1">Staff: {item.staffName} · {item.commissionRate}% = ₹{item.commissionAmount.toLocaleString('en-IN')}</p>}
+                      {(item as any).staffSplits && (item as any).staffSplits.length > 1 ? (
+                        <div className="pl-1 space-y-0.5">
+                          {(item as any).staffSplits.map((sp: any) => (
+                            <p key={sp.staffId} className="text-[9px] text-gray-400">
+                              {sp.staffName} · {sp.splitPercent}% → ₹{sp.commissionAmount.toLocaleString('en-IN')}
+                            </p>
+                          ))}
+                        </div>
+                      ) : item.staffName ? (
+                        <p className="text-[9px] text-gray-400 pl-1">Staff: {item.staffName} · {item.commissionRate}% = ₹{item.commissionAmount.toLocaleString('en-IN')}</p>
+                      ) : null}
                     </div>
                   ))}
                 </div>
@@ -1132,15 +1219,34 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                 </div>
 
                 {/* Staff commission */}
-                {invoice.items.some(i => i.commissionAmount > 0) && (
+                {invoice.items.some(i => i.commissionAmount > 0) && (() => {
+                  const ca: Record<string, number> = {};
+                  invoice.items.forEach((it: any) => {
+                    if (it.staffSplits && it.staffSplits.length > 1) {
+                      it.staffSplits.forEach((sp: any) => { if (sp.staffId) ca[sp.staffName] = (ca[sp.staffName] ?? 0) + sp.commissionAmount; });
+                    } else if (it.staffId) {
+                      ca[it.staffName] = (ca[it.staffName] ?? 0) + it.commissionAmount;
+                    }
+                  });
+                  return (
+                    <div className="border-t border-dashed border-gray-300 pt-2.5 mt-2.5">
+                      <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider mb-1">Staff Commission</p>
+                      {Object.entries(ca).map(([name, amt]) => (
+                        <div key={name} className="flex justify-between text-[10px] text-gray-400">
+                          <span>{name}</span><span>₹{(amt as number).toLocaleString('en-IN')}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })()}
+
+                {(inv as any).promoCoupons?.length > 0 && (
                   <div className="border-t border-dashed border-gray-300 pt-2.5 mt-2.5">
-                    <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider mb-1">Staff Commission</p>
-                    {Object.entries(invoice.items.reduce((acc: Record<string,number>, it) => {
-                      if (it.staffId) acc[it.staffName] = (acc[it.staffName] ?? 0) + it.commissionAmount;
-                      return acc;
-                    }, {})).map(([name, amt]) => (
-                      <div key={name} className="flex justify-between text-[10px] text-gray-400">
-                        <span>{name}</span><span>₹{(amt as number).toLocaleString('en-IN')}</span>
+                    <p className="text-[9px] text-purple-500 font-black uppercase tracking-wider mb-1.5">🎟️ Promo Coupons</p>
+                    {(inv as any).promoCoupons.map((c: string, i: number) => (
+                      <div key={i} className="flex justify-between text-[10px]">
+                        <span className="text-gray-400">★</span>
+                        <span className="font-bold font-mono tracking-[3px] text-purple-600">{c}</span>
                       </div>
                     ))}
                   </div>
@@ -1178,6 +1284,29 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   // ── Module navigation ─────────────────────────────────────────────────────
   type DashView = 'bookings' | 'insights' | 'billing' | 'staff' | 'customers' | 'tools';
   const [view, setView]                   = useState<DashView>('bookings');
+
+  // PIN-lock for sensitive views — PIN required every time you switch tab
+  const [adminPin,       setAdminPin]       = useState('');
+  const [pinPromptView,  setPinPromptView]  = useState<DashView | null>(null);
+  const [pinSettingsInput, setPinSettingsInput] = useState('');
+  const adminPinRef      = useRef('');
+  const pinPromptViewRef = useRef<DashView | null>(null);
+  adminPinRef.current      = adminPin;
+  pinPromptViewRef.current = pinPromptView;
+
+  const handleViewSwitch = useCallback((target: DashView) => {
+    if (adminPinRef.current && (target === 'billing' || target === 'insights' || target === 'staff')) {
+      setPinPromptView(target);
+      return;
+    }
+    setView(target);
+  }, []);
+
+  const handlePinSuccess = useCallback(() => {
+    const target = pinPromptViewRef.current;
+    if (!target) return;
+    flushSync(() => { setPinPromptView(null); setView(target); });
+  }, []);
 
   // Billing module state
   const [billingOpen, setBillingOpen]       = useState(false);
@@ -1373,6 +1502,16 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [sSettingsError,   setSSettingsError]   = useState<string | null>(null);
   const [sSettingsSaved,   setSSettingsSaved]   = useState(false);
 
+  // Load admin PIN on mount (before settings tab is opened)
+  useEffect(() => {
+    getDoc(doc(db, 'settings', 'salon')).then(snap => {
+      if (snap.exists()) {
+        const d = snap.data();
+        setAdminPin(d.adminPin ?? '');
+      }
+    }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     if (toolsTab !== 'settings' || sSettingsLoaded) return;
     getDoc(doc(db, 'settings', 'salon')).then(snap => {
@@ -1386,6 +1525,7 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
           bufferMins:    d.bufferMins    ?? 30,
           defaultStaffId: d.defaultStaffId ?? '',
         });
+        setAdminPin(d.adminPin ?? '');
       }
       setSSettingsLoaded(true);
     }).catch(() => setSSettingsLoaded(true));
@@ -2412,8 +2552,8 @@ Your uid is: ${user.uid}
               { id: 'customers',  label: 'Customers', icon: <Users        size={13} /> },
               { id: 'tools',      label: 'Tools',     icon: <Wrench       size={13} /> },
             ]).map(tab => (
-              <button key={tab.id} onClick={() => setView(tab.id as any)}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+              <button key={tab.id} onClick={() => handleViewSwitch(tab.id as DashView)}
+                className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
                   view === tab.id
                     ? 'bg-gold text-black shadow-sm'
                     : 'text-gray-400 hover:text-white hover:bg-white/8'
@@ -2421,6 +2561,9 @@ Your uid is: ${user.uid}
               >
                 {tab.icon}
                 <span className="hidden md:inline">{tab.label}</span>
+                {adminPin && (tab.id === 'billing' || tab.id === 'insights' || tab.id === 'staff') && (
+                  <Lock size={8} className="text-current opacity-60" />
+                )}
               </button>
             ))}
           </nav>
@@ -5078,6 +5221,43 @@ Your uid is: ${user.uid}
                       </select>
                     </div>
 
+                    {/* ── Security PIN ── */}
+                    <div className="pt-4 border-t border-white/8">
+                      <label className="block text-xs font-bold text-gray-300 mb-1 flex items-center gap-1.5">
+                        <Lock size={12} className="text-gold" /> Security PIN
+                      </label>
+                      <p className="text-[10px] text-gray-500 mb-2">
+                        Set a 4-digit PIN to lock Billing, Insights &amp; Staff sections.
+                        Anyone will need this PIN to access them. Leave empty to disable.
+                      </p>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="password"
+                          inputMode="numeric"
+                          maxLength={4}
+                          placeholder={adminPin ? '●●●● (set — type to change)' : 'Enter 4-digit PIN'}
+                          value={pinSettingsInput}
+                          onChange={e => {
+                            const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                            setPinSettingsInput(v);
+                            if (v.length === 4) setAdminPin(v);
+                          }}
+                          className="w-56 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm tracking-[0.3em] text-center font-mono focus:outline-none focus:border-gold/40 placeholder:tracking-normal placeholder:text-gray-600 placeholder:text-[10px]"
+                        />
+                        {adminPin && (
+                          <button
+                            onClick={() => { setAdminPin(''); setPinSettingsInput(''); }}
+                            className="text-red-400 text-[10px] font-bold hover:text-red-300 transition-colors"
+                          >
+                            Remove PIN
+                          </button>
+                        )}
+                      </div>
+                      {pinSettingsInput.length > 0 && pinSettingsInput.length < 4 && (
+                        <p className="text-orange-400 text-[10px] mt-1">PIN must be exactly 4 digits</p>
+                      )}
+                    </div>
+
                     {sSettingsError && (
                       <p className="text-red-400 text-xs flex items-center gap-1.5"><AlertCircle size={12}/>{sSettingsError}</p>
                     )}
@@ -5090,7 +5270,7 @@ Your uid is: ${user.uid}
                       onClick={async () => {
                         setSSettingsSaving(true); setSSettingsError(null); setSSettingsSaved(false);
                         try {
-                          await setDoc(doc(db, 'settings', 'salon'), sSettings, { merge: true });
+                          await setDoc(doc(db, 'settings', 'salon'), { ...sSettings, adminPin }, { merge: true });
                           setSSettingsSaved(true);
                           setTimeout(() => setSSettingsSaved(false), 3000);
                         } catch (e: any) {
@@ -5114,6 +5294,17 @@ Your uid is: ${user.uid}
       {/* ── Invoice view modal ── */}
       {invoiceModalId && (
         <InvoiceModal invoiceId={invoiceModalId} onClose={() => setInvoiceModalId(null)} />
+      )}
+
+      {/* ── PIN prompt modal ── */}
+      {pinPromptView && (
+        <PinPromptModal
+          key={pinPromptView}
+          targetView={pinPromptView}
+          pin={adminPin}
+          onSuccess={handlePinSuccess}
+          onCancel={() => setPinPromptView(null)}
+        />
       )}
 
       </main>

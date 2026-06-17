@@ -18,7 +18,7 @@ import {
   Search, UserPlus, X, Plus, Minus,
   Receipt, CreditCard, Banknote, Smartphone, CheckCircle2,
   Loader2, AlertCircle, User, Phone, Users,
-  ArrowLeft, Printer, Star, Wallet, Tag, Crown, Calendar,
+  ArrowLeft, Printer, Star, Wallet, Tag, Crown, Calendar, Edit2,
 } from 'lucide-react';
 import {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
@@ -55,6 +55,13 @@ export interface StaffMember {
   email?: string;          // Firebase Auth email for staff portal login
 }
 
+export interface StaffCommissionSplit {
+  staffId: string;
+  staffName: string;
+  splitPercent: number;    // share of the base commission, all splits sum to 100
+  commissionAmount: number;
+}
+
 export interface BillItem {
   serviceId: string;
   serviceName: string;
@@ -62,10 +69,11 @@ export interface BillItem {
   quantity: number;     // default 1
   lineDiscount: number; // per-item discount % (default 0)
   price: number;        // line total = unitPrice × qty × (1 - lineDiscount/100)
-  staffId: string;
+  staffId: string;      // primary staff (first in splits, or single staff for backward compat)
   staffName: string;
   commissionRate: number;
-  commissionAmount: number;
+  commissionAmount: number; // total commission for the line item
+  staffSplits?: StaffCommissionSplit[]; // when multiple staff share a service
 }
 
 export type PaymentMethod =
@@ -117,6 +125,8 @@ export interface Invoice {
   source: 'walkin' | 'online';
   /** VIP tier — defaults to 'standard' when absent */
   billingType?: 'standard' | 'vvip';
+  /** Promo lottery coupon codes — 1 per ₹1000 spent */
+  promoCoupons?: string[];
   createdAt?: Timestamp;
 }
 
@@ -579,13 +589,16 @@ async function saveQuickService(
 
 // Service catalogue (left panel) — cart items rendered with CartItemRow
 function ServiceStep({
-  items, onAdd, onRemove, onRemoveLast, onUpdateStaff, onUpdateQty, onUpdateUnitPrice, onUpdateLineDiscount, staff,
+  items, onAdd, onRemove, onRemoveLast, onUpdateStaff, onAddStaff, onRemoveStaff, onUpdateSplits, onUpdateQty, onUpdateUnitPrice, onUpdateLineDiscount, staff,
 }: {
   items: BillItem[];
   onAdd: (service: Service) => void;
   onRemove: (idx: number) => void;
   onRemoveLast: (serviceId: string) => void;
   onUpdateStaff: (idx: number, staffId: string) => void;
+  onAddStaff: (idx: number, staffId: string) => void;
+  onRemoveStaff: (idx: number, staffId: string) => void;
+  onUpdateSplits: (idx: number, splits: StaffCommissionSplit[]) => void;
   onUpdateQty: (idx: number, qty: number) => void;
   onUpdateUnitPrice: (idx: number, price: number) => void;
   onUpdateLineDiscount: (idx: number, disc: number) => void;
@@ -750,6 +763,7 @@ function ServiceStep({
               onRemove={onRemove} onUpdateQty={onUpdateQty}
               onUpdateUnitPrice={onUpdateUnitPrice} onUpdateLineDiscount={onUpdateLineDiscount}
               onUpdateStaff={onUpdateStaff}
+              onAddStaff={onAddStaff} onRemoveStaff={onRemoveStaff} onUpdateSplits={onUpdateSplits}
             />
           ))}
           {totalCommission > 0 && (
@@ -922,7 +936,7 @@ function ServiceStep({
               </div>
             );
             return (
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pb-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pb-2">
                 {visibleServices.map(service => {
                   const count = serviceCounts[service.id] ?? 0;
                   const imgSrc = getServiceImage(service.name, service.category, (service as any).imageUrl);
@@ -1184,9 +1198,70 @@ function SplitPaymentStep({
   );
 }
 
+// ─── Commission Split Editor (inline panel inside CartItemRow) ────────────────
+
+function CommissionSplitEditor({ splits, totalCommission, onUpdate, onClose }: {
+  splits: StaffCommissionSplit[];
+  totalCommission: number;
+  onUpdate: (splits: StaffCommissionSplit[]) => void;
+  onClose: () => void;
+}) {
+  const [local, setLocal] = useState(() => splits.map(s => ({ ...s })));
+  const sumPct = local.reduce((a, s) => a + s.splitPercent, 0);
+  const isValid = sumPct === 100;
+
+  const handlePctChange = (i: number, val: number) => {
+    setLocal(prev => prev.map((s, si) => si !== i ? s : {
+      ...s,
+      splitPercent: Math.max(0, Math.min(100, val)),
+      commissionAmount: Math.round(totalCommission * Math.max(0, Math.min(100, val)) / 100),
+    }));
+  };
+
+  const save = () => {
+    if (!isValid) return;
+    onUpdate(local);
+    onClose();
+  };
+
+  return (
+    <div className="bg-zinc-900 border border-gold/20 rounded-xl p-3 space-y-2.5">
+      <p className="text-[10px] font-black uppercase tracking-widest text-gold">Commission Split — ₹{totalCommission.toLocaleString('en-IN')} total</p>
+      {local.map((s, i) => (
+        <div key={s.staffId} className="flex items-center gap-2">
+          <span className="flex-1 text-xs text-white truncate">{s.staffName}</span>
+          <div className="flex items-center gap-1 bg-zinc-800 border border-white/10 rounded-lg px-2 py-1">
+            <input type="number" min={0} max={100} value={s.splitPercent}
+              onChange={e => handlePctChange(i, Number(e.target.value))}
+              className="w-10 bg-transparent text-xs text-white text-right focus:outline-none"
+            />
+            <span className="text-gray-500 text-xs">%</span>
+          </div>
+          <span className="text-emerald-400 text-[10px] font-bold w-16 text-right">
+            ₹{Math.round(totalCommission * s.splitPercent / 100).toLocaleString('en-IN')}
+          </span>
+        </div>
+      ))}
+      <div className="flex items-center justify-between pt-1 border-t border-white/8">
+        <span className={`text-[10px] font-bold ${isValid ? 'text-emerald-400' : 'text-red-400'}`}>
+          Total: {sumPct}% {!isValid && '(must be 100%)'}
+        </span>
+        <div className="flex gap-2">
+          <button onClick={onClose} className="text-gray-500 text-[10px] font-bold hover:text-white">Cancel</button>
+          <button onClick={save} disabled={!isValid}
+            className="px-3 py-1 rounded-lg bg-gold/20 border border-gold/30 text-gold text-[10px] font-black disabled:opacity-40"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Cart Item Row ────────────────────────────────────────────────────────────
 
-function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPrice, onUpdateLineDiscount, onUpdateStaff }: {
+function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPrice, onUpdateLineDiscount, onUpdateStaff, onAddStaff, onRemoveStaff, onUpdateSplits }: {
   item: BillItem;
   idx: number;
   staff: StaffMember[];
@@ -1195,11 +1270,27 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
   onUpdateUnitPrice: (idx: number, price: number) => void;
   onUpdateLineDiscount: (idx: number, disc: number) => void;
   onUpdateStaff: (idx: number, staffId: string) => void;
+  onAddStaff: (idx: number, staffId: string) => void;
+  onRemoveStaff: (idx: number, staffId: string) => void;
+  onUpdateSplits: (idx: number, splits: StaffCommissionSplit[]) => void;
 }) {
   const activeStaff = staff.filter(s => s.isActive);
   const qty      = item.quantity     ?? 1;
   const unitPx   = item.unitPrice    ?? item.price;
   const lineDisc = item.lineDiscount ?? 0;
+  const splits   = item.staffSplits ?? [];
+  const isMulti  = splits.length > 1;
+  const [showSplitEditor, setShowSplitEditor] = useState(false);
+  const [dropdownOpen, setDropdownOpen]       = useState(false);
+  const assignedIds = new Set(isMulti ? splits.map(s => s.staffId) : (item.staffId ? [item.staffId] : []));
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = (e: MouseEvent) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [dropdownOpen]);
 
   return (
     <div className="bg-zinc-800/60 border border-white/12 rounded-2xl p-3.5 space-y-3">
@@ -1253,15 +1344,73 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
         )}
       </div>
 
-      {/* Row 3: staff dropdown — high-contrast for visibility */}
-      <select value={item.staffId} onChange={e => onUpdateStaff(idx, e.target.value)}
-        className="w-full bg-zinc-900 border border-white/25 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-gold/50 transition-all cursor-pointer"
-      >
-        <option value="">— Assign staff (optional) —</option>
-        {activeStaff.map(s => (
-          <option key={s.id} value={s.id}>{s.name}{s.role ? ` · ${s.role}` : ''} · {s.commissionRate}% comm</option>
-        ))}
-      </select>
+      {/* Row 3: staff multi-select dropdown */}
+      <div className="relative" ref={dropdownRef}>
+        <button onClick={() => setDropdownOpen(!dropdownOpen)}
+          className="w-full bg-zinc-900 border border-white/25 rounded-xl px-3 py-2.5 text-left text-sm text-white focus:outline-none focus:border-gold/50 cursor-pointer flex items-center gap-2"
+        >
+          {assignedIds.size === 0 ? (
+            <span className="text-gray-500">— Assign staff (optional) —</span>
+          ) : (
+            <span className="flex-1 flex flex-wrap gap-1">
+              {(isMulti ? splits : (item.staffId ? [{ staffId: item.staffId, staffName: item.staffName, splitPercent: 100, commissionAmount: item.commissionAmount }] : [])).map(s => (
+                <span key={s.staffId} className="inline-flex items-center gap-1 bg-white/10 rounded-md px-1.5 py-0.5 text-xs">
+                  {s.staffName}{isMulti && <span className="text-gold font-bold">{s.splitPercent}%</span>}
+                </span>
+              ))}
+            </span>
+          )}
+          <Users size={14} className="text-gray-400 shrink-0" />
+        </button>
+
+        {dropdownOpen && (
+          <div className="absolute z-20 mt-1 w-full bg-zinc-900 border border-white/20 rounded-xl shadow-xl overflow-hidden">
+            {activeStaff.map(s => {
+              const selected = assignedIds.has(s.id);
+              return (
+                <button key={s.id}
+                  onClick={() => {
+                    if (selected) {
+                      onRemoveStaff(idx, s.id);
+                    } else {
+                      if (assignedIds.size === 0) { onUpdateStaff(idx, s.id); }
+                      else { onAddStaff(idx, s.id); }
+                    }
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-white/8 transition-colors ${selected ? 'bg-gold/8' : ''}`}
+                >
+                  <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${selected ? 'border-gold bg-gold' : 'border-white/25'}`}>
+                    {selected && <CheckCircle2 size={10} className="text-black" />}
+                  </span>
+                  <span className="flex-1 text-white truncate">{s.name}{s.role ? <span className="text-gray-500"> · {s.role}</span> : ''}</span>
+                  <span className="text-gray-500 text-[10px] font-bold">{s.commissionRate}%</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Selected staff tags + edit commission (multi-staff mode) */}
+      {isMulti && (
+        <div className="flex items-center gap-2 flex-wrap">
+          <button onClick={() => setShowSplitEditor(!showSplitEditor)}
+            className="flex items-center gap-1.5 text-[10px] font-bold text-gold hover:text-yellow-300"
+          >
+            <Edit2 size={10} /> Edit Commission Split
+          </button>
+        </div>
+      )}
+
+      {/* Inline commission split editor */}
+      {showSplitEditor && isMulti && (
+        <CommissionSplitEditor
+          splits={splits}
+          totalCommission={item.commissionAmount}
+          onUpdate={newSplits => onUpdateSplits(idx, newSplits)}
+          onClose={() => setShowSplitEditor(false)}
+        />
+      )}
     </div>
   );
 }
@@ -1281,7 +1430,7 @@ function SummaryPanel({ subtotal, discountPercent, onDiscountChange, total, item
   const { t } = useLanguage();
   const discAmt = Math.round(subtotal * discountPercent / 100);
   return (
-    <div className="flex flex-col h-full p-6 gap-5">
+    <div className="flex flex-col h-full p-4 sm:p-6 gap-4 sm:gap-5">
       <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Payment Details</p>
 
       <div className="space-y-3">
@@ -1346,6 +1495,7 @@ const TILE_METHODS = [
 
 function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, amountDue, onDueChange,
   roundOffAmount, onRoundOffChange, newAdvanceAmount, onNewAdvanceChange,
+  promoCoupons, onPromoCouponsChange,
   onCheckout, onBack, saving, isOnline, paidLabel = 'Paid online', dueSettlementAmount = 0 }: {
   total: number;
   alreadyPaidAmount: number;
@@ -1357,6 +1507,8 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
   onRoundOffChange: (v: number) => void;
   newAdvanceAmount: number;
   onNewAdvanceChange: (v: number) => void;
+  promoCoupons: string[];
+  onPromoCouponsChange: (c: string[]) => void;
   onCheckout: () => void;
   onBack: () => void;
   saving: boolean;
@@ -1401,7 +1553,7 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
     TILE_METHODS.find(m => m.id === id)?.color ?? 'text-gold bg-gold/15 border-gold/30';
 
   return (
-    <div className="flex flex-col h-full p-6 gap-3">
+    <div className="flex flex-col h-full p-4 sm:p-6 gap-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-white font-black text-lg">Payment</p>
@@ -1475,7 +1627,7 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
       {(!isOnline || remainingToCover > 0) && (
         <>
           <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Payment Modes</p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {TILE_METHODS.map(m => {
               const active = splits.some(s => s.method === m.id);
               return (
@@ -1568,6 +1720,45 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
         )}
       </div>
 
+      {/* ── Promo Coupons — 1 per ₹1000 spent ── */}
+      {(() => {
+        const maxCoupons = Math.floor(total / 1000);
+        if (maxCoupons < 1) return null;
+        return (
+          <div className="bg-purple-500/8 border border-purple-500/20 rounded-2xl p-3.5 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-black uppercase tracking-widest text-purple-400">
+                🎟️ Promo Coupons
+              </p>
+              <span className="text-[10px] text-purple-300 font-bold">{promoCoupons.length} / {maxCoupons}</span>
+            </div>
+            <p className="text-[10px] text-gray-500">Add up to {maxCoupons} coupon{maxCoupons > 1 ? 's' : ''} (1 per ₹1,000 spent)</p>
+            <div className="space-y-1.5">
+              {promoCoupons.map((code, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text" value={code} placeholder={`Coupon ${i + 1}`}
+                    onChange={e => {
+                      const v = e.target.value.replace(/\s/g, '').toUpperCase();
+                      onPromoCouponsChange(promoCoupons.map((c, ci) => ci === i ? v : c));
+                    }}
+                    className="flex-1 bg-zinc-900 border border-purple-500/25 rounded-lg px-3 py-2 text-sm text-white font-mono tracking-wider focus:outline-none focus:border-purple-400 placeholder:text-gray-600"
+                  />
+                  <button onClick={() => onPromoCouponsChange(promoCoupons.filter((_, ci) => ci !== i))}
+                    className="text-gray-500 hover:text-red-400 p-1"><X size={14} /></button>
+                </div>
+              ))}
+            </div>
+            {promoCoupons.length < maxCoupons && (
+              <button onClick={() => onPromoCouponsChange([...promoCoupons, ''])}
+                className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-dashed border-purple-500/30 text-purple-400 text-xs font-bold hover:bg-purple-500/8 transition-all">
+                <Tag size={12} /> Add Coupon
+              </button>
+            )}
+          </div>
+        );
+      })()}
+
       {/* Actions */}
       <div className="space-y-2 mt-auto">
         <button onClick={onCheckout} disabled={saving || !isBalanced}
@@ -1605,14 +1796,17 @@ function InvoicePreview({ invoice, customer, onClose }: {
     const advanceSettledLine = (invoice.advanceSettlementAmount ?? 0) > 0
       ? `<div class="row"><span>Advance Applied</span><span style="color:#0077aa">-&#8377;${(invoice.advanceSettlementAmount!).toLocaleString('en-IN')}</span></div>`
       : '';
-    const commissionRows = Object.entries(
-      invoice.items.reduce((acc: Record<string,number>, it) => {
-        if (it.staffId) acc[it.staffName] = (acc[it.staffName] ?? 0) + it.commissionAmount;
-        return acc;
-      }, {})
-    ).map(([name, amt]) =>
-      `<div class="row sm"><span>${name}</span><span>&#8377;${(amt as number).toLocaleString('en-IN')}</span></div>`
-    ).join('');
+    const commissionAgg: Record<string, number> = {};
+    invoice.items.forEach(it => {
+      if (it.staffSplits && it.staffSplits.length > 1) {
+        it.staffSplits.forEach((sp: StaffCommissionSplit) => { if (sp.staffId) commissionAgg[sp.staffName] = (commissionAgg[sp.staffName] ?? 0) + sp.commissionAmount; });
+      } else if (it.staffId) {
+        commissionAgg[it.staffName] = (commissionAgg[it.staffName] ?? 0) + it.commissionAmount;
+      }
+    });
+    const commissionRows = Object.entries(commissionAgg)
+      .map(([name, amt]) => `<div class="row sm"><span>${name}</span><span>&#8377;${(amt as number).toLocaleString('en-IN')}</span></div>`)
+      .join('');
 
     w.document.write(`<!DOCTYPE html><html><head>
       <title>Invoice ${invoice.invoiceNumber}</title>
@@ -1661,7 +1855,9 @@ function InvoicePreview({ invoice, customer, onClose }: {
         <div class="svc">
           <div class="row"><span>${it.serviceName}${(it.quantity ?? 1) > 1 ? ` &times;${it.quantity}` : ''}</span><span class="bold">&#8377;${it.price.toLocaleString('en-IN')}</span></div>
           ${(it.quantity ?? 1) > 1 ? `<div class="staff-hint">&#8377;${it.unitPrice.toLocaleString('en-IN')} &times; ${it.quantity}</div>` : ''}
-          ${it.staffName ? `<div class="staff-hint">Staff: ${it.staffName} · ${it.commissionRate}% = &#8377;${it.commissionAmount.toLocaleString('en-IN')}</div>` : ''}
+          ${it.staffSplits && it.staffSplits.length > 1
+            ? it.staffSplits.map((sp: StaffCommissionSplit) => `<div class="staff-hint">${sp.staffName} · ${sp.splitPercent}% = &#8377;${sp.commissionAmount.toLocaleString('en-IN')}</div>`).join('')
+            : (it.staffName ? `<div class="staff-hint">Staff: ${it.staffName} · ${it.commissionRate}% = &#8377;${it.commissionAmount.toLocaleString('en-IN')}</div>` : '')}
         </div>`).join('')}
       <div class="dash"></div>
       <div class="row"><span>Subtotal</span><span>&#8377;${invoice.subtotal.toLocaleString('en-IN')}</span></div>
@@ -1690,6 +1886,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
       })()}
       ${invoice.paymentId ? `<div class="row sm"><span>Ref ID</span><span>${invoice.paymentId}</span></div>` : ''}
       ${commissionRows ? `<div class="dash"></div><div class="sm bold">Staff Commission</div>${commissionRows}` : ''}
+      ${(invoice.promoCoupons?.length ?? 0) > 0 ? `<div class="dash"></div><div class="sm bold">&#127915; Promo Coupons</div>${invoice.promoCoupons!.map(c => `<div class="row sm"><span>&#9733;</span><span class="bold" style="letter-spacing:2px">${c}</span></div>`).join('')}` : ''}
       <div class="dash"></div>
       <div class="center sm" style="margin-top:6px">
         Thank you for visiting Hair Tech Salon!<br/>
@@ -1780,11 +1977,19 @@ function InvoicePreview({ invoice, customer, onClose }: {
               {item.lineDiscount > 0 && (
                 <p className="text-[9px] text-red-500 pl-1">Line discount: {item.lineDiscount}%</p>
               )}
-              {item.staffName && (
+              {item.staffSplits && item.staffSplits.length > 1 ? (
+                <div className="pl-1 space-y-0.5">
+                  {item.staffSplits.map(sp => (
+                    <p key={sp.staffId} className="text-[9px] text-gray-400">
+                      {sp.staffName} · {sp.splitPercent}% → ₹{sp.commissionAmount.toLocaleString('en-IN')}
+                    </p>
+                  ))}
+                </div>
+              ) : item.staffName ? (
                 <p className="text-[9px] text-gray-400 pl-1">
                   Staff: {item.staffName} · {item.commissionRate}% (₹{item.commissionAmount.toLocaleString('en-IN')})
                 </p>
-              )}
+              ) : null}
             </div>
           ))}
         </div>
@@ -1880,18 +2085,34 @@ function InvoicePreview({ invoice, customer, onClose }: {
         </div>
 
         {/* Commission summary */}
-        {invoice.items.some(i => i.commissionAmount > 0) && (
+        {invoice.items.some(i => i.commissionAmount > 0) && (() => {
+          const commAgg: Record<string, number> = {};
+          invoice.items.forEach(it => {
+            if (it.staffSplits && it.staffSplits.length > 1) {
+              it.staffSplits.forEach(sp => { if (sp.staffId) commAgg[sp.staffName] = (commAgg[sp.staffName] ?? 0) + sp.commissionAmount; });
+            } else if (it.staffId) {
+              commAgg[it.staffName] = (commAgg[it.staffName] ?? 0) + it.commissionAmount;
+            }
+          });
+          return (
+            <div className="border-t border-dashed border-gray-300 pt-2.5 mt-2.5">
+              <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider mb-1.5">Staff Commission</p>
+              {Object.entries(commAgg).map(([name, amt]) => (
+                <div key={name} className="flex justify-between text-[10px] text-gray-400">
+                  <span>{name}</span><span>₹{(amt as number).toLocaleString('en-IN')}</span>
+                </div>
+              ))}
+            </div>
+          );
+        })()}
+
+        {(invoice.promoCoupons?.length ?? 0) > 0 && (
           <div className="border-t border-dashed border-gray-300 pt-2.5 mt-2.5">
-            <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider mb-1.5">Staff Commission</p>
-            {Object.entries(
-              invoice.items.reduce((acc, item) => {
-                if (!item.staffId) return acc;
-                acc[item.staffName] = (acc[item.staffName] ?? 0) + item.commissionAmount;
-                return acc;
-              }, {} as Record<string, number>)
-            ).map(([name, amt]) => (
-              <div key={name} className="flex justify-between text-[10px] text-gray-400">
-                <span>{name}</span><span>₹{(amt as number).toLocaleString('en-IN')}</span>
+            <p className="text-[9px] text-purple-500 font-black uppercase tracking-wider mb-1.5">🎟️ Promo Coupons</p>
+            {invoice.promoCoupons!.map((c, i) => (
+              <div key={i} className="flex justify-between text-[10px]">
+                <span className="text-gray-400">★</span>
+                <span className="font-bold font-mono tracking-[3px] text-purple-600">{c}</span>
               </div>
             ))}
           </div>
@@ -1945,6 +2166,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   const [useAdvance, setUseAdvance]    = useState(false);
   // New advance credit being created from an over-payment on this bill
   const [newAdvanceAmount, setNewAdvanceAmount] = useState(0);
+  const [promoCoupons, setPromoCoupons] = useState<string[]>([]);
   const [billingType, setBillingType]  = useState<'standard' | 'vvip'>('standard');
   // Date the bill is for — defaults to today, editable for back-dating (e.g. forgot to bill yesterday)
   const [billingDate, setBillingDate]  = useState(() => toDateInputValue(new Date()));
@@ -2096,8 +2318,17 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   const recompute = (item: BillItem, overrides: Partial<BillItem> = {}): BillItem => {
     const merged = { ...item, ...overrides };
     const lineTotal = Math.round(merged.unitPrice * merged.quantity * (1 - merged.lineDiscount / 100));
-    const commAmt   = merged.staffId ? Math.round(lineTotal * merged.commissionRate / 100) : 0;
-    return { ...merged, price: lineTotal, commissionAmount: commAmt };
+    const totalCommAmt = merged.staffId ? Math.round(lineTotal * merged.commissionRate / 100) : 0;
+    // Recalculate split amounts when splits exist
+    const splits = merged.staffSplits;
+    if (splits && splits.length > 0) {
+      const updatedSplits = splits.map(s => ({
+        ...s,
+        commissionAmount: Math.round(totalCommAmt * s.splitPercent / 100),
+      }));
+      return { ...merged, price: lineTotal, commissionAmount: totalCommAmt, staffSplits: updatedSplits };
+    }
+    return { ...merged, price: lineTotal, commissionAmount: totalCommAmt };
   };
 
   // Add service — pre-populates with last-used staff for convenience
@@ -2133,7 +2364,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
     });
   }, []);
 
-  // Update staff on a single cart item
+  // Update staff on a single cart item (single-staff mode — clears any splits)
   const updateItemStaff = useCallback((idx: number, staffId: string) => {
     const member = staffId ? staff.find(s => s.id === staffId) : null;
     const rate   = member?.commissionRate ?? DEFAULT_COMMISSION;
@@ -2142,8 +2373,70 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
       staffId,
       staffName:      member?.name ?? '',
       commissionRate: staffId ? rate : DEFAULT_COMMISSION,
+      staffSplits:    undefined,
     })));
   }, [staff]);
+
+  // Add another staff member to a cart item's commission split
+  const addStaffToItem = useCallback((idx: number, staffId: string) => {
+    const member = staff.find(s => s.id === staffId);
+    if (!member) return;
+    setItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item;
+      const existing = item.staffSplits ?? [];
+      if (existing.some(s => s.staffId === staffId)) return item; // already added
+      // Build splits: if first time splitting, seed from current single staff
+      let splits: StaffCommissionSplit[];
+      if (existing.length === 0 && item.staffId) {
+        splits = [
+          { staffId: item.staffId, staffName: item.staffName, splitPercent: 0, commissionAmount: 0 },
+          { staffId: member.id, staffName: member.name, splitPercent: 0, commissionAmount: 0 },
+        ];
+      } else {
+        splits = [...existing, { staffId: member.id, staffName: member.name, splitPercent: 0, commissionAmount: 0 }];
+      }
+      // Equal distribution by default
+      const pct = Math.floor(100 / splits.length);
+      const remainder = 100 - pct * splits.length;
+      splits = splits.map((s, si) => ({ ...s, splitPercent: pct + (si === 0 ? remainder : 0) }));
+      const primary = splits[0];
+      return recompute(item, {
+        staffId: primary.staffId,
+        staffName: primary.staffName,
+        staffSplits: splits,
+      });
+    }));
+  }, [staff]);
+
+  // Remove a staff member from a cart item's split
+  const removeStaffFromItem = useCallback((idx: number, staffId: string) => {
+    setItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item;
+      const splits = (item.staffSplits ?? []).filter(s => s.staffId !== staffId);
+      if (splits.length <= 1) {
+        // Back to single-staff mode
+        const sole = splits[0];
+        return recompute(item, {
+          staffId: sole?.staffId ?? '',
+          staffName: sole?.staffName ?? '',
+          staffSplits: undefined,
+        });
+      }
+      // Redistribute equally
+      const pct = Math.floor(100 / splits.length);
+      const remainder = 100 - pct * splits.length;
+      const updated = splits.map((s, si) => ({ ...s, splitPercent: pct + (si === 0 ? remainder : 0) }));
+      return recompute(item, { staffId: updated[0].staffId, staffName: updated[0].staffName, staffSplits: updated });
+    }));
+  }, []);
+
+  // Update split percentages for a cart item (admin manually sets each %)
+  const updateSplitPercents = useCallback((idx: number, newSplits: StaffCommissionSplit[]) => {
+    setItems(prev => prev.map((item, i) => {
+      if (i !== idx) return item;
+      return recompute(item, { staffSplits: newSplits });
+    }));
+  }, []);
 
   const updateItemQty = useCallback((idx: number, qty: number) => {
     setItems(prev => prev.map((item, i) => i !== idx ? item : recompute(item, { quantity: Math.max(1, qty) })));
@@ -2195,15 +2488,30 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
         ? itemsWithDefaultStaff.map(item => ({
             ...item,
             commissionAmount: Math.round(item.commissionAmount * collectionRatio),
+            ...(item.staffSplits && {
+              staffSplits: item.staffSplits.map(s => ({
+                ...s,
+                commissionAmount: Math.round(s.commissionAmount * collectionRatio),
+              })),
+            }),
           }))
         : itemsWithDefaultStaff;
+
+      const validCoupons = promoCoupons.filter(c => c.trim().length > 0);
+
+      // Firestore rejects undefined values — strip them from items
+      const cleanItems = effectiveItems.map(item => {
+        const clean: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(item)) { if (v !== undefined) clean[k] = v; }
+        return clean as unknown as BillItem;
+      });
 
       const inv: Omit<Invoice, 'id'> = {
         invoiceNumber:  generateInvoiceNumber(),
         customerPhone:  customer.phone,
         customerName:   customer.name,
         ...(prefill?.bookingId && { bookingId: prefill.bookingId }),
-        items: effectiveItems,
+        items: cleanItems,
         subtotal,
         discountPercent,
         discountAmount,
@@ -2220,6 +2528,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
         status:    amountDue > 0 ? 'due' : 'paid',
         source:    isRealOnline ? 'online' : 'walkin',
         billingType,
+        ...(validCoupons.length > 0 && { promoCoupons: validCoupons }),
         createdAt: Timestamp.fromDate(billingDateToTimestamp(billingDate)),
       };
 
@@ -2268,12 +2577,21 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
         });
       }
 
-      // Update staff commission totals
-      const staffCommissions = effectiveItems.reduce((acc, item) => {
-        if (!item.staffId) return acc;
-        acc[item.staffId] = (acc[item.staffId] ?? 0) + item.commissionAmount;
-        return acc;
-      }, {} as Record<string, number>);
+      // Update staff commission totals — uses staffSplits when present
+      const staffCommissions: Record<string, number> = {};
+      const staffServiceCounts: Record<string, number> = {};
+      for (const item of effectiveItems) {
+        if (item.staffSplits && item.staffSplits.length > 1) {
+          for (const split of item.staffSplits) {
+            if (!split.staffId) continue;
+            staffCommissions[split.staffId]   = (staffCommissions[split.staffId] ?? 0) + split.commissionAmount;
+            staffServiceCounts[split.staffId] = (staffServiceCounts[split.staffId] ?? 0) + 1;
+          }
+        } else if (item.staffId) {
+          staffCommissions[item.staffId]   = (staffCommissions[item.staffId] ?? 0) + item.commissionAmount;
+          staffServiceCounts[item.staffId] = (staffServiceCounts[item.staffId] ?? 0) + 1;
+        }
+      }
 
       await Promise.all(Object.entries(staffCommissions).map(async ([staffId, commission]) => {
         const staffRef  = doc(db, 'staff', staffId);
@@ -2283,7 +2601,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
           await setDoc(staffRef, {
             ...s,
             totalCommission: (s.totalCommission ?? 0) + commission,
-            totalServices:   (s.totalServices ?? 0) + effectiveItems.filter(i => i.staffId === staffId).length,
+            totalServices:   (s.totalServices ?? 0) + (staffServiceCounts[staffId] ?? 0),
           });
         }
       }));
@@ -2296,9 +2614,10 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
           invoiceBreakdown: effectiveItems.map(i => ({
             name:           i.serviceName,
             price:          i.price,
-            staffName:      i.staffName  || null,
+            staffName:      i.staffSplits?.length ? i.staffSplits.map(s => s.staffName).join(', ') : (i.staffName || null),
             commissionRate: i.commissionRate,
             commissionAmt:  i.commissionAmount,
+            ...(i.staffSplits?.length && { staffSplits: i.staffSplits }),
           })),
           discountPercent,
           discountAmount,
@@ -2333,21 +2652,21 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
   return (
     <div className="flex-1 flex flex-col bg-[#0d0d0d] overflow-hidden">
         {/* ── Header ── */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/15 shrink-0 bg-zinc-900/60">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gold/15 border border-gold/30 flex items-center justify-center shrink-0">
-              <Receipt size={15} className="text-gold" />
+        <div className="flex items-center justify-between gap-2 px-4 sm:px-6 py-3 sm:py-4 border-b border-white/15 shrink-0 bg-zinc-900/60">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gold/15 border border-gold/30 flex items-center justify-center shrink-0">
+              <Receipt size={14} className="text-gold" />
             </div>
-            <div>
-              <p className="text-white font-black text-sm leading-none">
+            <div className="min-w-0">
+              <p className="text-white font-black text-xs sm:text-sm leading-none truncate">
                 {isOnlineFlow ? 'Online Booking Bill' : 'Express Billing'}
               </p>
-              {customer && <p className="text-gold/70 text-[10px] mt-0.5">{customer.name} · {customer.phone}</p>}
+              {customer && <p className="text-gold/70 text-[10px] mt-0.5 truncate">{customer.name} · {customer.phone}</p>}
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {!invoice && (
-              <div className="flex items-center bg-white/[0.04] border border-white/10 rounded-xl p-1 gap-1">
+              <div className="hidden sm:flex items-center bg-white/[0.04] border border-white/10 rounded-xl p-1 gap-1">
                 <button
                   onClick={() => setBillingType('standard')}
                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
@@ -2370,10 +2689,10 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
                 </button>
               </div>
             )}
-            <Steps current={displayStep} steps={STEPS} />
+            <div className="hidden sm:block"><Steps current={displayStep} steps={STEPS} /></div>
             {onClose && (
               <button onClick={onClose}
-                className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/12 text-white hover:bg-white/15 transition-all shrink-0">
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/12 text-white hover:bg-white/15 transition-all shrink-0">
                 <X size={16} />
               </button>
             )}
@@ -2382,7 +2701,18 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
 
         {/* ── Billing date row ── */}
         {!invoice && (
-          <div className="flex items-center justify-end px-6 py-2 border-b border-white/10 shrink-0 bg-zinc-900/30">
+          <div className="flex items-center justify-between sm:justify-end gap-2 px-4 sm:px-6 py-2 border-b border-white/10 shrink-0 bg-zinc-900/30">
+            {/* Standard/VVIP toggle — mobile only (hidden on sm+ where it's in the header) */}
+            <div className="flex sm:hidden items-center bg-white/[0.04] border border-white/10 rounded-lg p-0.5 gap-0.5">
+              <button onClick={() => setBillingType('standard')}
+                className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${billingType === 'standard' ? 'bg-white/10 text-white' : 'text-gray-500'}`}>
+                Standard
+              </button>
+              <button onClick={() => setBillingType('vvip')}
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${billingType === 'vvip' ? 'bg-gold/20 text-gold' : 'text-gray-500'}`}>
+                <Crown size={10} /> VVIP
+              </button>
+            </div>
             <label
               title="Date this bill is for — change to back-date (e.g. forgot to bill yesterday)"
               className="flex items-center gap-1.5 bg-white/[0.04] border border-white/10 rounded-xl px-2.5 py-1.5 cursor-pointer hover:border-gold/40 transition-all"
@@ -2402,10 +2732,10 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
 
         {/* ── Two-panel body (steps 1 + 2) ── */}
         {isTwoPanel && (
-          <div className="flex-1 flex overflow-hidden">
+          <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
 
             {/* LEFT: Cart */}
-            <div className="flex-1 overflow-y-auto px-6 py-5 border-r border-white/10 scrollbar-hide">
+            <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 sm:py-5 md:border-r border-white/10 scrollbar-hide">
 
               {/* Customer info + dues — visible once customer is selected */}
               {customer && (
@@ -2480,7 +2810,8 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
               ) : (
                 <ServiceStep
                   items={items} onAdd={addService} onRemove={removeService} onRemoveLast={removeLastService}
-                  onUpdateStaff={updateItemStaff} onUpdateQty={updateItemQty}
+                  onUpdateStaff={updateItemStaff} onAddStaff={addStaffToItem} onRemoveStaff={removeStaffFromItem}
+                  onUpdateSplits={updateSplitPercents} onUpdateQty={updateItemQty}
                   onUpdateUnitPrice={updateItemUnitPrice} onUpdateLineDiscount={updateItemLineDiscount}
                   staff={staff}
                 />
@@ -2493,7 +2824,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
             </div>
 
             {/* RIGHT: Summary (step 1) or Payment (step 2) */}
-            <div className="w-80 lg:w-[26rem] xl:w-[30rem] shrink-0 overflow-y-auto bg-zinc-900/50 scrollbar-hide flex flex-col border-l border-white/8">
+            <div className="w-full md:w-80 lg:w-[26rem] xl:w-[30rem] shrink-0 overflow-y-auto bg-zinc-900/50 scrollbar-hide flex flex-col border-t md:border-t-0 md:border-l border-white/8">
               <AnimatePresence mode="wait">
                 {step === 1 && (
                   <motion.div key="rp1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col">
@@ -2515,6 +2846,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
                       amountDue={amountDue} onDueChange={setAmountDue}
                       roundOffAmount={roundOffAmount} onRoundOffChange={setRoundOffAmount}
                       newAdvanceAmount={newAdvanceAmount} onNewAdvanceChange={setNewAdvanceAmount}
+                      promoCoupons={promoCoupons} onPromoCouponsChange={setPromoCoupons}
                       onCheckout={handleGenerateInvoice} onBack={() => setStep(1)}
                       saving={saving} isOnline={isOnlineFlow}
                       paidLabel={isAdvancePay ? `Advance via ${advanceMethod.toUpperCase()}` : 'Paid via Razorpay'}
@@ -2529,7 +2861,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
 
         {/* ── Full-width body (steps 0 + 3/4) ── */}
         {!isTwoPanel && (
-          <div className="flex-1 overflow-y-auto px-7 py-6 scrollbar-hide">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-7 py-4 sm:py-6 scrollbar-hide">
             <AnimatePresence mode="wait">
               {step === 0 && (
                 <motion.div key="s0" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }}>

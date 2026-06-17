@@ -11,12 +11,12 @@ import {
   CalendarDays, User, LogOut, Loader2, Wallet,
   Sun, Coffee, Moon, CloudSun, CalendarPlus, Home, Scissors,
   Phone, RefreshCw, Edit2, X, Check, CalendarCheck, CheckSquare, Clock, MessageSquare, Send,
-  Bell, AlertCircle, PhoneOff,
+  Bell, AlertCircle, PhoneOff, Receipt,
 } from 'lucide-react';
 import { collection, query, where, orderBy, getDocs, onSnapshot, doc, updateDoc, limit, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import WalkInBooking from './WalkInBooking';
-import type { StaffMember } from './BillingModule';
+import BillingModule, { type StaffMember, type OnlineBookingPrefill } from './BillingModule';
 import { useLanguage } from '../lib/LanguageContext';
 import LanguageToggle from './LanguageToggle';
 import { format, addDays, isSameDay, isToday, startOfDay } from 'date-fns';
@@ -188,13 +188,14 @@ function StaffPickerSheet({ staffList, currentId, me, onPick, onClose, t }: {
 
 // ─── Appointment card ─────────────────────────────────────────────────────────
 
-function AppointmentCard({ booking, staffList, me, t, showDate, highlight }: {
+function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCreateBill }: {
   booking: Booking;
   staffList: StaffOption[];
   me: StaffOption;
   t: (k: any) => string;
   showDate?: boolean;
   highlight?: boolean;
+  onCreateBill?: (booking: Booking) => void;
 }) {
   const [showAssign, setShowAssign] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -368,7 +369,7 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight }: {
         >
           <Phone size={16} /> {t('call')}
         </a>
-        {active && (
+        {active && (booking.rescheduleCount ?? 0) < 3 && (
           <button onClick={() => {
               if (isRescheduling) { setIsRescheduling(false); return; }
               const today = new Date();
@@ -380,11 +381,11 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight }: {
             <Edit2 size={16} /> {t('reschedule')}
           </button>
         )}
-        {active && (
-          <button onClick={handleDone} disabled={busy}
-            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-purple-500/12 border border-purple-500/25 text-purple-300 font-black text-sm disabled:opacity-50"
+        {active && onCreateBill && (
+          <button onClick={() => onCreateBill(booking)}
+            className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-[#D4AF37]/20 to-[#F0D060]/20 border border-gold/30 text-gold font-black text-sm"
           >
-            {busy ? <Loader2 size={16} className="animate-spin" /> : <CheckSquare size={16} />} {t('markDone')}
+            <Receipt size={16} /> {t('bill')}
           </button>
         )}
         <button onClick={() => setShowNotes(v => !v)}
@@ -521,12 +522,14 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight }: {
 
 // ─── Home Screen ──────────────────────────────────────────────────────────────
 
-function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointment }: {
+function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointment, onCreateBill, onExpressBill }: {
   staffMember: StaffMember;
   bookings: Booking[];
   loading: boolean;
   staffList: StaffOption[];
   onOpenAppointment: () => void;
+  onCreateBill: (b: Booking) => void;
+  onExpressBill: () => void;
 }) {
   const { t } = useLanguage();
   const greeting = timeGreeting(t);
@@ -580,13 +583,19 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
         </motion.div>
       </div>
 
-      {/* Big action button */}
-      <div className="px-4 pb-4">
+      {/* Big action buttons */}
+      <div className="px-4 pb-4 flex gap-3">
         <motion.button whileTap={{ scale: 0.97 }} onClick={onOpenAppointment}
-          className="w-full flex items-center justify-center gap-3 rounded-3xl p-5 bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-[0_8px_32px_-4px_rgba(59,130,246,0.5)]"
+          className="flex-1 flex items-center justify-center gap-2 rounded-2xl p-4 bg-gradient-to-r from-blue-600 to-blue-500 text-white shadow-[0_8px_32px_-4px_rgba(59,130,246,0.5)]"
         >
-          <CalendarPlus size={32} strokeWidth={2.5} />
-          <p className="text-xl font-black">{t('makeAppointment')}</p>
+          <CalendarPlus size={24} strokeWidth={2.5} />
+          <p className="text-base font-black">{t('makeAppointment')}</p>
+        </motion.button>
+        <motion.button whileTap={{ scale: 0.97 }} onClick={onExpressBill}
+          className="flex-1 flex items-center justify-center gap-2 rounded-2xl p-4 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] text-black shadow-[0_8px_32px_-4px_rgba(212,175,55,0.4)]"
+        >
+          <Receipt size={24} strokeWidth={2.5} />
+          <p className="text-base font-black">{t('bill')}</p>
         </motion.button>
       </div>
 
@@ -624,7 +633,7 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
           <div className="space-y-3">
             {confirmedToday.map((b, i) => (
               <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t}
-                highlight={i === nextIdx} />
+                highlight={i === nextIdx} onCreateBill={onCreateBill} />
             ))}
           </div>
         )}
@@ -644,7 +653,7 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
           </div>
           <div className="space-y-3">
             {pendingToday.map(b => (
-              <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t} />
+              <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t} onCreateBill={onCreateBill} />
             ))}
           </div>
         </div>
@@ -655,11 +664,12 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
 
 // ─── Appointments (upcoming) Screen ───────────────────────────────────────────
 
-function AppointmentsScreen({ staffMember, bookings, loading, staffList }: {
+function AppointmentsScreen({ staffMember, bookings, loading, staffList, onCreateBill }: {
   staffMember: StaffMember;
   bookings: Booking[];
   loading: boolean;
   staffList: StaffOption[];
+  onCreateBill: (b: Booking) => void;
 }) {
   const { t } = useLanguage();
   const me: StaffOption = { id: staffMember.id, name: staffMember.name };
@@ -721,7 +731,7 @@ function AppointmentsScreen({ staffMember, bookings, loading, staffList }: {
       ) : (
         <div className="space-y-3">
           {list.map(b => (
-            <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t} showDate />
+            <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t} showDate onCreateBill={onCreateBill} />
           ))}
         </div>
       )}
@@ -859,6 +869,8 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
   const { t } = useLanguage();
   const [tab,        setTab]        = useState<Tab>('home');
   const [walkInOpen, setWalkInOpen] = useState(false);
+  const [billingOpen, setBillingOpen] = useState(false);
+  const [billingPrefill, setBillingPrefill] = useState<OnlineBookingPrefill | null>(null);
   const [bookings,   setBookings]   = useState<Booking[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [staffList,  setStaffList]  = useState<StaffOption[]>([]);
@@ -917,6 +929,23 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
     });
   };
 
+  const openBillingFromBooking = (b: Booking) => {
+    setBillingPrefill({
+      bookingId:     b.id,
+      customerName:  b.customerName ?? '',
+      customerPhone: b.customerPhone ?? '',
+      serviceNames:  b.serviceNames ?? b.serviceName ?? '',
+      totalAmount:   0,
+      bookingTime:   b.bookingTime,
+    });
+    setBillingOpen(true);
+  };
+
+  const openExpressBill = () => {
+    setBillingPrefill(null);
+    setBillingOpen(true);
+  };
+
   // Staff list for assign/reassign
   useEffect(() => {
     getDocs(query(collection(db, 'staff'), where('isActive', '==', true), orderBy('name')))
@@ -967,6 +996,31 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
     );
   }
 
+  // ── Full-screen billing takeover ──────────────────────────────────────────
+  if (billingOpen) {
+    if (!firebaseUser) {
+      return (
+        <div className="h-screen bg-[#0d0d0d] text-white flex flex-col items-center justify-center gap-4 p-6">
+          <p className="text-white font-black text-xl">Session Expired</p>
+          <p className="text-gray-400 text-sm">Please sign out and sign in again.</p>
+          <button onClick={() => setBillingOpen(false)}
+            className="px-6 py-3 bg-white/8 border border-white/12 rounded-xl text-gray-300 font-bold">
+            Go Back
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="h-screen bg-[#0d0d0d] text-white flex flex-col overflow-hidden">
+        <BillingModule
+          prefill={billingPrefill}
+          onClose={() => { setBillingOpen(false); setBillingPrefill(null); }}
+          onInvoiceCreated={() => { setBillingOpen(false); setBillingPrefill(null); }}
+        />
+      </div>
+    );
+  }
+
   // ── Normal portal view ────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white flex flex-col">
@@ -997,12 +1051,13 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
         <AnimatePresence mode="wait">
           {tab === 'home' && (
             <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col overflow-hidden">
-              <HomeScreen staffMember={staffMember} bookings={bookings} loading={loading} staffList={staffList} onOpenAppointment={() => setWalkInOpen(true)} />
+              <HomeScreen staffMember={staffMember} bookings={bookings} loading={loading} staffList={staffList}
+                onOpenAppointment={() => setWalkInOpen(true)} onCreateBill={openBillingFromBooking} onExpressBill={openExpressBill} />
             </motion.div>
           )}
           {tab === 'appointments' && (
             <motion.div key="appointments" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col overflow-hidden">
-              <AppointmentsScreen staffMember={staffMember} bookings={bookings} loading={loading} staffList={staffList} />
+              <AppointmentsScreen staffMember={staffMember} bookings={bookings} loading={loading} staffList={staffList} onCreateBill={openBillingFromBooking} />
             </motion.div>
           )}
           {tab === 'profile' && (

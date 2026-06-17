@@ -209,6 +209,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
       ${roundOffLine}
       ${newAdvanceLine}
       ${data.paymentId ? `<div class="row sm"><span>Ref ID</span><span>${data.paymentId}</span></div>` : ''}
+      ${(data.promoCoupons?.length ?? 0) > 0 ? `<div class="dash"></div><div class="sm bold">&#127915; Your Promo Coupons</div>${data.promoCoupons.map((c: string) => `<div class="row"><span>&#9733;</span><span class="bold" style="letter-spacing:3px;font-size:13px">${c}</span></div>`).join('')}` : ''}
       <div class="dash"></div>
       <div class="center sm" style="margin-top:6px">Thank you for visiting Hair Tech Salon!<br/>Follow us &#64;hairtech111</div>
     </body></html>`);
@@ -380,6 +381,20 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
                   )}
                 </div>
               </div>
+
+              {(data.promoCoupons?.length ?? 0) > 0 && (
+                <div className="border-t border-dashed border-gray-300 pt-3 mt-3">
+                  <p className="text-[9px] text-purple-500 font-black uppercase tracking-wider mb-2">🎟️ Your Promo Coupons</p>
+                  <div className="space-y-1.5">
+                    {data.promoCoupons.map((c: string, i: number) => (
+                      <div key={i} className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                        <span className="text-purple-400 text-xs">★</span>
+                        <span className="font-black font-mono tracking-[4px] text-purple-700 text-sm">{c}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div className="border-t border-dashed border-gray-300 mt-4 pt-3 text-center text-[9px] text-gray-400">
                 Thank you for visiting Hair Tech Salon!<br />Follow us @hairtech111
@@ -827,19 +842,25 @@ export default function MyAppointments() {
                             {activeTab === 'upcoming' && (
                               <div className="pt-2 border-t border-white/10 space-y-2">
                                 <div className="flex gap-2">
-                                  <button
-                                    onClick={() => {
-                                      if (isEditing) { setEditingId(null); } else {
-                                        const today = new Date();
-                                        setEditingId(b.id); setEditDate(today);
-                                        setEditSelSlot(null); setEditSuccess(null);
-                                        loadSlots(today, b.serviceDurationMins ?? 60, b.id);
-                                      }
-                                    }}
-                                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:border-gold/30 text-xs font-black uppercase tracking-wider transition-all"
-                                  >
-                                    <Edit2 size={12}/> {isEditing ? 'Cancel' : 'Reschedule'}
-                                  </button>
+                                  {(b.rescheduleCount ?? 0) < 3 ? (
+                                    <button
+                                      onClick={() => {
+                                        if (isEditing) { setEditingId(null); } else {
+                                          const today = new Date();
+                                          setEditingId(b.id); setEditDate(today);
+                                          setEditSelSlot(null); setEditSuccess(null);
+                                          loadSlots(today, b.serviceDurationMins ?? 60, b.id);
+                                        }
+                                      }}
+                                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white hover:border-gold/30 text-xs font-black uppercase tracking-wider transition-all"
+                                    >
+                                      <Edit2 size={12}/> {isEditing ? 'Cancel' : 'Reschedule'}
+                                    </button>
+                                  ) : (
+                                    <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-500/20 bg-red-500/8 text-red-400 text-[10px] font-bold">
+                                      Reschedule limit reached (3/3) — please contact salon
+                                    </div>
+                                  )}
                                   <a href="tel:+918789603343"
                                     className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white text-xs font-black uppercase tracking-wider transition-all"
                                   >
