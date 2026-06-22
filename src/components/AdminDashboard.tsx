@@ -1659,6 +1659,20 @@ Your uid is: ${user.uid}
             return;
           }
 
+          // 0. Removed docs — booking deleted (e.g. after bill created)
+          //    Clean up timers + remove from notification queue to prevent false alerts
+          snap.docChanges().filter(c => c.type === 'removed').forEach(c => {
+            const id = c.doc.id;
+            pendingIdsRef.current.delete(id);
+            const t = pendingNotifyTimersRef.current.get(id);
+            if (t) { clearTimeout(t); pendingNotifyTimersRef.current.delete(id); }
+            setNewBookingQueue(prev => {
+              const next = prev.filter(b => b.id !== id);
+              if (next.length === 0) stopRinging();
+              return next;
+            });
+          });
+
           // 1. Added docs — new bookings created after page load
           const addedBookings = snap.docChanges()
             .filter(c => c.type === 'added' && !initialIdsRef.current!.has(c.doc.id))

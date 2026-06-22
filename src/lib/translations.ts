@@ -163,6 +163,12 @@ const T = {
   writeNote:         { en: 'Write a note for staff/admin…', hi: 'Staff/admin ke liye note likho…' },
   noNotes:           { en: 'No notes yet', hi: 'Abhi koi note nahi' },
   post:              { en: 'Post', hi: 'Bhejo' },
+  todayTab:          { en: 'Today', hi: 'Aaj' },
+  upcomingTab:       { en: 'Upcoming', hi: 'Aane wale' },
+  old:               { en: 'Old', hi: 'Purana' },
+  paid:              { en: 'Paid', hi: 'Pay ho gaya' },
+  markFailed:        { en: 'Mark Failed', hi: 'Failed karo' },
+  failNoteHint:      { en: 'Reason for failure…', hi: 'Fail hone ka karan likho…' },
 } as const;
 
 export type TKey = keyof typeof T;

@@ -21,10 +21,11 @@ import {
   ArrowLeft, Printer, Star, Wallet, Tag, Crown, Calendar, Edit2,
 } from 'lucide-react';
 import {
-  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
   query, where, orderBy, serverTimestamp, Timestamp,
   limit,
 } from 'firebase/firestore';
+import { startOfDay, addDays } from 'date-fns';
 import { db } from '../lib/firebase';
 import { servicesData, Service } from '../constants/services';
 import { useLanguage } from '../lib/LanguageContext';
@@ -225,9 +226,10 @@ function Steps({ current, steps }: { current: number; steps: string[] }) {
 
 // Customer search + create — with live suggestions from local customer list
 function CustomerStep({
-  onSelect, layout = 'compact',
+  onSelect, onBookingFound, layout = 'compact',
 }: {
   onSelect: (customer: Customer, isNew: boolean) => void;
+  onBookingFound?: (prefill: OnlineBookingPrefill) => void;
   /** 'compact' = modal interior; 'page' = full-screen spacious */
   layout?: 'compact' | 'page';
 }) {
@@ -363,11 +365,51 @@ function CustomerStep({
     return () => clearTimeout(t);
   }, [phone]);
 
+  // Check if this customer has a confirmed/paid booking today → auto-prefill billing
+  const selectAndCheckBooking = async (c: Customer, isNew: boolean) => {
+    onSelect(c, isNew);
+    if (!onBookingFound) return;
+    const digits = c.phone.replace(/\D/g, '').slice(-10);
+    const todayStart = startOfDay(new Date()).toISOString();
+    const tomorrowStart = startOfDay(addDays(new Date(), 1)).toISOString();
+    try {
+      const variants = [digits, `+91${digits}`, `+91 ${digits}`, `91${digits}`, `0${digits}`];
+      const snaps = await Promise.all(variants.map(fmt =>
+        getDocs(query(
+          collection(db, 'bookings'),
+          where('customerPhone', '==', fmt),
+          where('startTime', '>=', todayStart),
+          where('startTime', '<', tomorrowStart),
+        ))
+      ));
+      const allDocs = snaps.flatMap(s => s.docs);
+      const match = allDocs
+        .map(d => ({ id: d.id, ...d.data() } as any))
+        .find(b => ['paid', 'confirmed', 'completed'].includes(b.status));
+      if (match) {
+        onBookingFound({
+          bookingId:            match.id,
+          customerName:         match.customerName ?? c.name,
+          customerPhone:        digits,
+          serviceNames:         match.serviceNames ?? '',
+          serviceItems:         match.serviceItems,
+          totalAmount:          match.totalAmount ?? 0,
+          paymentId:            match.paymentId,
+          bookingTime:          match.bookingTime,
+          paymentMethod:        match.paymentMethod,
+          advanceAmount:        match.advanceAmount,
+          advancePaymentMethod: match.advancePaymentMethod,
+          bookingSource:        match.bookingSource,
+        });
+      }
+    } catch {}
+  };
+
   // Clicking a dropdown suggestion auto-advances — no extra "Select" click needed
   const pickSuggestion = (c: Customer) => {
     setShowDrop(false);
     setSuggestions([]);
-    onSelect(c, false);
+    selectAndCheckBooking(c, false);
   };
 
   const handleCreate = async () => {
@@ -378,7 +420,7 @@ function CustomerStep({
       const now = new Date().toISOString();
       const customer: Customer = { phone: clean, name: name.trim(), visitCount: 0, totalSpend: 0, firstVisit: now, lastVisit: now };
       await setDoc(doc(db, 'customers', clean), customer);
-      onSelect(customer, true);
+      selectAndCheckBooking(customer, true);
     } catch (e: any) { setError(e.message); }
     finally { setCreating(false); }
   };
@@ -464,7 +506,7 @@ function CustomerStep({
                 </div>
               </div>
               <button
-                onClick={() => onSelect(found as Customer, false)}
+                onClick={() => selectAndCheckBooking(found as Customer, false)}
                 className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 rounded-xl text-black font-black text-xs uppercase tracking-wider transition-all"
               >
                 Select →
@@ -2128,7 +2170,9 @@ function InvoicePreview({ invoice, customer, onClose }: {
 
 // ─── Main BillingModule ───────────────────────────────────────────────────────
 
-export default function BillingModule({ prefill, onClose, onInvoiceCreated }: BillingModuleProps) {
+export default function BillingModule({ prefill: propPrefill, onClose, onInvoiceCreated }: BillingModuleProps) {
+  const [discoveredPrefill, setDiscoveredPrefill] = useState<OnlineBookingPrefill | null>(null);
+  const prefill = propPrefill ?? discoveredPrefill;
   const isOnlineFlow = !!prefill;
   const { t } = useLanguage();
 
@@ -2189,9 +2233,9 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
 
   const stepOffset = isOnlineFlow ? 1 : 0; // step index offset
 
-  // Pre-populate services from online / walk-in booking
+  // Pre-populate services from online / walk-in booking (re-fires when discoveredPrefill is set)
   useEffect(() => {
-    if (!isOnlineFlow || !prefill) return;
+    if (!prefill) return;
 
     // Structured items (new walk-in bookings) — preserves quantity per service
     if (prefill.serviceItems && prefill.serviceItems.length > 0) {
@@ -2250,7 +2294,7 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
     } else {
       setItems(matched);
     }
-  }, []);
+  }, [discoveredPrefill]);
 
   // Fetch outstanding dues whenever customer is set (shown on service step)
   useEffect(() => {
@@ -2606,24 +2650,9 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
         }
       }));
 
-      // Mark the linked online booking as completed + store invoice breakup
+      // Delete the linked booking from appointments list once bill is created
       if (prefill?.bookingId) {
-        await updateDoc(doc(db, 'bookings', prefill.bookingId), {
-          status:           'completed',
-          invoiceId:        invoiceRef.id,
-          invoiceBreakdown: effectiveItems.map(i => ({
-            name:           i.serviceName,
-            price:          i.price,
-            staffName:      i.staffSplits?.length ? i.staffSplits.map(s => s.staffName).join(', ') : (i.staffName || null),
-            commissionRate: i.commissionRate,
-            commissionAmt:  i.commissionAmount,
-            ...(i.staffSplits?.length && { staffSplits: i.staffSplits }),
-          })),
-          discountPercent,
-          discountAmount,
-          finalAmount: total,
-          updatedAt:   serverTimestamp(),
-        });
+        await deleteDoc(doc(db, 'bookings', prefill.bookingId)).catch(() => {});
       }
 
       const finalInvoice = { ...inv, id: invoiceRef.id };
@@ -2865,7 +2894,20 @@ export default function BillingModule({ prefill, onClose, onInvoiceCreated }: Bi
             <AnimatePresence mode="wait">
               {step === 0 && (
                 <motion.div key="s0" initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 16 }}>
-                  <CustomerStep onSelect={(c) => { setCustomer(c); setStep(1); }} />
+                  <CustomerStep
+                    onSelect={(c) => { setCustomer(c); setStep(1); }}
+                    onBookingFound={(pf) => {
+                      setDiscoveredPrefill(pf);
+                      setCustomer({
+                        phone: normalisePhone(pf.customerPhone),
+                        name: pf.customerName,
+                        visitCount: 0, totalSpend: 0,
+                        firstVisit: new Date().toISOString(),
+                        lastVisit: new Date().toISOString(),
+                      });
+                      setStep(1);
+                    }}
+                  />
                 </motion.div>
               )}
               {(step === 3 || step === 4) && invoice && customer && (

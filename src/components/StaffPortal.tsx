@@ -13,7 +13,7 @@ import {
   Phone, RefreshCw, Edit2, X, Check, CalendarCheck, CheckSquare, Clock, MessageSquare, Send,
   Bell, AlertCircle, PhoneOff, Receipt,
 } from 'lucide-react';
-import { collection, query, where, orderBy, getDocs, onSnapshot, doc, updateDoc, limit, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, getDoc, onSnapshot, doc, updateDoc, limit, arrayUnion } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import WalkInBooking from './WalkInBooking';
 import BillingModule, { type StaffMember, type OnlineBookingPrefill } from './BillingModule';
@@ -37,6 +37,10 @@ interface Booking {
   serviceDurationMins?: number;
   status: string;
   totalAmount?: number;
+  paymentId?: string;
+  paymentMethod?: string;
+  advanceAmount?: number;
+  advancePaymentMethod?: string;
   assignedStaffId?: string;
   assignedStaffName?: string;
   lastCalledAt?: string;
@@ -46,11 +50,27 @@ interface Booking {
   originalEndTime?: string;
   rescheduleCount?: number;
   staffNotes?: StaffNote[];
+  createdAt?: any;
 }
+
+const PENDING_NOTIFY_DELAY_MS = 10 * 60 * 1000; // 10 minutes
 
 interface StaffNote { text: string; byName: string; at: string; }
 
 interface StaffOption { id: string; name: string; }
+
+// Returns true if booking has online/advance payment (not pay-at-salon)
+function isPaid(b: Booking): boolean {
+  if (b.paymentId) return true;
+  if ((b.advanceAmount ?? 0) > 0) return true;
+  if (b.status === 'paid') return true;
+  return false;
+}
+
+function isOldBooking(b: Booking): boolean {
+  if (!b.startTime) return false;
+  return new Date(b.startTime).getTime() < startOfDay(new Date()).getTime();
+}
 
 type Tab = 'home' | 'appointments' | 'profile';
 
@@ -221,6 +241,12 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
   const svc = booking.serviceNames || booking.serviceName || '—';
   const isPending = booking.status === 'pending';
   const active = ['paid', 'confirmed'].includes(booking.status);
+  const bookingIsPaid = isPaid(booking);
+  const bookingIsOld = isOldBooking(booking);
+
+  // Fail with notes
+  const [showFailInput, setShowFailInput] = useState(false);
+  const [failNote, setFailNote] = useState('');
 
   const handleCall = async () => {
     if (!booking.customerPhone) return;
@@ -241,6 +267,18 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
   const handleDone = async () => {
     setBusy(true);
     try { await updateDoc(doc(db, 'bookings', booking.id), { status: 'completed' }); } catch {} finally { setBusy(false); }
+  };
+
+  const handleFail = async () => {
+    setBusy(true);
+    try {
+      const updates: Record<string, unknown> = { status: 'failed' };
+      if (failNote.trim()) {
+        updates.staffNotes = arrayUnion({ text: `[FAILED] ${failNote.trim()}`, byName: me.name, at: new Date().toISOString() });
+      }
+      await updateDoc(doc(db, 'bookings', booking.id), updates);
+      setShowFailInput(false);
+    } catch {} finally { setBusy(false); }
   };
 
   const handleAddNote = async () => {
@@ -325,6 +363,19 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
               <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
               {st.label}
             </span>
+            {bookingIsPaid && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+                {t('paid')}
+              </span>
+            )}
+            {bookingIsOld && (
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black bg-red-500/10 border border-red-500/25 text-red-400">
+                {t('old')}
+              </span>
+            )}
+            {booking.totalAmount != null && booking.totalAmount > 0 && (
+              <span className="text-gold text-[11px] font-black">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
+            )}
             {booking.lastCalledAt && (
               <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-white/5 border border-white/10 text-gray-400">
                 <Phone size={10} /> {t('called')} {timeAgo(booking.lastCalledAt)}
@@ -362,7 +413,7 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Action buttons — row 1: Call, Reschedule, Bill */}
       <div className="flex items-center gap-2 mt-3">
         <a href={booking.customerPhone ? `tel:${booking.customerPhone}` : undefined} onClick={handleCall}
           className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-emerald-500/12 border border-emerald-500/25 text-emerald-400 font-black text-sm"
@@ -402,6 +453,46 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
           )}
         </button>
       </div>
+
+      {/* Action buttons — row 2: Mark Complete + Mark Failed */}
+      {(active || isPending) && (
+        <div className="flex items-center gap-2 mt-2">
+          {active && (
+            <button onClick={handleDone} disabled={busy}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl bg-purple-500/12 border border-purple-500/25 text-purple-300 font-black text-xs disabled:opacity-50"
+            >
+              {busy ? <Loader2 size={14} className="animate-spin" /> : <CheckSquare size={14} />} {t('markDone')}
+            </button>
+          )}
+          <button onClick={() => { if (showFailInput) { handleFail(); } else { setShowFailInput(true); } }} disabled={busy}
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-2xl bg-red-500/8 border border-red-500/20 text-red-400 font-black text-xs disabled:opacity-50"
+          >
+            {busy ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />} {t('markFailed')}
+          </button>
+        </div>
+      )}
+
+      {/* Fail note input */}
+      <AnimatePresence>
+        {showFailInput && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
+            <div className="mt-2 flex items-center gap-2">
+              <input type="text" value={failNote} onChange={e => setFailNote(e.target.value)}
+                placeholder={t('failNoteHint')}
+                className="flex-1 bg-zinc-800 border border-red-500/25 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-red-400"
+              />
+              <button onClick={handleFail} disabled={busy}
+                className="px-4 py-2.5 rounded-xl bg-red-500 text-white text-xs font-black disabled:opacity-50">
+                {t('confirm')}
+              </button>
+              <button onClick={() => { setShowFailInput(false); setFailNote(''); }}
+                className="text-gray-500 hover:text-white p-2">
+                <X size={14} />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Notes panel */}
       <AnimatePresence>
@@ -540,9 +631,11 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
     [bookings],
   );
   const completedToday = todayAll.filter(b => b.status === 'completed').length;
-  const todayBookings  = useMemo(() => todayAll.filter(b => b.status !== 'completed'), [todayAll]);
-  const confirmedToday = useMemo(() => todayBookings.filter(b => b.status !== 'pending'), [todayBookings]);
-  const pendingToday   = useMemo(() => todayBookings.filter(b => b.status === 'pending'), [todayBookings]);
+  // Only confirmed (paid/confirmed) appointments — not pending
+  const confirmedToday = useMemo(
+    () => todayAll.filter(b => b.status !== 'completed' && b.status !== 'pending'),
+    [todayAll],
+  );
   const nextIdx = confirmedToday.findIndex(b => ['confirmed', 'paid'].includes(b.status));
 
   return (
@@ -572,7 +665,7 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
           {/* Stats strip */}
           <div className="grid grid-cols-2 gap-2">
             <div className="bg-black/35 rounded-2xl p-3 text-center">
-              <p className="text-2xl font-black text-white">{todayBookings.length}</p>
+              <p className="text-2xl font-black text-white">{confirmedToday.length}</p>
               <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{t('appointmentsToday')}</p>
             </div>
             <div className="bg-black/35 rounded-2xl p-3 text-center">
@@ -615,7 +708,7 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
             <Loader2 size={36} className="animate-spin text-gold" />
             <p className="text-gray-400 text-base">{t('loading')}</p>
           </div>
-        ) : todayBookings.length === 0 ? (
+        ) : confirmedToday.length === 0 ? (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
             className="flex flex-col items-center justify-center py-14 gap-5 text-center"
           >
@@ -638,31 +731,11 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
           </div>
         )}
       </div>
-
-      {/* Pending bookings — kept visually separate from confirmed schedule */}
-      {!loading && pendingToday.length > 0 && (
-        <div className="px-4 mt-6">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center shrink-0">
-              <Clock size={15} className="text-amber-400" />
-            </div>
-            <div>
-              <p className="text-amber-400 font-black text-base leading-none">{t('pendingBookings')}</p>
-              <p className="text-gray-500 text-[11px] mt-0.5">{t('pendingHint')}</p>
-            </div>
-          </div>
-          <div className="space-y-3">
-            {pendingToday.map(b => (
-              <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t} onCreateBill={onCreateBill} />
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-// ─── Appointments (upcoming) Screen ───────────────────────────────────────────
+// ─── Appointments Screen (3 tabs: Today / Upcoming / Pending) ─────────────────
 
 function AppointmentsScreen({ staffMember, bookings, loading, staffList, onCreateBill }: {
   staffMember: StaffMember;
@@ -673,15 +746,34 @@ function AppointmentsScreen({ staffMember, bookings, loading, staffList, onCreat
 }) {
   const { t } = useLanguage();
   const me: StaffOption = { id: staffMember.id, name: staffMember.name };
-  const [subTab, setSubTab] = useState<'confirmed' | 'pending'>('confirmed');
+  const [subTab, setSubTab] = useState<'today' | 'upcoming' | 'pending'>('today');
 
-  const upcoming = useMemo(
-    () => bookings.filter(b => b.startTime && b.status !== 'failed' && b.status !== 'completed'),
+  // Today: only today's non-failed, non-completed
+  const todayList = useMemo(
+    () => bookings.filter(b => b.startTime && isToday(new Date(b.startTime)) && b.status !== 'failed' && b.status !== 'completed' && b.status !== 'pending'),
     [bookings],
   );
-  const confirmedUpcoming = useMemo(() => upcoming.filter(b => b.status !== 'pending'), [upcoming]);
-  const pendingUpcoming   = useMemo(() => upcoming.filter(b => b.status === 'pending'), [upcoming]);
-  const list = subTab === 'confirmed' ? confirmedUpcoming : pendingUpcoming;
+  // Upcoming: future bookings starting tomorrow, non-failed/completed/pending
+  const upcomingList = useMemo(
+    () => bookings.filter(b => {
+      if (!b.startTime) return false;
+      const d = new Date(b.startTime);
+      return d.getTime() >= startOfDay(addDays(new Date(), 1)).getTime() && b.status !== 'failed' && b.status !== 'completed' && b.status !== 'pending';
+    }),
+    [bookings],
+  );
+  // Pending: all pending bookings (today + old). Old = startTime < today
+  const pendingList = useMemo(
+    () => bookings.filter(b => b.status === 'pending'),
+    [bookings],
+  );
+
+  const tabs = [
+    { id: 'today' as const,    label: t('todayTab'),    count: todayList.length,    color: 'bg-emerald-500', icon: <CalendarCheck size={14} /> },
+    { id: 'upcoming' as const, label: t('upcomingTab'), count: upcomingList.length,  color: 'bg-blue-500',    icon: <CalendarDays size={14} /> },
+    { id: 'pending' as const,  label: t('pendingTab'),  count: pendingList.length,   color: 'bg-amber-500',   icon: <Clock size={14} /> },
+  ];
+  const list = subTab === 'today' ? todayList : subTab === 'upcoming' ? upcomingList : pendingList;
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide pb-28 px-4 pt-5">
@@ -689,30 +781,24 @@ function AppointmentsScreen({ staffMember, bookings, loading, staffList, onCreat
         <p className="text-white font-black text-xl">{t('appointments')}</p>
       </div>
 
-      {/* Confirmed / Pending sub-tabs */}
-      <div className="flex items-center gap-2 mb-4 p-1 rounded-2xl bg-white/[0.04] border border-white/10">
-        <button onClick={() => setSubTab('confirmed')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm transition-all ${
-            subTab === 'confirmed' ? 'bg-emerald-500 text-black' : 'text-gray-400'
-          }`}
-        >
-          <CalendarCheck size={15} /> {t('confirmedTab')}
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${subTab === 'confirmed' ? 'bg-black/15' : 'bg-white/10'}`}>{confirmedUpcoming.length}</span>
-        </button>
-        <button onClick={() => setSubTab('pending')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-black text-sm transition-all ${
-            subTab === 'pending' ? 'bg-amber-500 text-black' : 'text-gray-400'
-          }`}
-        >
-          <Clock size={15} /> {t('pendingTab')}
-          <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${subTab === 'pending' ? 'bg-black/15' : 'bg-white/10'}`}>{pendingUpcoming.length}</span>
-        </button>
+      {/* 3 tabs */}
+      <div className="flex items-center gap-1 mb-4 p-1 rounded-2xl bg-white/[0.04] border border-white/10">
+        {tabs.map(tb => (
+          <button key={tb.id} onClick={() => setSubTab(tb.id)}
+            className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl font-black text-xs transition-all ${
+              subTab === tb.id ? `${tb.color} text-black` : 'text-gray-400'
+            }`}
+          >
+            {tb.icon} {tb.label}
+            <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${subTab === tb.id ? 'bg-black/15' : 'bg-white/10'}`}>{tb.count}</span>
+          </button>
+        ))}
       </div>
 
-      {subTab === 'pending' && pendingUpcoming.length > 0 && (
+      {subTab === 'pending' && pendingList.length > 0 && (
         <div className="flex items-start gap-2 px-3 py-2.5 mb-3 rounded-2xl bg-amber-500/8 border border-amber-500/20">
           <Clock size={14} className="text-amber-400 shrink-0 mt-0.5" />
-          <p className="text-amber-300 text-xs font-bold leading-snug">{t('pendingHint')}</p>
+          <p className="text-amber-300 text-xs font-bold leading-snug">{t('pendingCallHint')}</p>
         </div>
       )}
 
@@ -731,7 +817,7 @@ function AppointmentsScreen({ staffMember, bookings, loading, staffList, onCreat
       ) : (
         <div className="space-y-3">
           {list.map(b => (
-            <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t} showDate onCreateBill={onCreateBill} />
+            <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t} showDate={subTab !== 'today'} onCreateBill={onCreateBill} />
           ))}
         </div>
       )}
@@ -878,6 +964,8 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
 
   const firebaseUser = auth.currentUser;
   const initialIdsRef = useRef<Set<string> | null>(null);
+  const pendingIdsRef = useRef(new Set<string>());
+  const pendingNotifyTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
   // Live bookings — from start of today onward
   useEffect(() => {
@@ -892,25 +980,76 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
       setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() } as Booking)));
       setLoading(false);
 
-      // ── New appointment detection — ring same as admin dashboard ──────────
+      // ── New appointment detection (with 10-min delay for pending) ──────────
       if (initialIdsRef.current === null) {
         initialIdsRef.current = new Set(snap.docs.map(d => d.id));
+        snap.docs.forEach(d => { if (d.data().status === 'pending') pendingIdsRef.current.add(d.id); });
         return;
       }
-      const added = snap.docChanges()
+
+      // Clean up removed docs — cancel timers, remove from notification queue
+      snap.docChanges().filter(c => c.type === 'removed').forEach(c => {
+        const id = c.doc.id;
+        pendingIdsRef.current.delete(id);
+        const t = pendingNotifyTimersRef.current.get(id);
+        if (t) { clearTimeout(t); pendingNotifyTimersRef.current.delete(id); }
+        setNewBookingQueue(prev => {
+          const next = prev.filter(b => b.id !== id);
+          if (next.length === 0) stopRinging();
+          return next;
+        });
+      });
+
+      const addedBookings = snap.docChanges()
         .filter(c => c.type === 'added' && !initialIdsRef.current!.has(c.doc.id))
         .map(c => {
           initialIdsRef.current!.add(c.doc.id);
-          return { id: c.doc.id, ...c.doc.data() } as Booking;
-        })
-        .filter(b => b.status !== 'failed');
+          const b = { id: c.doc.id, ...c.doc.data() } as Booking;
+          if (b.status === 'pending') pendingIdsRef.current.add(b.id);
+          return b;
+        });
 
-      if (added.length > 0) {
-        setNewBookingQueue(prev => [...prev, ...added]);
-        added.forEach(b => fireDesktopNotification(b));
+      // Detect pending → paid transitions
+      const justPaidBookings = snap.docChanges()
+        .filter(c => c.type === 'modified' && pendingIdsRef.current.has(c.doc.id) && (c.doc.data().status === 'paid' || c.doc.data().status === 'confirmed'))
+        .map(c => {
+          pendingIdsRef.current.delete(c.doc.id);
+          const t = pendingNotifyTimersRef.current.get(c.doc.id);
+          if (t) { clearTimeout(t); pendingNotifyTimersRef.current.delete(c.doc.id); }
+          return { id: c.doc.id, ...c.doc.data() } as Booking;
+        });
+
+      // Notify immediately: non-pending new bookings + pending→paid transitions
+      const toNotify = [
+        ...addedBookings.filter(b => b.status !== 'pending' && b.status !== 'failed'),
+        ...justPaidBookings,
+      ];
+      if (toNotify.length > 0) {
+        setNewBookingQueue(prev => [...prev, ...toNotify]);
+        toNotify.forEach(b => fireDesktopNotification(b));
       }
+
+      // Pending bookings: delay notification by 10 minutes (customer may still be paying)
+      addedBookings.filter(b => b.status === 'pending').forEach(b => {
+        const timer = setTimeout(async () => {
+          pendingNotifyTimersRef.current.delete(b.id);
+          try {
+            const fresh = await getDoc(doc(db, 'bookings', b.id));
+            if (fresh.exists() && fresh.data().status === 'pending') {
+              const freshBooking = { id: b.id, ...fresh.data() } as Booking;
+              setNewBookingQueue(prev => [...prev, freshBooking]);
+              fireDesktopNotification(freshBooking);
+            }
+          } catch {}
+        }, PENDING_NOTIFY_DELAY_MS);
+        pendingNotifyTimersRef.current.set(b.id, timer);
+      });
     }, () => setLoading(false));
-    return unsub;
+    return () => {
+      unsub();
+      pendingNotifyTimersRef.current.forEach(t => clearTimeout(t));
+      pendingNotifyTimersRef.current.clear();
+    };
   }, []);
 
   // Stop ringing once the new-appointment queue is cleared
@@ -931,12 +1070,16 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
 
   const openBillingFromBooking = (b: Booking) => {
     setBillingPrefill({
-      bookingId:     b.id,
-      customerName:  b.customerName ?? '',
-      customerPhone: b.customerPhone ?? '',
-      serviceNames:  b.serviceNames ?? b.serviceName ?? '',
-      totalAmount:   0,
-      bookingTime:   b.bookingTime,
+      bookingId:            b.id,
+      customerName:         b.customerName ?? '',
+      customerPhone:        b.customerPhone ?? '',
+      serviceNames:         b.serviceNames ?? b.serviceName ?? '',
+      totalAmount:          b.totalAmount ?? 0,
+      paymentId:            b.paymentId,
+      bookingTime:          b.bookingTime,
+      paymentMethod:        b.paymentMethod,
+      advanceAmount:        b.advanceAmount,
+      advancePaymentMethod: b.advancePaymentMethod,
     });
     setBillingOpen(true);
   };
