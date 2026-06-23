@@ -6,6 +6,8 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import Navbar       from './components/Navbar';
 import PromoSlider  from './components/PromoSlider';
 import Hero         from './components/Hero';
+import FounderStory  from './components/FounderStory';
+import LaunchingSoon from './components/LaunchingSoon';
 import About     from './components/About';
 import Offers    from './components/Offers';
 import Services  from './components/Services';
@@ -40,6 +42,8 @@ function LandingPage({ scaleX }: { scaleX: any }) {
 
       <main>
         <Hero />
+        <FounderStory />
+        <LaunchingSoon />
         <About />
         <Offers />
         <Services />

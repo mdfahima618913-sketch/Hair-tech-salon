@@ -49,6 +49,7 @@ interface Booking {
   originalStartTime?: string;
   originalEndTime?: string;
   rescheduleCount?: number;
+  invoiceId?: string;
   staffNotes?: StaffNote[];
   createdAt?: any;
 }
@@ -432,7 +433,7 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
             <Edit2 size={16} /> {t('reschedule')}
           </button>
         )}
-        {active && onCreateBill && (
+        {(active || (booking.status === 'completed' && !booking.invoiceId)) && onCreateBill && (
           <button onClick={() => onCreateBill(booking)}
             className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-gradient-to-r from-[#D4AF37]/20 to-[#F0D060]/20 border border-gold/30 text-gold font-black text-sm"
           >
@@ -746,7 +747,7 @@ function AppointmentsScreen({ staffMember, bookings, loading, staffList, onCreat
 }) {
   const { t } = useLanguage();
   const me: StaffOption = { id: staffMember.id, name: staffMember.name };
-  const [subTab, setSubTab] = useState<'today' | 'upcoming' | 'pending'>('today');
+  const [subTab, setSubTab] = useState<'today' | 'upcoming' | 'pending' | 'completed'>('today');
 
   // Today: only today's non-failed, non-completed
   const todayList = useMemo(
@@ -767,13 +768,19 @@ function AppointmentsScreen({ staffMember, bookings, loading, staffList, onCreat
     () => bookings.filter(b => b.status === 'pending'),
     [bookings],
   );
+  // Completed: only those without an invoice (unbilled)
+  const completedList = useMemo(
+    () => bookings.filter(b => b.status === 'completed' && !b.invoiceId),
+    [bookings],
+  );
 
   const tabs = [
-    { id: 'today' as const,    label: t('todayTab'),    count: todayList.length,    color: 'bg-emerald-500', icon: <CalendarCheck size={14} /> },
-    { id: 'upcoming' as const, label: t('upcomingTab'), count: upcomingList.length,  color: 'bg-blue-500',    icon: <CalendarDays size={14} /> },
-    { id: 'pending' as const,  label: t('pendingTab'),  count: pendingList.length,   color: 'bg-amber-500',   icon: <Clock size={14} /> },
+    { id: 'today' as const,     label: t('todayTab'),    count: todayList.length,     color: 'bg-emerald-500', icon: <CalendarCheck size={14} /> },
+    { id: 'upcoming' as const,  label: t('upcomingTab'), count: upcomingList.length,   color: 'bg-blue-500',    icon: <CalendarDays size={14} /> },
+    { id: 'pending' as const,   label: t('pendingTab'),  count: pendingList.length,    color: 'bg-amber-500',   icon: <Clock size={14} /> },
+    { id: 'completed' as const, label: t('statusCompleted') || 'Completed', count: completedList.length, color: 'bg-purple-500', icon: <CheckSquare size={14} /> },
   ];
-  const list = subTab === 'today' ? todayList : subTab === 'upcoming' ? upcomingList : pendingList;
+  const list = subTab === 'today' ? todayList : subTab === 'upcoming' ? upcomingList : subTab === 'pending' ? pendingList : completedList;
 
   return (
     <div className="flex-1 overflow-y-auto scrollbar-hide pb-28 px-4 pt-5">

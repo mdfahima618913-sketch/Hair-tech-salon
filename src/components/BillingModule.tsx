@@ -21,7 +21,7 @@ import {
   ArrowLeft, Printer, Star, Wallet, Tag, Crown, Calendar, Edit2,
 } from 'lucide-react';
 import {
-  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc, deleteDoc,
+  collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
   query, where, orderBy, serverTimestamp, Timestamp,
   limit,
 } from 'firebase/firestore';
@@ -385,7 +385,7 @@ function CustomerStep({
       const allDocs = snaps.flatMap(s => s.docs);
       const match = allDocs
         .map(d => ({ id: d.id, ...d.data() } as any))
-        .find(b => ['paid', 'confirmed', 'completed'].includes(b.status));
+        .find(b => ['paid', 'confirmed', 'completed'].includes(b.status) && !b.invoiceId);
       if (match) {
         onBookingFound({
           bookingId:            match.id,
@@ -2650,9 +2650,11 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
         }
       }));
 
-      // Delete the linked booking from appointments list once bill is created
       if (prefill?.bookingId) {
-        await deleteDoc(doc(db, 'bookings', prefill.bookingId)).catch(() => {});
+        await updateDoc(doc(db, 'bookings', prefill.bookingId), {
+          status: 'completed',
+          invoiceId: invoiceRef.id,
+        }).catch(() => {});
       }
 
       const finalInvoice = { ...inv, id: invoiceRef.id };

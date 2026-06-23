@@ -7,13 +7,13 @@ import {
   Clock, XCircle, Search, ChevronDown, ChevronUp,
   RefreshCw, Filter, Download, Scissors, BarChart2,
   ArrowUpRight, ArrowDownRight, Inbox, Bell, BellOff, X,
-  CheckSquare, ListChecks, PhoneOff,
+  CheckSquare, ListChecks, PhoneOff, MessageSquare, Send,
   TrendingDown, BarChart3, CalendarDays, ChevronRight as ChevronRightIcon,
   Receipt, UserCheck, Plus, Trash2, Edit2, Save, Building2,
   Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer, CalendarPlus, IndianRupee, Crown,
   CalendarCheck, Sun, CloudSun, Moon, Lock,
 } from 'lucide-react';
-import { format, addDays, startOfDay, isSameDay, isToday } from 'date-fns';
+import { format, addDays, subDays, startOfDay, isSameDay, isToday, isYesterday } from 'date-fns';
 import BannerManager  from './BannerManager';
 import GalleryManager from './GalleryManager';
 import CouponManager  from './CouponManager';
@@ -29,7 +29,7 @@ import {
 } from 'firebase/auth';
 import {
   collection, query, orderBy, onSnapshot, getDocs,
-  doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, where, limit,
+  doc, getDoc, setDoc, addDoc, updateDoc, deleteDoc, serverTimestamp, Timestamp, where, limit, arrayUnion,
 } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import {
@@ -74,6 +74,8 @@ interface Booking {
   originalEndTime?: string;
   rescheduledAt?: Timestamp;
   rescheduleCount?: number;
+  failedNote?: string;
+  staffNotes?: Array<{ text: string; byName: string; at: string }>;
 }
 
 type SortKey = 'createdAt' | 'totalAmount' | 'customerName' | 'bookingDate';
@@ -486,15 +488,16 @@ function StatusBadge({ status }: { status: BookingStatus }) {
 
 // ─── Booking Row ──────────────────────────────────────────────────────────────
 
-function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onConfirmPayment, onMarkPayAtSalon, onDelete, isSuperAdmin }: {
+function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onConfirmPayment, onMarkPayAtSalon, onDelete, isSuperAdmin, labels }: {
   booking: Booking;
-  onStatusChange: (id: string, status: BookingStatus) => void;
+  onStatusChange: (id: string, status: BookingStatus, failedNote?: string) => void;
   onCreateBill?: (booking: Booking) => void;
   onViewInvoice?: (invoiceId: string) => void;
   onConfirmPayment?: (id: string, paymentId: string) => void;
   onMarkPayAtSalon?: (id: string) => void;
   onDelete?: (id: string) => void;
   isSuperAdmin?: boolean;
+  labels?: Array<{ text: string; color: string; bg: string }>;
 }) {
   const [expanded,        setExpanded]        = useState(false);
   const [pendingPayId,    setPendingPayId]    = useState('');
@@ -513,9 +516,21 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
   const [editSuccess,    setEditSuccess]    = useState<string | null>(null);
   const dateStrip = Array.from({ length: 8 }, (_, i) => addDays(new Date(), i));
 
+  // Failed with notes
+  const [showFailInput, setShowFailInput] = useState(false);
+  const [failNote,      setFailNote]      = useState('');
+
   const handleStatus = async (status: BookingStatus) => {
     setUpdating(true);
     await onStatusChange(booking.id, status);
+    setUpdating(false);
+  };
+
+  const handleFail = async () => {
+    setUpdating(true);
+    await onStatusChange(booking.id, 'failed', failNote);
+    setShowFailInput(false);
+    setFailNote('');
     setUpdating(false);
   };
 
@@ -593,7 +608,14 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
           </span>
         </td>
         <td className="py-4 px-5">
-          <StatusBadge status={booking.status ?? 'pending'} />
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <StatusBadge status={booking.status ?? 'pending'} />
+            {labels?.map((l, i) => (
+              <span key={i} className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${l.color} ${l.bg}`}>
+                {l.text}
+              </span>
+            ))}
+          </div>
         </td>
         <td className="py-4 px-5">
           <div className="flex items-center gap-1.5 justify-end">
@@ -837,7 +859,55 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                           <Edit2 size={11} /> {isRescheduling ? 'Cancel Reschedule' : 'Reschedule'}
                         </button>
                       )}
+
+                      {/* Mark as Failed — for non-failed/non-completed bookings */}
+                      {booking.status !== 'failed' && booking.status !== 'completed' && (
+                        <button
+                          onClick={e => { e.stopPropagation(); setShowFailInput(v => !v); }}
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-red-500/10 border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-wider hover:bg-red-500/20 transition-all"
+                        >
+                          <XCircle size={11} /> {showFailInput ? 'Cancel' : 'Mark as Failed'}
+                        </button>
+                      )}
                     </div>
+
+                    {/* Failed note input */}
+                    <AnimatePresence>
+                      {showFailInput && (
+                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden w-full">
+                          <div className="pt-3 mt-2 border-t border-red-500/20 flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                            <input
+                              type="text"
+                              value={failNote}
+                              onChange={e => setFailNote(e.target.value)}
+                              placeholder="Reason for failure (optional)…"
+                              className="flex-1 bg-white/[0.04] border border-red-500/25 rounded-xl px-3 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-red-400"
+                            />
+                            <button
+                              onClick={handleFail}
+                              disabled={updating}
+                              className="px-4 py-2.5 rounded-xl bg-red-500 text-white text-xs font-black disabled:opacity-50 flex items-center gap-1.5"
+                            >
+                              {updating ? <Loader2 size={10} className="animate-spin" /> : <XCircle size={10} />} Confirm
+                            </button>
+                            <button
+                              onClick={() => { setShowFailInput(false); setFailNote(''); }}
+                              className="text-gray-500 hover:text-white p-2"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    {/* Show failed note if exists */}
+                    {booking.status === 'failed' && booking.failedNote && (
+                      <div className="mt-2 flex items-start gap-2 px-3 py-2 rounded-xl bg-red-500/8 border border-red-500/20">
+                        <MessageSquare size={12} className="text-red-400 shrink-0 mt-0.5" />
+                        <p className="text-red-300 text-xs">{booking.failedNote}</p>
+                      </div>
+                    )}
 
                     {/* Reschedule panel */}
                     <AnimatePresence>
@@ -1279,7 +1349,7 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [sortDir, setSortDir]             = useState<SortDir>('desc');
   const [signOutLoading, setSignOutLoading] = useState(false);
   // 'active' = paid/confirmed | 'pending' = payment not done | 'completed' = service done
-  const [activeTab, setActiveTab]         = useState<'active' | 'pending' | 'completed' | 'rescheduled'>('active');
+  const [activeTab, setActiveTab]         = useState<'active' | 'upcoming' | 'pending' | 'completed' | 'failed' | 'rescheduled'>('active');
 
   // ── Module navigation ─────────────────────────────────────────────────────
   type DashView = 'bookings' | 'insights' | 'billing' | 'staff' | 'customers' | 'tools';
@@ -1752,8 +1822,13 @@ Your uid is: ${user.uid}
     };
   }, [user.uid, user.email, refreshKey]);
 
-  const handleStatusChange = async (id: string, status: BookingStatus) => {
-    await updateDoc(doc(db, 'bookings', id), { status, updatedAt: serverTimestamp() });
+  const handleStatusChange = async (id: string, status: BookingStatus, failedNote?: string) => {
+    const updates: Record<string, unknown> = { status, updatedAt: serverTimestamp() };
+    if (status === 'failed' && failedNote?.trim()) {
+      updates.failedNote = failedNote.trim();
+      updates.staffNotes = arrayUnion({ text: `[FAILED] ${failedNote.trim()}`, byName: user.displayName ?? 'Admin', at: new Date().toISOString() });
+    }
+    await updateDoc(doc(db, 'bookings', id), updates);
   };
 
   const handleDeleteBooking = async (id: string) => {
@@ -2433,27 +2508,72 @@ Your uid is: ${user.uid}
     };
   }, [expandedService, serviceDrillPeriod, billingInvoices]);
 
-  // ── Split bookings into three tabs ───────────────────────────────────────────
-  // pending   = payment not yet completed (status === 'pending')
-  // active    = payment done, service not yet completed
-  // completed = service done
-  // Hide newly-created pending bookings until PENDING_NOTIFY_DELAY_MS has
-  // elapsed — gives the customer time to complete Razorpay payment before
-  // it shows up as "needs review" (mirrors the notification delay).
-  const pendingTabBookings = useMemo(() => bookings.filter(b => {
-    if (b.status !== 'pending') return false;
-    const createdMs = b.createdAt?.toMillis?.();
-    if (!createdMs) return true; // no createdAt — show immediately
-    return nowTick - createdMs >= PENDING_NOTIFY_DELAY_MS;
-  }), [bookings, nowTick]);
-  const activeBookings     = useMemo(() => bookings.filter(b => b.status !== 'completed' && b.status !== 'pending'), [bookings]);
-  const completedBookings  = useMemo(() => bookings.filter(b => b.status === 'completed'), [bookings]);
-  const rescheduledBookings = useMemo(() => bookings.filter(b => !!b.rescheduledAt && b.status !== 'completed'), [bookings]);
+  // ── Split bookings into tabs ─────────────────────────────────────────────────
+
+  const getBookingDate = (b: Booking): Date | null => {
+    if (b.startTime) return new Date(b.startTime);
+    if (b.bookingDate) return new Date(b.bookingDate);
+    return null;
+  };
+
+  const isRecentBooking = (b: Booking): boolean => {
+    const d = getBookingDate(b);
+    if (!d) return false;
+    return isToday(d) || isYesterday(d);
+  };
+
+  const oneWeekAgo = startOfDay(subDays(new Date(), 7));
+
+  const pendingTabBookings = useMemo(() => {
+    const actualPending = bookings.filter(b => {
+      if (b.status !== 'pending') return false;
+      const createdMs = b.createdAt?.toMillis?.();
+      if (!createdMs) return true;
+      return nowTick - createdMs >= PENDING_NOTIFY_DELAY_MS;
+    });
+    const oldActive = bookings.filter(b =>
+      b.status !== 'completed' && b.status !== 'pending' && b.status !== 'failed' && !isRecentBooking(b)
+    );
+    return [...actualPending, ...oldActive];
+  }, [bookings, nowTick]);
+
+  const isFutureBooking = (b: Booking): boolean => {
+    const d = getBookingDate(b);
+    if (!d) return false;
+    return d >= startOfDay(addDays(new Date(), 1));
+  };
+
+  const activeBookings     = useMemo(() => bookings.filter(b => b.status !== 'completed' && b.status !== 'pending' && b.status !== 'failed' && isRecentBooking(b)), [bookings]);
+  const upcomingBookings   = useMemo(() => bookings.filter(b => b.status !== 'completed' && b.status !== 'pending' && b.status !== 'failed' && isFutureBooking(b)), [bookings]);
+  const completedBookings  = useMemo(() => bookings.filter(b => b.status === 'completed' && !b.invoiceId), [bookings]);
+  const failedBookings     = useMemo(() => bookings.filter(b => b.status === 'failed'), [bookings]);
+  const rescheduledBookings = useMemo(() => bookings.filter(b => !!b.rescheduledAt && b.status !== 'completed' && b.status !== 'failed'), [bookings]);
+
+  type LabelInfo = { text: string; color: string; bg: string };
+  const getBookingLabels = (b: Booking, tab: string): LabelInfo[] => {
+    const labels: LabelInfo[] = [];
+    if (b.paymentId) {
+      labels.push({ text: 'Paid', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20' });
+    } else if (b.advanceAmount && b.advanceAmount > 0) {
+      labels.push({ text: `Advance ₹${b.advanceAmount.toLocaleString('en-IN')}`, color: 'text-cyan-400', bg: 'bg-cyan-500/10 border-cyan-500/20' });
+    } else {
+      labels.push({ text: 'Unpaid', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/20' });
+    }
+    if (tab === 'pending') {
+      const d = getBookingDate(b);
+      if (d && d < oneWeekAgo) {
+        labels.push({ text: 'Old', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20' });
+      }
+    }
+    return labels;
+  };
 
   // ── Filtered + sorted bookings ─────────────────────────────────────────────
   const filtered = useMemo(() => {
     let list = activeTab === 'completed'   ? [...completedBookings]
              : activeTab === 'pending'     ? [...pendingTabBookings]
+             : activeTab === 'upcoming'    ? [...upcomingBookings]
+             : activeTab === 'failed'      ? [...failedBookings]
              : activeTab === 'rescheduled' ? [...rescheduledBookings]
              :                              [...activeBookings];
     if (statusFilter !== 'all' && activeTab === 'active') list = list.filter(b => b.status === statusFilter);
@@ -2483,7 +2603,7 @@ Your uid is: ${user.uid}
       return 0;
     });
     return list;
-  }, [bookings, activeTab, statusFilter, search, sortKey, sortDir, pendingTabBookings, completedBookings, activeBookings, rescheduledBookings]);
+  }, [bookings, activeTab, statusFilter, search, sortKey, sortDir, pendingTabBookings, upcomingBookings, completedBookings, failedBookings, activeBookings, rescheduledBookings]);
 
   const toggleSort = (key: SortKey) => {
     if (sortKey === key) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -3771,10 +3891,12 @@ Your uid is: ${user.uid}
         {/* ── Tabs ── */}
         <div className="flex items-center gap-1 mb-4 bg-zinc-900 border border-white/12 rounded-2xl p-1.5 w-fit flex-wrap">
           {([
-            { id: 'active',      label: 'Active',      count: activeBookings.length,      icon: <Clock size={13} />,       activeStyle: 'bg-gold/10 border border-gold/20 text-gold' },
-            { id: 'pending',     label: 'Pending',     count: pendingTabBookings.length,  icon: <AlertCircle size={13} />, activeStyle: 'bg-amber-500/20 border border-amber-500/30 text-amber-400' },
-            { id: 'completed',   label: 'Completed',   count: completedBookings.length,   icon: <ListChecks size={13} />,  activeStyle: 'bg-purple-500/20 border border-purple-500/30 text-purple-400' },
-            { id: 'rescheduled', label: 'Rescheduled', count: rescheduledBookings.length, icon: <Edit2 size={13} />,       activeStyle: 'bg-blue-500/20 border border-blue-500/30 text-blue-400' },
+            { id: 'active',      label: 'Active',      count: activeBookings.length,      icon: <Clock size={13} />,         activeStyle: 'bg-gold/10 border border-gold/20 text-gold' },
+            { id: 'upcoming',    label: 'Upcoming',    count: upcomingBookings.length,    icon: <CalendarDays size={13} />,  activeStyle: 'bg-cyan-500/20 border border-cyan-500/30 text-cyan-400' },
+            { id: 'pending',     label: 'Pending',     count: pendingTabBookings.length,  icon: <AlertCircle size={13} />,   activeStyle: 'bg-amber-500/20 border border-amber-500/30 text-amber-400' },
+            { id: 'completed',   label: 'Completed',   count: completedBookings.length,   icon: <ListChecks size={13} />,    activeStyle: 'bg-purple-500/20 border border-purple-500/30 text-purple-400' },
+            { id: 'failed',      label: 'Failed',      count: failedBookings.length,      icon: <XCircle size={13} />,       activeStyle: 'bg-red-500/20 border border-red-500/30 text-red-400' },
+            { id: 'rescheduled', label: 'Rescheduled', count: rescheduledBookings.length, icon: <Edit2 size={13} />,         activeStyle: 'bg-blue-500/20 border border-blue-500/30 text-blue-400' },
           ] as const).map(tab => (
             <button key={tab.id} onClick={() => { setActiveTab(tab.id as any); setStatusFilter('all'); setSearch(''); }}
               className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
@@ -3936,7 +4058,7 @@ Your uid is: ${user.uid}
                 <tbody>
                   <AnimatePresence>
                     {filtered.map(booking => (
-                      <BookingRow key={booking.id} booking={booking} onStatusChange={handleStatusChange} onCreateBill={openBillingFromBooking} onViewInvoice={id => setInvoiceModalId(id)} onConfirmPayment={confirmWithPaymentId} onMarkPayAtSalon={markPayAtSalon} onDelete={handleDeleteBooking} isSuperAdmin={!isStaffMode} />
+                      <BookingRow key={booking.id} booking={booking} onStatusChange={handleStatusChange} onCreateBill={openBillingFromBooking} onViewInvoice={id => setInvoiceModalId(id)} onConfirmPayment={confirmWithPaymentId} onMarkPayAtSalon={markPayAtSalon} onDelete={handleDeleteBooking} isSuperAdmin={!isStaffMode} labels={getBookingLabels(booking, activeTab)} />
                     ))}
                   </AnimatePresence>
                 </tbody>
