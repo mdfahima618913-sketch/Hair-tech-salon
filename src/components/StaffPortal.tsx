@@ -13,7 +13,7 @@ import {
   Phone, RefreshCw, Edit2, X, Check, CalendarCheck, CheckSquare, Clock, MessageSquare, Send,
   Bell, AlertCircle, PhoneOff, Receipt,
 } from 'lucide-react';
-import { collection, query, where, orderBy, getDocs, getDoc, onSnapshot, doc, updateDoc, limit, arrayUnion } from 'firebase/firestore';
+import { collection, query, where, orderBy, getDocs, getDoc, onSnapshot, doc, updateDoc, limit, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
 import WalkInBooking from './WalkInBooking';
 import BillingModule, { type StaffMember, type OnlineBookingPrefill } from './BillingModule';
@@ -974,27 +974,56 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
   const pendingIdsRef = useRef(new Set<string>());
   const pendingNotifyTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
-  // Live bookings — from start of today onward
+  // Live bookings — two listeners merged:
+  //   1. Scheduled bookings: startTime >= today (paid/confirmed/completed)
+  //   2. Pending bookings: createdAt in last 90 days, status === 'pending'
+  // This mirrors the admin dashboard's ability to see pending orders.
+  const scheduledRef = useRef<Map<string, Booking>>(new Map());
+  const pendingBkRef = useRef<Map<string, Booking>>(new Map());
+
+  const mergeBookings = () => {
+    const merged = new Map(scheduledRef.current);
+    pendingBkRef.current.forEach((b, id) => {
+      if (!merged.has(id)) merged.set(id, b);
+    });
+    setBookings(Array.from(merged.values()));
+  };
+
   useEffect(() => {
     const s = startOfDay(new Date()).toISOString();
-    const q = query(
+
+    // Query 1: scheduled bookings (today onward)
+    const q1 = query(
       collection(db, 'bookings'),
       where('startTime', '>=', s),
       orderBy('startTime', 'asc'),
       limit(200),
     );
-    const unsub = onSnapshot(q, snap => {
-      setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() } as Booking)));
+
+    // Query 2: pending bookings (last 90 days by createdAt)
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    cutoff.setHours(0, 0, 0, 0);
+    const q2 = query(
+      collection(db, 'bookings'),
+      where('status', '==', 'pending'),
+      where('createdAt', '>=', Timestamp.fromDate(cutoff)),
+      orderBy('createdAt', 'desc'),
+      limit(100),
+    );
+
+    const unsub1 = onSnapshot(q1, snap => {
+      scheduledRef.current = new Map(snap.docs.map(d => [d.id, { id: d.id, ...d.data() } as Booking]));
+      mergeBookings();
       setLoading(false);
 
-      // ── New appointment detection (with 10-min delay for pending) ──────────
+      // ── New appointment detection (with delay for pending) ──────────
       if (initialIdsRef.current === null) {
         initialIdsRef.current = new Set(snap.docs.map(d => d.id));
         snap.docs.forEach(d => { if (d.data().status === 'pending') pendingIdsRef.current.add(d.id); });
         return;
       }
 
-      // Clean up removed docs — cancel timers, remove from notification queue
       snap.docChanges().filter(c => c.type === 'removed').forEach(c => {
         const id = c.doc.id;
         pendingIdsRef.current.delete(id);
@@ -1016,7 +1045,6 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
           return b;
         });
 
-      // Detect pending → paid transitions
       const justPaidBookings = snap.docChanges()
         .filter(c => c.type === 'modified' && pendingIdsRef.current.has(c.doc.id) && (c.doc.data().status === 'paid' || c.doc.data().status === 'confirmed'))
         .map(c => {
@@ -1026,7 +1054,6 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
           return { id: c.doc.id, ...c.doc.data() } as Booking;
         });
 
-      // Notify immediately: non-pending new bookings + pending→paid transitions
       const toNotify = [
         ...addedBookings.filter(b => b.status !== 'pending' && b.status !== 'failed'),
         ...justPaidBookings,
@@ -1036,7 +1063,6 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
         toNotify.forEach(b => fireDesktopNotification(b));
       }
 
-      // Pending bookings: delay notification by 10 minutes (customer may still be paying)
       addedBookings.filter(b => b.status === 'pending').forEach(b => {
         const timer = setTimeout(async () => {
           pendingNotifyTimersRef.current.delete(b.id);
@@ -1052,8 +1078,18 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
         pendingNotifyTimersRef.current.set(b.id, timer);
       });
     }, () => setLoading(false));
+
+    // Listener 2: pending bookings — just merge into state, no notifications
+    // (notifications are handled by listener 1 when they appear there)
+    const unsub2 = onSnapshot(q2, snap => {
+      pendingBkRef.current = new Map(snap.docs.map(d => [d.id, { id: d.id, ...d.data() } as Booking]));
+      mergeBookings();
+      setLoading(false);
+    }, () => {});
+
     return () => {
-      unsub();
+      unsub1();
+      unsub2();
       pendingNotifyTimersRef.current.forEach(t => clearTimeout(t));
       pendingNotifyTimersRef.current.clear();
     };
