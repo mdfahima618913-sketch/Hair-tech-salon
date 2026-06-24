@@ -7,7 +7,7 @@ import {
   Clock, XCircle, Search, ChevronDown, ChevronUp,
   RefreshCw, Filter, Download, Scissors, BarChart2,
   ArrowUpRight, ArrowDownRight, Inbox, Bell, BellOff, X,
-  CheckSquare, ListChecks, PhoneOff, MessageSquare, Send,
+  CheckSquare, ListChecks, PhoneOff, MessageSquare, Send, Phone,
   TrendingDown, BarChart3, CalendarDays, ChevronRight as ChevronRightIcon,
   Receipt, UserCheck, Plus, Trash2, Edit2, Save, Building2,
   Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer, CalendarPlus, IndianRupee, Crown,
@@ -619,6 +619,17 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
         </td>
         <td className="py-4 px-5">
           <div className="flex items-center gap-1.5 justify-end">
+            {/* Call customer */}
+            {booking.customerPhone && (
+              <a
+                href={`tel:${booking.customerPhone}`}
+                onClick={e => e.stopPropagation()}
+                className="p-1.5 rounded-lg text-gray-700 hover:text-emerald-400 hover:bg-emerald-400/10 transition-all opacity-0 group-hover:opacity-100"
+                title="Call customer"
+              >
+                <Phone size={13} />
+              </a>
+            )}
             {/* Delete — super admin only, inline confirm */}
             {isSuperAdmin && (
               deleteConfirm ? (
