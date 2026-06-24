@@ -771,7 +771,9 @@ export default function BookingSystem() {
   const totalAmount = cartAmount + expressFee;
   const totalMins   = useMemo(()=>cart.reduce((a,i)=>a+parseMins(i.service.time)*i.qty,0),[cart]);
   const totalItems  = useMemo(()=>cart.reduce((a,i)=>a+i.qty,0),[cart]);
-  const step2OK     = info.name.trim().length>0 && info.phone.trim().length>=10;
+  const phoneDigits = info.phone.replace(/\D/g, '').slice(-10);
+  const phoneValid  = /^[6-9]\d{9}$/.test(phoneDigits);
+  const step2OK     = info.name.trim().length>0 && phoneValid;
 
   // Coupon derived
   const discount    = couponData?.discount ?? 0;
@@ -1113,8 +1115,13 @@ export default function BookingSystem() {
             <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"/>
             <input
               type="tel" placeholder="+91 98765 43210" value={info.phone}
+              maxLength={15}
               onChange={e=>{
-                const val=e.target.value;
+                const raw = e.target.value;
+                // Only allow digits, leading +, and spaces
+                const cleaned = raw.replace(/[^0-9+ ]/g, '');
+                // Block + anywhere except the start
+                const val = cleaned.charAt(0) === '+' ? '+' + cleaned.slice(1).replace(/\+/g, '') : cleaned.replace(/\+/g, '');
                 setInfo(p=>({...p,phone:val}));
                 setAutoFilled(false);
                 setIgnorePending(false);
@@ -1124,9 +1131,9 @@ export default function BookingSystem() {
             />
             {phoneLookupLoading&&<Loader2 size={15} className="absolute right-4 top-1/2 -translate-y-1/2 text-[#D4AF37] animate-spin"/>}
           </div>
-          {info.phone&&info.phone.replace(/\D/g,'').length<10&&(
+          {info.phone && !phoneValid && (
             <p className="text-orange-500 text-xs mt-1 flex items-center gap-1">
-              <AlertCircle size={11}/>Enter a valid 10-digit number
+              <AlertCircle size={11}/>Enter a valid 10-digit mobile number (e.g. 9667833075)
             </p>
           )}
           {pendingExisting&&!ignorePending&&(

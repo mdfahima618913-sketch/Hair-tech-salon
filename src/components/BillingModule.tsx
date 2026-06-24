@@ -1324,11 +1324,18 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
   const isMulti  = splits.length > 1;
   const [showSplitEditor, setShowSplitEditor] = useState(false);
   const [dropdownOpen, setDropdownOpen]       = useState(false);
+  const [staffQuery, setStaffQuery]           = useState('');
   const assignedIds = new Set(isMulti ? splits.map(s => s.staffId) : (item.staffId ? [item.staffId] : []));
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const staffInputRef = useRef<HTMLInputElement>(null);
+
+  const filteredStaff = staffQuery.trim()
+    ? activeStaff.filter(s => s.name.toLowerCase().includes(staffQuery.toLowerCase()))
+    : activeStaff;
 
   useEffect(() => {
-    if (!dropdownOpen) return;
+    if (!dropdownOpen) { setStaffQuery(''); return; }
+    setTimeout(() => staffInputRef.current?.focus(), 50);
     const handler = (e: MouseEvent) => { if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) setDropdownOpen(false); };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
@@ -1407,28 +1414,54 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
 
         {dropdownOpen && (
           <div className="absolute z-20 mt-1 w-full bg-zinc-900 border border-white/20 rounded-xl shadow-xl overflow-hidden">
-            {activeStaff.map(s => {
-              const selected = assignedIds.has(s.id);
-              return (
-                <button key={s.id}
-                  onClick={() => {
-                    if (selected) {
-                      onRemoveStaff(idx, s.id);
-                    } else {
-                      if (assignedIds.size === 0) { onUpdateStaff(idx, s.id); }
-                      else { onAddStaff(idx, s.id); }
+            <div className="px-2.5 pt-2.5 pb-1.5">
+              <input
+                ref={staffInputRef}
+                type="text"
+                value={staffQuery}
+                onChange={e => setStaffQuery(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && filteredStaff.length === 1) {
+                    const s = filteredStaff[0];
+                    if (!assignedIds.has(s.id)) {
+                      if (assignedIds.size === 0) onUpdateStaff(idx, s.id);
+                      else onAddStaff(idx, s.id);
                     }
-                  }}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-white/8 transition-colors ${selected ? 'bg-gold/8' : ''}`}
-                >
-                  <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${selected ? 'border-gold bg-gold' : 'border-white/25'}`}>
-                    {selected && <CheckCircle2 size={10} className="text-black" />}
-                  </span>
-                  <span className="flex-1 text-white truncate">{s.name}{s.role ? <span className="text-gray-500"> · {s.role}</span> : ''}</span>
-                  <span className="text-gray-500 text-[10px] font-bold">{s.commissionRate}%</span>
-                </button>
-              );
-            })}
+                    setStaffQuery('');
+                    setDropdownOpen(false);
+                  }
+                }}
+                placeholder="Type staff name…"
+                className="w-full bg-zinc-800 border border-white/15 rounded-lg px-2.5 py-2 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-gold/40"
+              />
+            </div>
+            <div className="max-h-48 overflow-y-auto">
+              {filteredStaff.length === 0 ? (
+                <p className="px-3 py-3 text-gray-500 text-xs text-center">No staff found</p>
+              ) : filteredStaff.map(s => {
+                const selected = assignedIds.has(s.id);
+                return (
+                  <button key={s.id}
+                    onClick={() => {
+                      if (selected) {
+                        onRemoveStaff(idx, s.id);
+                      } else {
+                        if (assignedIds.size === 0) { onUpdateStaff(idx, s.id); }
+                        else { onAddStaff(idx, s.id); }
+                      }
+                      setStaffQuery('');
+                    }}
+                    className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-left text-sm hover:bg-white/8 transition-colors ${selected ? 'bg-gold/8' : ''}`}
+                  >
+                    <span className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 ${selected ? 'border-gold bg-gold' : 'border-white/25'}`}>
+                      {selected && <CheckCircle2 size={10} className="text-black" />}
+                    </span>
+                    <span className="flex-1 text-white truncate">{s.name}{s.role ? <span className="text-gray-500"> · {s.role}</span> : ''}</span>
+                    <span className="text-gray-500 text-[10px] font-bold">{s.commissionRate}%</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

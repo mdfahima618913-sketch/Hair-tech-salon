@@ -20,7 +20,7 @@ import BillingModule, { type StaffMember, type OnlineBookingPrefill } from './Bi
 import { useLanguage } from '../lib/LanguageContext';
 import LanguageToggle from './LanguageToggle';
 import { format, addDays, isSameDay, isToday, startOfDay } from 'date-fns';
-import { startRinging, stopRinging, fireDesktopNotification, requestNotificationPermission } from '../lib/notificationSound';
+import { startRinging, stopRinging, fireDesktopNotification, requestNotificationPermission, warmUpAudio } from '../lib/notificationSound';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,7 +54,7 @@ interface Booking {
   createdAt?: any;
 }
 
-const PENDING_NOTIFY_DELAY_MS = 10 * 60 * 1000; // 10 minutes
+const PENDING_NOTIFY_DELAY_MS = 5 * 60_000; // 5 minutes — same as admin
 
 interface StaffNote { text: string; byName: string; at: string; }
 
@@ -637,6 +637,10 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
     () => todayAll.filter(b => b.status !== 'completed' && b.status !== 'pending'),
     [todayAll],
   );
+  const pendingToday = useMemo(
+    () => bookings.filter(b => b.status === 'pending'),
+    [bookings],
+  );
   const nextIdx = confirmedToday.findIndex(b => ['confirmed', 'paid'].includes(b.status));
 
   return (
@@ -664,7 +668,7 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
           </div>
 
           {/* Stats strip */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div className="bg-black/35 rounded-2xl p-3 text-center">
               <p className="text-2xl font-black text-white">{confirmedToday.length}</p>
               <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{t('appointmentsToday')}</p>
@@ -672,6 +676,10 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
             <div className="bg-black/35 rounded-2xl p-3 text-center">
               <p className="text-2xl font-black text-emerald-400">{completedToday}</p>
               <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{t('doneToday')}</p>
+            </div>
+            <div className="bg-black/35 rounded-2xl p-3 text-center">
+              <p className="text-2xl font-black text-amber-400">{pendingToday.length}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{t('pendingTab')}</p>
             </div>
           </div>
         </motion.div>
@@ -693,44 +701,71 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
         </motion.button>
       </div>
 
-      {/* Today's schedule */}
-      <div className="px-4">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <p className="text-white font-black text-lg">{t('todaySchedule')}</p>
-            <p className="text-gray-500 text-xs">
-              {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}
-            </p>
+      {/* Today's schedule + Pending — side by side on tablet/desktop, stacked on mobile */}
+      <div className="px-4 grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+
+        {/* Today's schedule */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <p className="text-white font-black text-lg">{t('todaySchedule')}</p>
+              <p className="text-gray-500 text-xs">
+                {new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'short' })}
+              </p>
+            </div>
           </div>
+
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 gap-4">
+              <Loader2 size={36} className="animate-spin text-gold" />
+              <p className="text-gray-400 text-base">{t('loading')}</p>
+            </div>
+          ) : confirmedToday.length === 0 ? (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="flex flex-col items-center justify-center py-14 gap-5 text-center"
+            >
+              <div className="w-24 h-24 rounded-3xl bg-gold/10 border border-gold/20 flex items-center justify-center">
+                <CalendarDays size={44} className="text-gold" />
+              </div>
+              <p className="text-white font-black text-xl">{t('noAppointments')}</p>
+              <motion.button whileTap={{ scale: 0.95 }} onClick={onOpenAppointment}
+                className="flex items-center gap-2 px-7 py-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl text-white font-black text-base"
+              >
+                <CalendarPlus size={18} /> {t('makeAppointment')}
+              </motion.button>
+            </motion.div>
+          ) : (
+            <div className="space-y-3">
+              {confirmedToday.map((b, i) => (
+                <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t}
+                  highlight={i === nextIdx} onCreateBill={onCreateBill} />
+              ))}
+            </div>
+          )}
         </div>
 
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-16 gap-4">
-            <Loader2 size={36} className="animate-spin text-gold" />
-            <p className="text-gray-400 text-base">{t('loading')}</p>
-          </div>
-        ) : confirmedToday.length === 0 ? (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-            className="flex flex-col items-center justify-center py-14 gap-5 text-center"
-          >
-            <div className="w-24 h-24 rounded-3xl bg-gold/10 border border-gold/20 flex items-center justify-center">
-              <CalendarDays size={44} className="text-gold" />
+        {/* Pending appointments */}
+        {!loading && pendingToday.length > 0 && (
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Clock size={16} className="text-amber-400" />
+              <p className="text-white font-black text-lg">{t('pendingTab')}</p>
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/25 text-amber-400 text-[10px] font-black">
+                {pendingToday.length}
+              </span>
             </div>
-            <p className="text-white font-black text-xl">{t('noAppointments')}</p>
-            <motion.button whileTap={{ scale: 0.95 }} onClick={onOpenAppointment}
-              className="flex items-center gap-2 px-7 py-4 bg-gradient-to-r from-blue-600 to-blue-500 rounded-2xl text-white font-black text-base"
-            >
-              <CalendarPlus size={18} /> {t('makeAppointment')}
-            </motion.button>
-          </motion.div>
-        ) : (
-          <div className="space-y-3">
-            {confirmedToday.map((b, i) => (
-              <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t}
-                highlight={i === nextIdx} onCreateBill={onCreateBill} />
-            ))}
+            <div className="flex items-start gap-2 px-3 py-2.5 mb-3 rounded-2xl bg-amber-500/8 border border-amber-500/20">
+              <Clock size={14} className="text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-amber-300 text-xs font-bold leading-snug">{t('pendingCallHint')}</p>
+            </div>
+            <div className="space-y-3">
+              {pendingToday.map(b => (
+                <AppointmentCard key={b.id} booking={b} staffList={staffList} me={me} t={t} showDate onCreateBill={onCreateBill} />
+              ))}
+            </div>
           </div>
         )}
+
       </div>
     </div>
   );
@@ -974,47 +1009,21 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
   const pendingIdsRef = useRef(new Set<string>());
   const pendingNotifyTimersRef = useRef(new Map<string, ReturnType<typeof setTimeout>>());
 
-  // Live bookings — two listeners merged:
-  //   1. Scheduled bookings: startTime >= today (paid/confirmed/completed)
-  //   2. Pending bookings: createdAt in last 90 days, status === 'pending'
-  // This mirrors the admin dashboard's ability to see pending orders.
-  const scheduledRef = useRef<Map<string, Booking>>(new Map());
-  const pendingBkRef = useRef<Map<string, Booking>>(new Map());
-
-  const mergeBookings = () => {
-    const merged = new Map(scheduledRef.current);
-    pendingBkRef.current.forEach((b, id) => {
-      if (!merged.has(id)) merged.set(id, b);
-    });
-    setBookings(Array.from(merged.values()));
-  };
-
+  // Live bookings — single query by createdAt, identical to admin dashboard.
+  // This catches all bookings (including pending) without needing composite indexes.
   useEffect(() => {
-    const s = startOfDay(new Date()).toISOString();
-
-    // Query 1: scheduled bookings (today onward)
-    const q1 = query(
-      collection(db, 'bookings'),
-      where('startTime', '>=', s),
-      orderBy('startTime', 'asc'),
-      limit(200),
-    );
-
-    // Query 2: pending bookings (last 90 days by createdAt)
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 90);
+    cutoff.setDate(cutoff.getDate() - 30);
     cutoff.setHours(0, 0, 0, 0);
-    const q2 = query(
+    const q = query(
       collection(db, 'bookings'),
-      where('status', '==', 'pending'),
       where('createdAt', '>=', Timestamp.fromDate(cutoff)),
       orderBy('createdAt', 'desc'),
-      limit(100),
+      limit(300),
     );
 
-    const unsub1 = onSnapshot(q1, snap => {
-      scheduledRef.current = new Map(snap.docs.map(d => [d.id, { id: d.id, ...d.data() } as Booking]));
-      mergeBookings();
+    const unsub = onSnapshot(q, snap => {
+      setBookings(snap.docs.map(d => ({ id: d.id, ...d.data() } as Booking)));
       setLoading(false);
 
       // ── New appointment detection (with delay for pending) ──────────
@@ -1024,6 +1033,7 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
         return;
       }
 
+      // Clean up removed docs
       snap.docChanges().filter(c => c.type === 'removed').forEach(c => {
         const id = c.doc.id;
         pendingIdsRef.current.delete(id);
@@ -1045,6 +1055,7 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
           return b;
         });
 
+      // Detect pending → paid transitions
       const justPaidBookings = snap.docChanges()
         .filter(c => c.type === 'modified' && pendingIdsRef.current.has(c.doc.id) && (c.doc.data().status === 'paid' || c.doc.data().status === 'confirmed'))
         .map(c => {
@@ -1054,8 +1065,9 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
           return { id: c.doc.id, ...c.doc.data() } as Booking;
         });
 
+      // Notify immediately: non-pending new bookings + pending→paid transitions
       const toNotify = [
-        ...addedBookings.filter(b => b.status !== 'pending' && b.status !== 'failed'),
+        ...addedBookings.filter(b => b.status !== 'pending'),
         ...justPaidBookings,
       ];
       if (toNotify.length > 0) {
@@ -1063,6 +1075,7 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
         toNotify.forEach(b => fireDesktopNotification(b));
       }
 
+      // Pending bookings: delay notification
       addedBookings.filter(b => b.status === 'pending').forEach(b => {
         const timer = setTimeout(async () => {
           pendingNotifyTimersRef.current.delete(b.id);
@@ -1079,17 +1092,8 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
       });
     }, () => setLoading(false));
 
-    // Listener 2: pending bookings — just merge into state, no notifications
-    // (notifications are handled by listener 1 when they appear there)
-    const unsub2 = onSnapshot(q2, snap => {
-      pendingBkRef.current = new Map(snap.docs.map(d => [d.id, { id: d.id, ...d.data() } as Booking]));
-      mergeBookings();
-      setLoading(false);
-    }, () => {});
-
     return () => {
-      unsub1();
-      unsub2();
+      unsub();
       pendingNotifyTimersRef.current.forEach(t => clearTimeout(t));
       pendingNotifyTimersRef.current.clear();
     };
@@ -1100,8 +1104,14 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
     if (newBookingQueue.length === 0) stopRinging();
   }, [newBookingQueue.length]);
 
-  // Ask for desktop notification permission on first load (best-effort)
-  useEffect(() => { requestNotificationPermission().catch(() => {}); }, []);
+  // Ask for desktop notification permission + warm up audio on first user gesture
+  useEffect(() => {
+    requestNotificationPermission().catch(() => {});
+    const unlockAudio = () => { warmUpAudio(); window.removeEventListener('click', unlockAudio); window.removeEventListener('touchstart', unlockAudio); };
+    window.addEventListener('click', unlockAudio, { once: true });
+    window.addEventListener('touchstart', unlockAudio, { once: true });
+    return () => { window.removeEventListener('click', unlockAudio); window.removeEventListener('touchstart', unlockAudio); };
+  }, []);
 
   const dismissNewBooking = (id: string) => {
     setNewBookingQueue(prev => {

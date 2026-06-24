@@ -2570,21 +2570,23 @@ Your uid is: ${user.uid}
 
   // ── Filtered + sorted bookings ─────────────────────────────────────────────
   const filtered = useMemo(() => {
-    let list = activeTab === 'completed'   ? [...completedBookings]
-             : activeTab === 'pending'     ? [...pendingTabBookings]
-             : activeTab === 'upcoming'    ? [...upcomingBookings]
-             : activeTab === 'failed'      ? [...failedBookings]
-             : activeTab === 'rescheduled' ? [...rescheduledBookings]
-             :                              [...activeBookings];
-    if (statusFilter !== 'all' && activeTab === 'active') list = list.filter(b => b.status === statusFilter);
+    let list: Booking[];
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter(b =>
+      list = bookings.filter(b =>
         (b.customerName  ?? '').toLowerCase().includes(q) ||
         (b.customerPhone ?? '').includes(q) ||
         (b.customerEmail ?? '').toLowerCase().includes(q) ||
         (b.paymentId     ?? '').toLowerCase().includes(q)
       );
+    } else {
+      list = activeTab === 'completed'   ? [...completedBookings]
+               : activeTab === 'pending'     ? [...pendingTabBookings]
+               : activeTab === 'upcoming'    ? [...upcomingBookings]
+               : activeTab === 'failed'      ? [...failedBookings]
+               : activeTab === 'rescheduled' ? [...rescheduledBookings]
+               :                              [...activeBookings];
+      if (statusFilter !== 'all' && activeTab === 'active') list = list.filter(b => b.status === statusFilter);
     }
     list.sort((a, b) => {
       let av: number | string = 0, bv: number | string = 0;
