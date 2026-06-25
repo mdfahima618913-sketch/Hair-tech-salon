@@ -786,9 +786,9 @@ function ServiceStep({
               <select value={applyAllStaff} onChange={e => setApplyAllStaff(e.target.value)}
                 className="flex-1 min-w-0 bg-zinc-900 border border-white/15 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-gold/40 cursor-pointer"
               >
-                <option value="">— Set staff for all services —</option>
+                <option value="" className="bg-zinc-800 text-white">— Set staff for all services —</option>
                 {activeStaff.map(s => (
-                  <option key={s.id} value={s.id}>{s.name}{s.role ? ` · ${s.role}` : ''} · {s.commissionRate}% comm</option>
+                  <option key={s.id} value={s.id} className="bg-zinc-800 text-white">{s.name}{s.role ? ` · ${s.role}` : ''} · {s.commissionRate}% comm</option>
                 ))}
               </select>
               <button
@@ -879,8 +879,8 @@ function ServiceStep({
                         }}
                         className="w-full bg-white/8 border border-white/12 rounded-xl py-2 px-3 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
                       >
-                        {allCategories_memo.map(c => <option key={c} value={c} className="bg-zinc-900">{c}</option>)}
-                        <option value="__new__" className="bg-zinc-900">＋ New category…</option>
+                        {allCategories_memo.map(c => <option key={c} value={c} className="bg-zinc-800 text-white">{c}</option>)}
+                        <option value="__new__" className="bg-zinc-800 text-white">＋ New category…</option>
                       </select>
                     )}
                     {(allCategories_memo.length === 0 || addForm.newCatName) && (
@@ -1156,7 +1156,7 @@ function SplitPaymentStep({
                 className="bg-zinc-900 border border-white/12 rounded-xl px-3 py-3 text-sm text-white focus:outline-none focus:border-gold/50 transition-all shrink-0"
               >
                 {PAYMENT_METHODS.filter(m => m.id !== 'online').map(m => (
-                  <option key={m.id} value={m.id}>{m.label}</option>
+                  <option key={m.id} value={m.id} className="bg-zinc-800 text-white">{m.label}</option>
                 ))}
               </select>
 
@@ -1734,7 +1734,7 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
               className="shrink-0 bg-zinc-900 border border-white/15 rounded-xl px-3 py-2.5 text-sm font-black text-white focus:outline-none focus:border-gold/40 transition-all cursor-pointer"
             >
               {TILE_METHODS.map(m => (
-                <option key={m.id} value={m.id}>{m.label}</option>
+                <option key={m.id} value={m.id} className="bg-zinc-800 text-white">{m.label}</option>
               ))}
             </select>
             {/* Compact amount input */}

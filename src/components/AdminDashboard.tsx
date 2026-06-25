@@ -4529,8 +4529,8 @@ Your uid is: ${user.uid}
                                             </div>
                                             <select value={it.staffId} onChange={e => updateEditItemStaff(i, e.target.value)}
                                               className="bg-zinc-800 border border-white/10 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-gold/50">
-                                              <option value="">No staff</option>
-                                              {staff.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                                              <option value="" className="bg-zinc-800 text-white">No staff</option>
+                                              {staff.map(s => <option key={s.id} value={s.id} className="bg-zinc-800 text-white">{s.name}</option>)}
                                             </select>
                                             <span className="text-xs font-black text-gold w-16 text-right">₹{it.price.toLocaleString('en-IN')}</span>
                                             <button onClick={() => removeEditItem(i)} className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-400/10" title="Remove item">
@@ -4558,7 +4558,7 @@ Your uid is: ${user.uid}
                                           <div key={i} className="flex items-center gap-2">
                                             <select value={s.method} onChange={e => updateEditSplit(i, { method: e.target.value as PaymentMethod })}
                                               className="bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-gold/50">
-                                              {EDIT_PAYMENT_METHODS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
+                                              {EDIT_PAYMENT_METHODS.map(m => <option key={m.id} value={m.id} className="bg-zinc-800 text-white">{m.label}</option>)}
                                             </select>
                                             <input type="text" inputMode="numeric" value={s.amount}
                                               onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ''); updateEditSplit(i, { amount: Number(v) || 0 }); }}
@@ -5409,7 +5409,7 @@ Your uid is: ${user.uid}
                       <select value={sSettings.slotStepMins}
                         onChange={e => setSSettings(p => ({ ...p, slotStepMins: +e.target.value }))}
                         className="w-40 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40">
-                        {[5, 10, 15, 20, 30, 60].map(v => <option key={v} value={v}>{v} minutes</option>)}
+                        {[5, 10, 15, 20, 30, 60].map(v => <option key={v} value={v} className="bg-zinc-800 text-white">{v} minutes</option>)}
                       </select>
                     </div>
 
@@ -5420,7 +5420,7 @@ Your uid is: ${user.uid}
                       <select value={sSettings.bufferMins}
                         onChange={e => setSSettings(p => ({ ...p, bufferMins: +e.target.value }))}
                         className="w-40 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40">
-                        {[0, 15, 30, 45, 60, 90, 120].map(v => <option key={v} value={v}>{v === 0 ? 'None' : `${v} minutes`}</option>)}
+                        {[0, 15, 30, 45, 60, 90, 120].map(v => <option key={v} value={v} className="bg-zinc-800 text-white">{v === 0 ? 'None' : `${v} minutes`}</option>)}
                       </select>
                     </div>
 
@@ -5446,9 +5446,9 @@ Your uid is: ${user.uid}
                       <select value={sSettings.defaultStaffId}
                         onChange={e => setSSettings(p => ({ ...p, defaultStaffId: e.target.value }))}
                         className="w-full max-w-xs bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40">
-                        <option value="">— None —</option>
+                        <option value="" className="bg-zinc-800 text-white">— None —</option>
                         {staff.map(s => (
-                          <option key={s.id} value={s.id}>{s.name}{s.role ? ` · ${s.role}` : ''} · {s.commissionRate}% comm</option>
+                          <option key={s.id} value={s.id} className="bg-zinc-800 text-white">{s.name}{s.role ? ` · ${s.role}` : ''} · {s.commissionRate}% comm</option>
                         ))}
                       </select>
                     </div>

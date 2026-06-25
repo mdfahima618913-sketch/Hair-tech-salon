@@ -97,8 +97,8 @@ function ServiceForm({
               }}
               className="w-full bg-white/8 border border-white/12 rounded-xl py-2.5 px-3 text-white text-sm focus:outline-none focus:border-gold/50 transition-all mb-1.5"
             >
-              {categories.map(c => <option key={c} value={c} className="bg-zinc-900">{c}</option>)}
-              <option value="__new__" className="bg-zinc-900">＋ New category…</option>
+              {categories.map(c => <option key={c} value={c} className="bg-zinc-800 text-white">{c}</option>)}
+              <option value="__new__" className="bg-zinc-800 text-white">＋ New category…</option>
             </select>
           )}
           {(addingNewCat || categories.length === 0) && (
