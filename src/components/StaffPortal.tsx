@@ -339,7 +339,7 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
       className={`relative rounded-3xl border p-4 ${highlight ? 'bg-gradient-to-br from-gold/12 to-gold/5 border-gold/30' : 'bg-zinc-900 border-white/10'}`}
     >
       {highlight && (
-        <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 bg-gold text-black text-[10px] font-black uppercase rounded-full">
+        <div className="absolute top-3 right-3 flex items-center gap-1 px-2.5 py-1 bg-gold text-black text-xs font-black uppercase rounded-full">
           <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
           {t('nextCustomer')}
         </div>
@@ -350,7 +350,7 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
         <div className="shrink-0 w-16 text-center pt-1">
           <p className="text-white font-black text-base leading-none">{time.split(' ')[0]}</p>
           <p className="text-gray-400 text-xs mt-0.5">{time.split(' ')[1] ?? ''}</p>
-          {showDate && <p className="text-gray-500 text-[10px] mt-1.5 font-bold">{fmtCardDate(booking.startTime)}</p>}
+          {showDate && <p className="text-gray-500 text-xs mt-1.5 font-bold">{fmtCardDate(booking.startTime)}</p>}
         </div>
         <div className="shrink-0 flex flex-col items-center gap-1 mt-1.5">
           <div className={`w-3 h-3 rounded-full ${st.dot}`} />
@@ -360,25 +360,25 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
           <p className="text-white font-black text-lg leading-tight">{booking.customerName || t('customer')}</p>
           <p className="text-gray-400 text-sm mt-0.5 truncate">{svc}</p>
           <div className="flex items-center gap-2 mt-2 flex-wrap">
-            <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black border ${st.bg} ${st.color}`}>
+            <span className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-sm font-black border ${st.bg} ${st.color}`}>
               <span className={`w-1.5 h-1.5 rounded-full ${st.dot}`} />
               {st.label}
             </span>
             {bookingIsPaid && (
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-black bg-emerald-500/15 border border-emerald-500/30 text-emerald-400">
                 {t('paid')}
               </span>
             )}
             {bookingIsOld && (
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-black bg-red-500/10 border border-red-500/25 text-red-400">
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-black bg-red-500/10 border border-red-500/25 text-red-400">
                 {t('old')}
               </span>
             )}
             {booking.totalAmount != null && booking.totalAmount > 0 && (
-              <span className="text-gold text-[11px] font-black">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
+              <span className="text-gold text-sm font-black">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
             )}
             {booking.lastCalledAt && (
-              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold bg-white/5 border border-white/10 text-gray-400">
+              <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-white/5 border border-white/10 text-gray-400">
                 <Phone size={10} /> {t('called')} {timeAgo(booking.lastCalledAt)}
               </span>
             )}
@@ -398,7 +398,7 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
           {booking.assignedStaffId ? booking.assignedStaffName?.charAt(0).toUpperCase() : <User size={14} />}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[9px] uppercase tracking-widest font-black text-gray-500">{t('assignedTo')}</p>
+          <p className="text-[11px] uppercase tracking-widest font-black text-gray-500">{t('assignedTo')}</p>
           <p className={`text-sm font-black truncate ${booking.assignedStaffId ? 'text-white' : 'text-amber-400'}`}>
             {booking.assignedStaffId ? booking.assignedStaffName : t('unassigned')}
           </p>
@@ -448,7 +448,7 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
           <MessageSquare size={16} />
           {(isPending && !active) && t('notes')}
           {notes.length > 0 && (
-            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gold text-black text-[10px] font-black flex items-center justify-center">
+            <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-gold text-black text-xs font-black flex items-center justify-center">
               {notes.length}
             </span>
           )}
@@ -507,7 +507,7 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
                   {notes.map((n, i) => (
                     <div key={i} className="bg-white/[0.04] border border-white/10 rounded-xl px-3 py-2">
                       <p className="text-white text-sm">{n.text}</p>
-                      <p className="text-gray-500 text-[10px] mt-1 font-bold">{n.byName} · {timeAgo(n.at)}</p>
+                      <p className="text-gray-500 text-xs mt-1 font-bold">{n.byName} · {timeAgo(n.at)}</p>
                     </div>
                   ))}
                 </div>
@@ -539,7 +539,7 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
                 </div>
               ) : (
                 <>
-                  <p className="text-[11px] font-black uppercase tracking-wider text-gold flex items-center gap-1.5">
+                  <p className="text-sm font-black uppercase tracking-wider text-gold flex items-center gap-1.5">
                     <CalendarCheck size={13} /> {t('pickNewSlot')}
                   </p>
                   {/* Date strip */}
@@ -549,7 +549,7 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
                       return (
                         <button key={d.toString()} onClick={() => { setEditDate(d); loadSlots(d, booking.serviceDurationMins ?? 60); }}
                           className={`shrink-0 w-12 h-14 rounded-xl flex flex-col items-center justify-center transition-all border py-2 ${ds ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.04] text-gray-400'}`}>
-                          <span className={`text-[10px] font-bold ${ds ? 'text-black/70' : 'text-gray-500'}`}>{isToday(d) ? t('today') : format(d, 'EEE')}</span>
+                          <span className={`text-xs font-bold ${ds ? 'text-black/70' : 'text-gray-500'}`}>{isToday(d) ? t('today') : format(d, 'EEE')}</span>
                           <span className="text-base font-black">{format(d, 'd')}</span>
                         </button>
                       );
@@ -568,11 +568,11 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
                         const Icon = sess === 'morning' ? Sun : sess === 'afternoon' ? CloudSun : Moon;
                         return (
                           <div key={sess}>
-                            <div className="flex items-center gap-1.5 mb-1"><Icon size={11} className="text-gray-500" /><span className="text-[10px] text-gray-500 font-bold capitalize">{t(sess)}</span></div>
+                            <div className="flex items-center gap-1.5 mb-1"><Icon size={11} className="text-gray-500" /><span className="text-xs text-gray-500 font-bold capitalize">{t(sess)}</span></div>
                             <div className="grid grid-cols-3 gap-1.5">
                               {editSlots.filter(s => s.session === sess).map(slot => (
                                 <button key={slot.startISO} onClick={() => setEditSelSlot(slot)}
-                                  className={`py-2.5 text-[11px] font-bold rounded-xl border transition-all ${editSelSlot?.startISO === slot.startISO ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.03] text-gray-400'}`}>
+                                  className={`py-2.5 text-sm font-bold rounded-xl border transition-all ${editSelSlot?.startISO === slot.startISO ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.03] text-gray-400'}`}>
                                   {slot.label.split('–')[0].trim()}
                                 </button>
                               ))}
@@ -671,15 +671,15 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
           <div className="grid grid-cols-3 gap-2">
             <div className="bg-black/35 rounded-2xl p-3 text-center">
               <p className="text-2xl font-black text-white">{confirmedToday.length}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{t('appointmentsToday')}</p>
+              <p className="text-sm text-gray-400 mt-0.5 leading-tight">{t('appointmentsToday')}</p>
             </div>
             <div className="bg-black/35 rounded-2xl p-3 text-center">
               <p className="text-2xl font-black text-emerald-400">{completedToday}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{t('doneToday')}</p>
+              <p className="text-sm text-gray-400 mt-0.5 leading-tight">{t('doneToday')}</p>
             </div>
             <div className="bg-black/35 rounded-2xl p-3 text-center">
               <p className="text-2xl font-black text-amber-400">{pendingToday.length}</p>
-              <p className="text-[11px] text-gray-400 mt-0.5 leading-tight">{t('pendingTab')}</p>
+              <p className="text-sm text-gray-400 mt-0.5 leading-tight">{t('pendingTab')}</p>
             </div>
           </div>
         </motion.div>
@@ -750,7 +750,7 @@ function HomeScreen({ staffMember, bookings, loading, staffList, onOpenAppointme
             <div className="flex items-center gap-2 mb-3">
               <Clock size={16} className="text-amber-400" />
               <p className="text-white font-black text-lg">{t('pendingTab')}</p>
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/25 text-amber-400 text-[10px] font-black">
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/25 text-amber-400 text-xs font-black">
                 {pendingToday.length}
               </span>
             </div>
@@ -832,7 +832,7 @@ function AppointmentsScreen({ staffMember, bookings, loading, staffList, onCreat
             }`}
           >
             {tb.icon} {tb.label}
-            <span className={`px-1.5 py-0.5 rounded-full text-[9px] ${subTab === tb.id ? 'bg-black/15' : 'bg-white/10'}`}>{tb.count}</span>
+            <span className={`px-1.5 py-0.5 rounded-full text-[11px] ${subTab === tb.id ? 'bg-black/15' : 'bg-white/10'}`}>{tb.count}</span>
           </button>
         ))}
       </div>
@@ -956,7 +956,7 @@ function NewAppointmentBanner({ booking, offset, onDismiss }: { booking: Booking
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isPending ? 'text-amber-400' : 'text-emerald-400'}`}>
+            <p className={`text-xs font-black uppercase tracking-widest mb-1 ${isPending ? 'text-amber-400' : 'text-emerald-400'}`}>
               {isPending ? '⏳ New Pending Booking' : '🔔 New Appointment'}
             </p>
             <p className="text-white font-bold text-sm leading-tight truncate">
@@ -964,7 +964,7 @@ function NewAppointmentBanner({ booking, offset, onDismiss }: { booking: Booking
             </p>
             <p className="text-gray-400 text-xs mt-0.5 truncate">{booking.serviceNames ?? booking.serviceName ?? '—'}</p>
             {booking.bookingTime && (
-              <span className="flex items-center gap-1 text-[10px] text-gray-500 font-bold mt-2">
+              <span className="flex items-center gap-1 text-xs text-gray-500 font-bold mt-2">
                 <Clock size={10} /> {booking.bookingTime}
               </span>
             )}
@@ -1236,7 +1236,7 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
           </div>
           <div className="flex items-center gap-2">
             <LanguageToggle />
-            <span className="px-2.5 py-1 bg-blue-500/15 border border-blue-500/25 rounded-full text-blue-400 text-[10px] font-black uppercase">Staff</span>
+            <span className="px-2.5 py-1 bg-blue-500/15 border border-blue-500/25 rounded-full text-blue-400 text-xs font-black uppercase">Staff</span>
             <span className="text-gray-300 text-sm font-black">{staffMember.name.split(' ')[0]}</span>
           </div>
         </div>
@@ -1274,7 +1274,7 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
               }`}
             >
               {tab_.icon}
-              <span className={`text-[11px] font-black leading-none ${tab === tab_.id ? 'text-black' : ''}`}>{tab_.label}</span>
+              <span className={`text-sm font-black leading-none ${tab === tab_.id ? 'text-black' : ''}`}>{tab_.label}</span>
             </button>
           ))}
         </div>

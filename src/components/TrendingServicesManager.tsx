@@ -142,12 +142,12 @@ export default function TrendingServicesManager() {
       {/* Pinned list */}
       <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-[10px] uppercase tracking-widest font-black text-gray-400">
+          <p className="text-xs uppercase tracking-widest font-black text-gray-400">
             Pinned ({pinnedServices.length}/{MAX_PINNED})
           </p>
           <button
             onClick={handleSave} disabled={saving}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gold text-black text-[10px] font-black uppercase tracking-wider hover:bg-gold/90 transition-all disabled:opacity-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gold text-black text-xs font-black uppercase tracking-wider hover:bg-gold/90 transition-all disabled:opacity-50"
           >
             {saving ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
             Save
@@ -173,7 +173,7 @@ export default function TrendingServicesManager() {
               const imgSrc = getServiceImage(service.name, service.category, (service as any).imageUrl);
               return (
                 <div key={service.id} className="flex items-center gap-3 bg-zinc-800 border border-white/10 rounded-xl p-2">
-                  <span className="w-6 h-6 shrink-0 rounded-full bg-gold/15 border border-gold/30 text-gold text-[10px] font-black flex items-center justify-center">
+                  <span className="w-6 h-6 shrink-0 rounded-full bg-gold/15 border border-gold/30 text-gold text-xs font-black flex items-center justify-center">
                     {i + 1}
                   </span>
                   <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 bg-zinc-950">
@@ -182,7 +182,7 @@ export default function TrendingServicesManager() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-xs font-bold truncate">{service.name}</p>
-                    <p className="text-[10px] text-gray-500">{service.category} · {service.price}</p>
+                    <p className="text-xs text-gray-500">{service.category} · {service.price}</p>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => moveUp(i)} disabled={i === 0}
@@ -207,7 +207,7 @@ export default function TrendingServicesManager() {
 
       {/* Available services */}
       <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
-        <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-3">Add a service</p>
+        <p className="text-xs uppercase tracking-widest font-black text-gray-400 mb-3">Add a service</p>
         <div className="relative mb-3">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
           <input type="text" placeholder="Search services…" value={search}
@@ -241,10 +241,10 @@ export default function TrendingServicesManager() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-white text-xs font-bold truncate">{service.name}</p>
-                    <p className="text-[10px] text-gray-500">{service.category} · {service.price}</p>
+                    <p className="text-xs text-gray-500">{service.category} · {service.price}</p>
                   </div>
                   <button onClick={() => addPin(service.id)} disabled={pinnedIds.length >= MAX_PINNED}
-                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gold/15 border border-gold/30 text-gold text-[10px] font-black hover:bg-gold/25 transition-all disabled:opacity-30">
+                    className="shrink-0 flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gold/15 border border-gold/30 text-gold text-xs font-black hover:bg-gold/25 transition-all disabled:opacity-30">
                     <Plus size={11} /> Pin
                   </button>
                 </div>

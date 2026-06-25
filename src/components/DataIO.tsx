@@ -544,7 +544,7 @@ export default function DataIO() {
               </div>
               <div>
                 <p className="text-white font-black text-sm">Customers</p>
-                <p className="text-gray-400 text-[10px]">Name, phone, visit stats, source</p>
+                <p className="text-gray-400 text-xs">Name, phone, visit stats, source</p>
               </div>
             </div>
             <button onClick={exportCustomers} disabled={exportStatus.customers === 'loading'}
@@ -561,19 +561,19 @@ export default function DataIO() {
               </div>
               <div>
                 <p className="text-white font-black text-sm">Invoices</p>
-                <p className="text-gray-400 text-[10px]">Full billing history with items & staff</p>
+                <p className="text-gray-400 text-xs">Full billing history with items & staff</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               <div className="relative">
                 <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type="date" value={invoiceFrom} onChange={e => setInvoiceFrom(e.target.value)}
-                  className="w-full bg-white/8 border border-white/12 rounded-lg py-1.5 pl-6 pr-2 text-white text-[10px] focus:outline-none focus:border-gold/40 transition-all" />
+                  className="w-full bg-white/8 border border-white/12 rounded-lg py-1.5 pl-6 pr-2 text-white text-xs focus:outline-none focus:border-gold/40 transition-all" />
               </div>
               <div className="relative">
                 <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type="date" value={invoiceTo} onChange={e => setInvoiceTo(e.target.value)}
-                  className="w-full bg-white/8 border border-white/12 rounded-lg py-1.5 pl-6 pr-2 text-white text-[10px] focus:outline-none focus:border-gold/40 transition-all" />
+                  className="w-full bg-white/8 border border-white/12 rounded-lg py-1.5 pl-6 pr-2 text-white text-xs focus:outline-none focus:border-gold/40 transition-all" />
               </div>
             </div>
             <button onClick={exportInvoices} disabled={exportStatus.invoices === 'loading'}
@@ -590,19 +590,19 @@ export default function DataIO() {
               </div>
               <div>
                 <p className="text-white font-black text-sm">Bookings</p>
-                <p className="text-gray-400 text-[10px]">Appointment history, status, amounts</p>
+                <p className="text-gray-400 text-xs">Appointment history, status, amounts</p>
               </div>
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               <div className="relative">
                 <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type="date" value={bookingFrom} onChange={e => setBookingFrom(e.target.value)}
-                  className="w-full bg-white/8 border border-white/12 rounded-lg py-1.5 pl-6 pr-2 text-white text-[10px] focus:outline-none focus:border-gold/40 transition-all" />
+                  className="w-full bg-white/8 border border-white/12 rounded-lg py-1.5 pl-6 pr-2 text-white text-xs focus:outline-none focus:border-gold/40 transition-all" />
               </div>
               <div className="relative">
                 <Calendar size={10} className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input type="date" value={bookingTo} onChange={e => setBookingTo(e.target.value)}
-                  className="w-full bg-white/8 border border-white/12 rounded-lg py-1.5 pl-6 pr-2 text-white text-[10px] focus:outline-none focus:border-gold/40 transition-all" />
+                  className="w-full bg-white/8 border border-white/12 rounded-lg py-1.5 pl-6 pr-2 text-white text-xs focus:outline-none focus:border-gold/40 transition-all" />
               </div>
             </div>
             <button onClick={exportBookings} disabled={exportStatus.bookings === 'loading'}
@@ -619,7 +619,7 @@ export default function DataIO() {
               </div>
               <div>
                 <p className="text-white font-black text-sm">Services</p>
-                <p className="text-gray-400 text-[10px]">Full catalogue with prices & images</p>
+                <p className="text-gray-400 text-xs">Full catalogue with prices & images</p>
               </div>
             </div>
             <button onClick={exportServices} disabled={exportStatus.services === 'loading'}
@@ -649,7 +649,7 @@ export default function DataIO() {
             <div className="flex items-center gap-1 bg-zinc-800 border border-white/10 rounded-xl p-1">
               {(['customers', 'services', 'invoices'] as ImportType[]).map(t => (
                 <button key={t} onClick={() => { setImportType(t); clearImport(); }}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                     importType === t
                       ? 'bg-amber-500/15 border border-amber-500/25 text-amber-400'
                       : 'text-gray-400 hover:text-white'
@@ -660,17 +660,17 @@ export default function DataIO() {
               ))}
             </div>
             <button onClick={() => downloadTemplate(importType)}
-              className="flex items-center gap-1.5 px-3 py-2 bg-white/8 border border-white/12 rounded-xl text-gray-300 text-[10px] font-black uppercase tracking-wider hover:text-white hover:bg-white/12 transition-all">
+              className="flex items-center gap-1.5 px-3 py-2 bg-white/8 border border-white/12 rounded-xl text-gray-300 text-xs font-black uppercase tracking-wider hover:text-white hover:bg-white/12 transition-all">
               <BookOpen size={11}/> Download Template
             </button>
           </div>
 
           {/* Schema hint */}
           <div className="bg-white/[0.03] border border-white/10 rounded-xl p-3">
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">Expected columns</p>
+            <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">Expected columns</p>
             <div className="flex flex-wrap gap-1.5">
               {TEMPLATES[importType].headers.map(h => (
-                <span key={h} className={`px-2 py-0.5 rounded-full text-[9px] font-bold border ${
+                <span key={h} className={`px-2 py-0.5 rounded-full text-[11px] font-bold border ${
                   h.includes('*') ? 'bg-amber-500/10 border-amber-500/25 text-amber-400'
                                   : 'bg-white/8 border-white/12 text-gray-400'
                 }`}>
@@ -678,7 +678,7 @@ export default function DataIO() {
                 </span>
               ))}
             </div>
-            <p className="text-[9px] text-gray-500 mt-2">
+            <p className="text-[11px] text-gray-500 mt-2">
               <span className="text-amber-400 font-black">*</span> = required &nbsp;·&nbsp; Column names must match exactly (download the template to be safe)
             </p>
           </div>
@@ -703,7 +703,7 @@ export default function DataIO() {
                 <p className="text-white font-bold text-sm">Drop your CSV here</p>
                 <p className="text-gray-400 text-xs mt-0.5">or click to browse</p>
               </div>
-              <p className="text-gray-500 text-[10px]">.csv files only · UTF-8 or Excel encoding</p>
+              <p className="text-gray-500 text-xs">.csv files only · UTF-8 or Excel encoding</p>
               <input ref={fileRef} type="file" accept=".csv" className="hidden"
                 onChange={e => handleFile(e.target.files?.[0] ?? null)} />
             </div>
@@ -726,7 +726,7 @@ export default function DataIO() {
 
               {/* Preview table */}
               <div>
-                <p className="text-[9px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">
                   Preview — first {Math.min(5, parsedRows.length)} of {parsedRows.length} rows
                 </p>
                 <div className="overflow-x-auto rounded-xl border border-white/12">
@@ -734,7 +734,7 @@ export default function DataIO() {
                     <thead>
                       <tr className="bg-white/[0.03] border-b border-white/10">
                         {parsedHeaders.map(h => (
-                          <th key={h} className="px-3 py-2 text-left text-[9px] font-black uppercase tracking-wider text-gray-400 whitespace-nowrap">{h}</th>
+                          <th key={h} className="px-3 py-2 text-left text-[11px] font-black uppercase tracking-wider text-gray-400 whitespace-nowrap">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -773,10 +773,10 @@ export default function DataIO() {
                   </summary>
                   <div className="px-4 pb-3 space-y-1">
                     {validationErrs.slice(0, 20).map((e, i) => (
-                      <p key={i} className="text-amber-400/80 text-[10px]">· {e}</p>
+                      <p key={i} className="text-amber-400/80 text-xs">· {e}</p>
                     ))}
                     {validationErrs.length > 20 && (
-                      <p className="text-gray-500 text-[10px]">…and {validationErrs.length - 20} more</p>
+                      <p className="text-gray-500 text-xs">…and {validationErrs.length - 20} more</p>
                     )}
                   </div>
                 </details>
@@ -811,7 +811,7 @@ export default function DataIO() {
                     {importResult.errors.length > 0 && <span className="text-red-400 font-bold">✗ {importResult.errors.length} errors</span>}
                   </div>
                   <button onClick={clearImport}
-                    className="text-[10px] text-gray-400 hover:text-white font-bold uppercase tracking-wider transition-colors">
+                    className="text-xs text-gray-400 hover:text-white font-bold uppercase tracking-wider transition-colors">
                     Import another file →
                   </button>
                 </div>

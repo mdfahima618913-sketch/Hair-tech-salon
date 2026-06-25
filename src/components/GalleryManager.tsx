@@ -194,7 +194,7 @@ export default function GalleryManager() {
             initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className="bg-zinc-900 border border-gold/20 rounded-2xl p-6 space-y-4"
           >
-            <p className="text-[10px] uppercase font-black tracking-widest text-gold">Add Gallery Image</p>
+            <p className="text-xs uppercase font-black tracking-widest text-gold">Add Gallery Image</p>
 
             {/* Upload mode toggle */}
             <div className="flex gap-2">
@@ -235,7 +235,7 @@ export default function GalleryManager() {
                     <p className="text-sm font-bold text-white/60 group-hover:text-white transition-colors">
                       {uploading ? 'Processing image…' : 'Tap to upload from phone or computer'}
                     </p>
-                    <p className="text-[10px] text-gray-700 mt-1">JPG, PNG, WEBP · Any size · Auto-compressed</p>
+                    <p className="text-xs text-gray-700 mt-1">JPG, PNG, WEBP · Any size · Auto-compressed</p>
                   </div>
                 </button>
               </div>
@@ -244,7 +244,7 @@ export default function GalleryManager() {
             {/* URL input */}
             {uploadMode === 'url' && (
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">
+                <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">
                   Image URL
                 </label>
                 <div className="relative">
@@ -286,7 +286,7 @@ export default function GalleryManager() {
 
             {/* Caption */}
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">
+              <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">
                 Caption / Quote <span className="text-red-400">*</span>
               </label>
               <textarea
@@ -300,7 +300,7 @@ export default function GalleryManager() {
 
             {/* Attribution */}
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">
+              <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">
                 Name / Attribution <span className="text-gray-700">(optional)</span>
               </label>
               <input
@@ -352,7 +352,7 @@ export default function GalleryManager() {
         </div>
       ) : (
         <div>
-          <p className="text-gray-400 text-[10px] uppercase tracking-wider font-bold mb-3">
+          <p className="text-gray-400 text-xs uppercase tracking-wider font-bold mb-3">
             {items.filter(i => i.active).length} active · {items.length} total
           </p>
           <div className="space-y-3">
@@ -382,7 +382,7 @@ export default function GalleryManager() {
                     {img.caption}
                   </p>
                   {img.name && (
-                    <p className="text-gold/60 text-[10px]">{img.name}</p>
+                    <p className="text-gold/60 text-xs">{img.name}</p>
                   )}
                   <span className={`inline-block mt-1.5 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider ${
                     img.active ? 'bg-emerald-500/80 text-black' : 'bg-white/10 text-white/50'
@@ -418,7 +418,7 @@ export default function GalleryManager() {
               </motion.div>
             ))}
           </div>
-          <p className="text-gray-700 text-[10px] uppercase tracking-wider font-bold mt-5 text-center">
+          <p className="text-gray-700 text-xs uppercase tracking-wider font-bold mt-5 text-center">
             Changes appear on the homepage immediately.
           </p>
         </div>

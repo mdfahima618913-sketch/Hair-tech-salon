@@ -242,7 +242,7 @@ export default function ExpenseManager() {
         <div className="grid grid-cols-3 divide-x divide-white/8">
           {/* Revenue */}
           <div className="p-4 space-y-1">
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1">
+            <p className="text-[11px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1">
               <TrendingUp size={9} /> Revenue
             </p>
             {revenue === null ? (
@@ -250,21 +250,21 @@ export default function ExpenseManager() {
             ) : (
               <p className="text-emerald-400 font-black text-lg leading-none">₹{fmt(revenue)}</p>
             )}
-            <p className="text-[9px] text-gray-600">{revenueCount} invoice{revenueCount !== 1 ? 's' : ''}</p>
+            <p className="text-[11px] text-gray-600">{revenueCount} invoice{revenueCount !== 1 ? 's' : ''}</p>
           </div>
 
           {/* Expenses */}
           <div className="p-4 space-y-1">
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1">
+            <p className="text-[11px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1">
               <TrendingDown size={9} /> Expenses
             </p>
             <p className="text-red-400 font-black text-lg leading-none">₹{fmt(totalExpenses)}</p>
-            <p className="text-[9px] text-gray-600">{expenses.length} entr{expenses.length !== 1 ? 'ies' : 'y'}</p>
+            <p className="text-[11px] text-gray-600">{expenses.length} entr{expenses.length !== 1 ? 'ies' : 'y'}</p>
           </div>
 
           {/* Net */}
           <div className="p-4 space-y-1">
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1">
+            <p className="text-[11px] font-black uppercase tracking-widest text-gray-500 flex items-center gap-1">
               <IndianRupee size={9} /> Net Profit
             </p>
             {netProfit === null ? (
@@ -274,7 +274,7 @@ export default function ExpenseManager() {
                 <p className={`font-black text-lg leading-none ${isProfit ? 'text-gold' : 'text-red-400'}`}>
                   {isProfit ? '+' : ''}₹{fmt(Math.abs(netProfit))}
                 </p>
-                <p className={`text-[9px] font-bold ${isProfit ? 'text-emerald-500' : 'text-red-500'}`}>
+                <p className={`text-[11px] font-bold ${isProfit ? 'text-emerald-500' : 'text-red-500'}`}>
                   {isProfit ? `${100 - expRatio}% margin` : `${expRatio}% over revenue`}
                 </p>
               </>
@@ -285,7 +285,7 @@ export default function ExpenseManager() {
         {/* Expense vs Revenue bar */}
         {revenue !== null && revenue > 0 && (
           <div className="px-4 pb-4 pt-2 space-y-2">
-            <div className="flex justify-between text-[9px] text-gray-500">
+            <div className="flex justify-between text-[11px] text-gray-500">
               <span>Expenses {expRatio}% of revenue</span>
               <span className={isProfit ? 'text-emerald-500' : 'text-red-500'}>
                 {isProfit ? 'Profitable' : 'Loss'}
@@ -305,13 +305,13 @@ export default function ExpenseManager() {
         {/* Category breakdown */}
         {catTotals.length > 0 && (
           <div className="border-t border-white/8 px-4 py-3 space-y-2">
-            <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Breakdown by Category</p>
+            <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">Breakdown by Category</p>
             <div className="space-y-2">
               {catTotals.map(c => (
                 <div key={c.id} className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5 w-28 shrink-0">
                     <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${c.dot}`} />
-                    <span className="text-[10px] text-gray-400 truncate">{c.label}</span>
+                    <span className="text-xs text-gray-400 truncate">{c.label}</span>
                   </div>
                   <div className="flex-1 h-1.5 rounded-full bg-white/8 overflow-hidden">
                     <motion.div
@@ -321,10 +321,10 @@ export default function ExpenseManager() {
                       className={`h-full rounded-full ${c.dot}`}
                     />
                   </div>
-                  <span className="text-[10px] font-black text-gray-300 w-20 text-right shrink-0">
+                  <span className="text-xs font-black text-gray-300 w-20 text-right shrink-0">
                     ₹{fmt(c.total)}
                   </span>
-                  <span className="text-[9px] text-gray-600 w-8 text-right shrink-0">
+                  <span className="text-[11px] text-gray-600 w-8 text-right shrink-0">
                     {totalExpenses > 0 ? Math.round((c.total / totalExpenses) * 100) : 0}%
                   </span>
                 </div>
@@ -355,14 +355,14 @@ export default function ExpenseManager() {
             className="overflow-hidden"
           >
             <div className="bg-zinc-900 border border-gold/20 rounded-2xl p-5 space-y-4">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gold flex items-center gap-1.5">
+              <p className="text-xs font-black uppercase tracking-widest text-gold flex items-center gap-1.5">
                 <ReceiptText size={11} /> New Expense
               </p>
 
               {/* Date + Amount row */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-wider text-gray-500">Date</label>
+                  <label className="text-[11px] font-black uppercase tracking-wider text-gray-500">Date</label>
                   <input
                     type="date"
                     value={form.date}
@@ -371,7 +371,7 @@ export default function ExpenseManager() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-wider text-gray-500">Amount (₹)</label>
+                  <label className="text-[11px] font-black uppercase tracking-wider text-gray-500">Amount (₹)</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm font-bold pointer-events-none">₹</span>
                     <input
@@ -386,13 +386,13 @@ export default function ExpenseManager() {
 
               {/* Category tiles */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-wider text-gray-500">Category</label>
+                <label className="text-[11px] font-black uppercase tracking-wider text-gray-500">Category</label>
                 <div className="grid grid-cols-5 gap-1.5">
                   {CATEGORIES.map(c => (
                     <button
                       key={c.id}
                       onClick={() => setForm(p => ({ ...p, category: c.id }))}
-                      className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-[9px] font-bold transition-all ${
+                      className={`flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-[11px] font-bold transition-all ${
                         form.category === c.id
                           ? `${c.bg} ${c.color} border-current`
                           : 'bg-white/[0.04] border-white/8 text-gray-500 hover:text-gray-300 hover:border-white/15'
@@ -407,7 +407,7 @@ export default function ExpenseManager() {
 
               {/* Description */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-wider text-gray-500">Description *</label>
+                <label className="text-[11px] font-black uppercase tracking-wider text-gray-500">Description *</label>
                 <input
                   type="text" placeholder="e.g. Wella Color Products, Electricity Bill, Rahul Salary…"
                   value={form.description}
@@ -419,7 +419,7 @@ export default function ExpenseManager() {
               {/* Paid To + Payment Method */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-wider text-gray-500">Paid To (optional)</label>
+                  <label className="text-[11px] font-black uppercase tracking-wider text-gray-500">Paid To (optional)</label>
                   <input
                     type="text" placeholder="Person or vendor name"
                     value={form.paidTo}
@@ -428,13 +428,13 @@ export default function ExpenseManager() {
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-[9px] font-black uppercase tracking-wider text-gray-500">Payment Method</label>
+                  <label className="text-[11px] font-black uppercase tracking-wider text-gray-500">Payment Method</label>
                   <div className="grid grid-cols-2 gap-1.5">
                     {PAYMENT_METHODS.map(m => (
                       <button
                         key={m.id}
                         onClick={() => setForm(p => ({ ...p, payment: m.id }))}
-                        className={`flex items-center gap-1.5 px-2 py-2 rounded-lg border text-[10px] font-bold transition-all ${
+                        className={`flex items-center gap-1.5 px-2 py-2 rounded-lg border text-xs font-bold transition-all ${
                           form.payment === m.id
                             ? 'bg-gold/15 border-gold/35 text-gold'
                             : 'bg-white/[0.04] border-white/8 text-gray-500 hover:text-gray-300'
@@ -449,7 +449,7 @@ export default function ExpenseManager() {
 
               {/* Notes */}
               <div className="space-y-1.5">
-                <label className="text-[9px] font-black uppercase tracking-wider text-gray-500">Notes (optional)</label>
+                <label className="text-[11px] font-black uppercase tracking-wider text-gray-500">Notes (optional)</label>
                 <input
                   type="text" placeholder="Any extra detail…"
                   value={form.notes}
@@ -492,7 +492,7 @@ export default function ExpenseManager() {
             <Filter size={11} className="text-gray-600 shrink-0" />
             <button
               onClick={() => setFilterCat('all')}
-              className={`shrink-0 px-3 py-1 rounded-full text-[10px] font-bold transition-all ${
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${
                 filterCat === 'all' ? 'bg-gold text-black' : 'bg-white/[0.06] text-gray-400 hover:text-white'
               }`}
             >
@@ -502,7 +502,7 @@ export default function ExpenseManager() {
               <button
                 key={c.id}
                 onClick={() => setFilterCat(filterCat === c.id ? 'all' : c.id)}
-                className={`shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-[10px] font-bold transition-all border ${
+                className={`shrink-0 flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold transition-all border ${
                   filterCat === c.id
                     ? `${c.bg} ${c.color} border-current`
                     : 'bg-white/[0.04] border-transparent text-gray-400 hover:text-white'
@@ -530,7 +530,7 @@ export default function ExpenseManager() {
           grouped.map(([date, dayExpenses]) => (
             <div key={date} className="space-y-1.5">
               {/* Date header */}
-              <p className="text-[9px] font-black uppercase tracking-widest text-gray-600 px-1">
+              <p className="text-[11px] font-black uppercase tracking-widest text-gray-600 px-1">
                 {format(parseISO(date), 'EEE, d MMM yyyy')}
                 <span className="ml-2 text-gray-700">
                   ₹{fmt(dayExpenses.reduce((a, e) => a + e.amount, 0))}
@@ -558,18 +558,18 @@ export default function ExpenseManager() {
                       <p className="text-white text-sm font-bold truncate">{exp.description}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         {exp.paidTo && (
-                          <span className="text-[10px] text-gray-500">→ {exp.paidTo}</span>
+                          <span className="text-xs text-gray-500">→ {exp.paidTo}</span>
                         )}
-                        <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full border ${cat.bg} ${cat.color}`}>
+                        <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded-full border ${cat.bg} ${cat.color}`}>
                           {cat.label}
                         </span>
                         {pm && (
-                          <span className="flex items-center gap-0.5 text-[9px] text-gray-600">
+                          <span className="flex items-center gap-0.5 text-[11px] text-gray-600">
                             <pm.Icon size={9} /> {pm.label.split(' ')[0]}
                           </span>
                         )}
                         {exp.notes && (
-                          <span className="text-[9px] text-gray-600 truncate max-w-[120px]">{exp.notes}</span>
+                          <span className="text-[11px] text-gray-600 truncate max-w-[120px]">{exp.notes}</span>
                         )}
                       </div>
                     </div>

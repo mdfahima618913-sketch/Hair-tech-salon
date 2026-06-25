@@ -65,7 +65,7 @@ export default function Offers() {
             initial={{ opacity: 0, scale: 0.85 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gold/30 bg-gold/8 text-gold text-[10px] font-black uppercase tracking-[0.3em] mb-5"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full border border-gold/30 bg-gold/8 text-gold text-xs font-black uppercase tracking-[0.3em] mb-5"
           >
             <Ticket size={11} />
             <span>Seasonal Lucky Draw</span>
@@ -132,7 +132,7 @@ export default function Offers() {
             <div className="absolute inset-0 flex flex-col justify-end p-6 sm:p-10">
               {/* Grand prize badge */}
               <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider text-black"
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black uppercase tracking-wider text-black"
                   style={{ background: 'linear-gradient(90deg, #D4AF37, #F0D060)' }}>
                   ✈️ {GRAND_PRIZE.badge}
                 </span>
@@ -186,7 +186,7 @@ export default function Offers() {
                 {/* Labels */}
                 <div className="absolute bottom-0 left-0 right-0 p-2.5 sm:p-3">
                   <p className="text-white font-bold text-[11px] sm:text-xs leading-tight">{prize.label}</p>
-                  <p className="text-gold/70 text-[9px] sm:text-[10px] font-medium mt-0.5">{prize.sub}</p>
+                  <p className="text-gold/70 text-[11px] sm:text-xs font-medium mt-0.5">{prize.sub}</p>
                 </div>
               </div>
             </motion.div>
@@ -196,7 +196,7 @@ export default function Offers() {
         {/* ── Divider ── */}
         <div className="flex items-center gap-4 mb-10 sm:mb-12">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent" />
-          <span className="text-gold/40 text-[10px] font-black uppercase tracking-widest">How to Enter</span>
+          <span className="text-gold/40 text-xs font-black uppercase tracking-widest">How to Enter</span>
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gold/20 to-transparent" />
         </div>
 
@@ -243,7 +243,7 @@ export default function Offers() {
               </div>
               <div className="flex items-center gap-1.5">
                 <CalendarCheck size={11} className="text-gold" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-gold">{entries}</span>
+                <span className="text-xs font-black uppercase tracking-widest text-gold">{entries}</span>
               </div>
             </div>
           ))}
@@ -254,7 +254,7 @@ export default function Offers() {
           initial={{ opacity: 0 }}
           whileInView={{ opacity: 1 }}
           viewport={{ once: true }}
-          className="text-center text-gray-700 text-[10px] uppercase tracking-widest font-bold mt-8"
+          className="text-center text-gray-700 text-xs uppercase tracking-widest font-bold mt-8"
         >
           Draw announced monthly · Winners on{' '}
           <a

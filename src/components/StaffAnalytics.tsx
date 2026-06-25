@@ -176,7 +176,7 @@ function StatPill({
   return (
     <div className="text-center p-3 rounded-xl bg-white/8">
       <p className={`font-black text-lg ${color}`}>{value}</p>
-      <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">{label}</p>
+      <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">{label}</p>
     </div>
   );
 }
@@ -435,7 +435,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
             <button
               key={p}
               onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                 period === p
                   ? 'bg-purple-500/20 border border-purple-500/30 text-purple-400'
                   : 'text-gray-500 hover:text-white'
@@ -475,7 +475,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
           >
             <Icon size={18} className={`${color} mx-auto mb-2`} />
             <p className={`font-black text-xl ${color}`}>{value}</p>
-            <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">
+            <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">
               {label}
             </p>
           </div>
@@ -508,7 +508,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
             </div>
             {/* Title + name */}
             <div className="flex-1 min-w-0">
-              <span className="text-[10px] font-black uppercase tracking-widest text-gold/70">
+              <span className="text-xs font-black uppercase tracking-widest text-gold/70">
                 Employee of the Month
               </span>
               <p className="text-white font-black text-xl leading-tight mt-0.5">
@@ -544,7 +544,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
         <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 text-center">
           <Crown size={28} className="text-gray-700 mx-auto mb-2" />
           <p className="text-gray-500 text-xs">No activity yet this month</p>
-          <p className="text-gray-700 text-[10px] mt-1">
+          <p className="text-gray-700 text-xs mt-1">
             Employee of the Month will appear once invoices are generated.
           </p>
         </div>
@@ -597,7 +597,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
               key={title}
               className={`bg-zinc-900 border ${border} rounded-2xl p-5 space-y-3`}
             >
-              <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">
+              <p className="text-xs uppercase tracking-widest font-black text-gray-500">
                 {title}
               </p>
               {active.length === 0 && (
@@ -616,7 +616,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                         {s.name}
                       </span>
                     </div>
-                    <span className={`text-[10px] font-black shrink-0 ${color}`}>
+                    <span className={`text-xs font-black shrink-0 ${color}`}>
                       {format(s[key] as number)}
                     </span>
                   </div>
@@ -633,7 +633,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                     className="flex items-center justify-between gap-2 opacity-30"
                   >
                     <span className="text-xs text-gray-500 truncate">{s.name}</span>
-                    <span className="text-[10px] text-gray-400">—</span>
+                    <span className="text-xs text-gray-400">—</span>
                   </div>
                 ))}
             </div>
@@ -646,10 +646,10 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
         <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-4">
             <Flame size={16} className="text-orange-400" />
-            <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">
+            <p className="text-xs uppercase tracking-widest font-black text-gray-500">
               Trending This Week
             </p>
-            <span className="text-[9px] text-gray-400 ml-auto">
+            <span className="text-[11px] text-gray-400 ml-auto">
               vs previous 7 days
             </span>
           </div>
@@ -661,7 +661,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-xs font-bold truncate">{s.name}</p>
-                  <p className="text-gray-400 text-[9px]">
+                  <p className="text-gray-400 text-[11px]">
                     ₹{s.thisWeek.toLocaleString('en-IN')} this week
                     {s.prevWeek > 0 && (
                       <> · ₹{s.prevWeek.toLocaleString('en-IN')} last week</>
@@ -669,7 +669,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                   </p>
                 </div>
                 <div
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black ${
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-black ${
                     s.pct > 0
                       ? 'bg-emerald-500/15 text-emerald-400'
                       : s.pct < 0
@@ -698,14 +698,14 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
         <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
           <div className="flex items-center gap-2 mb-1">
             <BarChart3 size={14} className="text-purple-400" />
-            <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">
+            <p className="text-xs uppercase tracking-widest font-black text-gray-500">
               Revenue Trend
             </p>
-            <span className="text-[9px] text-gray-400 ml-auto">
+            <span className="text-[11px] text-gray-400 ml-auto">
               Last 4 weeks · rightmost bar = current week
             </span>
           </div>
-          <p className="text-[9px] text-gray-700 mb-4">
+          <p className="text-[11px] text-gray-700 mb-4">
             Gold bar = current week · lighter bars = previous weeks
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -724,11 +724,11 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                     {s.name}
                   </p>
                   {s.role && (
-                    <p className="text-gray-400 text-[9px] mt-0.5">{s.role}</p>
+                    <p className="text-gray-400 text-[11px] mt-0.5">{s.role}</p>
                   )}
                 </div>
                 {/* Current-week revenue */}
-                <p className="text-gold text-[10px] font-black shrink-0">
+                <p className="text-gold text-xs font-black shrink-0">
                   ₹{s.weekValues[3].toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                 </p>
                 {/* 4-week bars */}
@@ -747,11 +747,11 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
           <div className="px-5 py-3 border-b border-white/12 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Users size={13} className="text-gray-500" />
-              <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">
+              <p className="text-xs uppercase tracking-widest font-black text-gray-500">
                 Full Performance Overview
               </p>
             </div>
-            <p className="text-[9px] text-gray-400">
+            <p className="text-[11px] text-gray-400">
               {stats.filter(s => s.services > 0).length} active staff
             </p>
           </div>
@@ -763,7 +763,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                     h => (
                       <th
                         key={h}
-                        className="py-2.5 px-4 text-left text-[9px] font-black uppercase tracking-widest text-gray-400"
+                        className="py-2.5 px-4 text-left text-[11px] font-black uppercase tracking-widest text-gray-400"
                       >
                         {h}
                       </th>
@@ -797,7 +797,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                                 {s.name}
                               </p>
                               {s.role && (
-                                <p className="text-gray-400 text-[9px] mt-0.5">
+                                <p className="text-gray-400 text-[11px] mt-0.5">
                                   {s.role}
                                 </p>
                               )}
@@ -824,7 +824,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                                 style={{ width: `${share}%` }}
                               />
                             </div>
-                            <span className="text-[10px] text-gray-500 font-bold w-7 text-right">
+                            <span className="text-xs text-gray-500 font-bold w-7 text-right">
                               {share}%
                             </span>
                           </div>
@@ -834,7 +834,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                   })}
               </tbody>
             </table>
-            <div className="px-5 py-2.5 border-t border-white/10 bg-white/[0.01] flex justify-between text-[10px] text-gray-400 font-bold">
+            <div className="px-5 py-2.5 border-t border-white/10 bg-white/[0.01] flex justify-between text-xs text-gray-400 font-bold">
               <span>Totals</span>
               <span className="flex gap-6">
                 <span>{totals.services} services</span>
@@ -855,7 +855,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
       {serviceLeaderboard.length > 0 && (
         <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
           <div className="px-5 py-3 border-b border-white/12">
-            <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
+            <p className="text-xs uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
               <Scissors size={12} />
               Service Performance Leaderboard
             </p>
@@ -877,13 +877,13 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                         <span className="text-white text-sm font-bold truncate block">
                           {service}
                         </span>
-                        <span className="text-gray-400 text-[9px]">
+                        <span className="text-gray-400 text-[11px]">
                           {totalCount} booking{totalCount !== 1 ? 's' : ''} total
                         </span>
                       </div>
                     </div>
                     <div className="flex items-center gap-3 shrink-0 ml-3">
-                      <span className="text-[10px] text-gray-500">
+                      <span className="text-xs text-gray-500">
                         {leaders[0]?.name} · {leaders[0]?.count}×
                       </span>
                       {isOpen ? (
@@ -917,7 +917,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                               <span className="text-white text-xs font-black">
                                 {l.count}×
                               </span>
-                              <span className="text-gold text-[10px] font-bold w-24 text-right">
+                              <span className="text-gold text-xs font-bold w-24 text-right">
                                 ₹{l.revenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                               </span>
                             </div>

@@ -204,14 +204,14 @@ function Steps({ current, steps }: { current: number; steps: string[] }) {
       {steps.map((label, i) => (
         <React.Fragment key={i}>
           <div className="flex items-center gap-1.5">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
               i < current    ? 'bg-emerald-500 text-white'
               : i === current ? 'bg-gold text-black scale-110 shadow-[0_0_12px_rgba(212,175,55,0.4)]'
               : 'bg-white/8 text-gray-400 border border-white/10'
             }`}>
               {i < current ? <CheckCircle2 size={13} /> : i + 1}
             </div>
-            <span className={`text-[10px] font-black uppercase tracking-wider ${
+            <span className={`text-xs font-black uppercase tracking-wider ${
               i === current ? 'text-gold' : i < current ? 'text-emerald-400' : 'text-gray-500'
             }`}>{label}</span>
           </div>
@@ -470,7 +470,7 @@ function CustomerStep({
                     <p className="text-gray-400 text-xs">{c.phone}</p>
                   </div>
                   {(c.visitCount ?? 0) > 0 && (
-                    <span className="text-[9px] text-amber-400 font-black shrink-0">{c.visitCount} visit{c.visitCount !== 1 ? 's' : ''}</span>
+                    <span className="text-[11px] text-amber-400 font-black shrink-0">{c.visitCount} visit{c.visitCount !== 1 ? 's' : ''}</span>
                   )}
                 </button>
               ))}
@@ -494,11 +494,11 @@ function CustomerStep({
                   <p className="text-white font-bold">{found.name || '—'}</p>
                   <p className="text-gray-400 text-xs">{found.phone}</p>
                   <div className="flex items-center gap-3 mt-1">
-                    <span className="text-[9px] text-emerald-400 font-black uppercase">{found.visitCount ?? 0} visits</span>
-                    <span className="text-[9px] text-gray-500">·</span>
-                    <span className="text-[9px] text-gray-400">₹{(found.totalSpend ?? 0).toLocaleString('en-IN')} total spend</span>
+                    <span className="text-[11px] text-emerald-400 font-black uppercase">{found.visitCount ?? 0} visits</span>
+                    <span className="text-[11px] text-gray-500">·</span>
+                    <span className="text-[11px] text-gray-400">₹{(found.totalSpend ?? 0).toLocaleString('en-IN')} total spend</span>
                     {(found.visitCount ?? 0) > 0 && (
-                      <span className="flex items-center gap-0.5 text-[9px] text-amber-400 font-black">
+                      <span className="flex items-center gap-0.5 text-[11px] text-amber-400 font-black">
                         <Star size={8} className="fill-current" /> Returning
                       </span>
                     )}
@@ -794,7 +794,7 @@ function ServiceStep({
               <button
                 onClick={() => items.forEach((_, idx) => onUpdateStaff(idx, applyAllStaff))}
                 disabled={!applyAllStaff}
-                className="shrink-0 px-3 py-1.5 rounded-lg bg-gold/15 border border-gold/30 text-gold text-[10px] font-black uppercase tracking-wide hover:bg-gold/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-gold/15 border border-gold/30 text-gold text-xs font-black uppercase tracking-wide hover:bg-gold/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Apply to All
               </button>
@@ -810,7 +810,7 @@ function ServiceStep({
           ))}
           {totalCommission > 0 && (
             <div className="flex items-center justify-between px-4 py-2 rounded-xl bg-emerald-500/8 border border-emerald-500/20">
-              <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total Commission</span>
+              <span className="text-xs text-gray-400 font-bold uppercase tracking-wider">Total Commission</span>
               <span className="text-emerald-400 font-black text-sm">₹{totalCommission.toLocaleString('en-IN')}</span>
             </div>
           )}
@@ -854,7 +854,7 @@ function ServiceStep({
               className="overflow-hidden"
             >
               <div className="bg-zinc-900 border border-gold/20 rounded-2xl p-4 space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-gold flex items-center gap-1.5">
+                <p className="text-xs font-black uppercase tracking-widest text-gold flex items-center gap-1.5">
                   <Tag size={10} /> Add New Service
                 </p>
 
@@ -1000,7 +1000,7 @@ function ServiceStep({
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
                         {count > 0 && (
-                          <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-gold text-black text-[9px] font-black flex items-center justify-center z-10">
+                          <span className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-gold text-black text-[11px] font-black flex items-center justify-center z-10">
                             {count}
                           </span>
                         )}
@@ -1012,13 +1012,13 @@ function ServiceStep({
                           <p className={`text-xs font-bold leading-snug line-clamp-2 ${count > 0 ? 'text-gold' : 'text-gray-100'}`}>
                             {service.name}
                           </p>
-                          <p className="text-[10px] text-gray-500 mt-0.5">{service.price} · {service.time}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">{service.price} · {service.time}</p>
                         </div>
 
                         {/* Qty counter */}
                         {count === 0 ? (
                           <button onClick={() => onAdd(service)}
-                            className="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg bg-gold/15 border border-gold/30 text-gold text-[10px] font-black hover:bg-gold/25 transition-all">
+                            className="w-full flex items-center justify-center gap-1 py-1.5 rounded-lg bg-gold/15 border border-gold/30 text-gold text-xs font-black hover:bg-gold/25 transition-all">
                             <Plus size={11} /> Add
                           </button>
                         ) : (
@@ -1044,7 +1044,7 @@ function ServiceStep({
         </div>
 
         {/* ── New service hint ── */}
-        <p className="text-center text-[10px] text-gray-600 pt-1">
+        <p className="text-center text-xs text-gray-600 pt-1">
           Service missing? Add it via <span className="text-gray-400 font-bold">Tools → Services</span>
         </p>
       </div>
@@ -1268,7 +1268,7 @@ function CommissionSplitEditor({ splits, totalCommission, onUpdate, onClose }: {
 
   return (
     <div className="bg-zinc-900 border border-gold/20 rounded-xl p-3 space-y-2.5">
-      <p className="text-[10px] font-black uppercase tracking-widest text-gold">Commission Split — ₹{totalCommission.toLocaleString('en-IN')} total</p>
+      <p className="text-xs font-black uppercase tracking-widest text-gold">Commission Split — ₹{totalCommission.toLocaleString('en-IN')} total</p>
       {local.map((s, i) => (
         <div key={s.staffId} className="flex items-center gap-2">
           <span className="flex-1 text-xs text-white truncate">{s.staffName}</span>
@@ -1279,19 +1279,19 @@ function CommissionSplitEditor({ splits, totalCommission, onUpdate, onClose }: {
             />
             <span className="text-gray-500 text-xs">%</span>
           </div>
-          <span className="text-emerald-400 text-[10px] font-bold w-16 text-right">
+          <span className="text-emerald-400 text-xs font-bold w-16 text-right">
             ₹{Math.round(totalCommission * s.splitPercent / 100).toLocaleString('en-IN')}
           </span>
         </div>
       ))}
       <div className="flex items-center justify-between pt-1 border-t border-white/8">
-        <span className={`text-[10px] font-bold ${isValid ? 'text-emerald-400' : 'text-red-400'}`}>
+        <span className={`text-xs font-bold ${isValid ? 'text-emerald-400' : 'text-red-400'}`}>
           Total: {sumPct}% {!isValid && '(must be 100%)'}
         </span>
         <div className="flex gap-2">
-          <button onClick={onClose} className="text-gray-500 text-[10px] font-bold hover:text-white">Cancel</button>
+          <button onClick={onClose} className="text-gray-500 text-xs font-bold hover:text-white">Cancel</button>
           <button onClick={save} disabled={!isValid}
-            className="px-3 py-1 rounded-lg bg-gold/20 border border-gold/30 text-gold text-[10px] font-black disabled:opacity-40"
+            className="px-3 py-1 rounded-lg bg-gold/20 border border-gold/30 text-gold text-xs font-black disabled:opacity-40"
           >
             Save
           </button>
@@ -1345,8 +1345,8 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
     <div className="bg-zinc-800/60 border border-white/12 rounded-2xl p-3.5 space-y-3">
       {/* Row 1: name · price · delete */}
       <div className="flex items-start gap-2">
-        <p className="flex-1 text-white font-semibold text-sm leading-snug">{item.serviceName}</p>
-        <span className="text-white font-black text-sm shrink-0">₹{item.price.toLocaleString('en-IN')}</span>
+        <p className="flex-1 text-white font-semibold text-base leading-snug">{item.serviceName}</p>
+        <span className="text-white font-black text-base shrink-0">₹{item.price.toLocaleString('en-IN')}</span>
         <button onClick={() => onRemove(idx)}
           className="w-6 h-6 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 flex items-center justify-center transition-all shrink-0 -mt-0.5">
           <X size={11} />
@@ -1361,7 +1361,7 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
             className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
             <Minus size={10} />
           </button>
-          <span className="px-2 text-white font-black text-xs min-w-[1.5rem] text-center">{qty}</span>
+          <span className="px-2 text-white font-black text-sm min-w-[1.5rem] text-center">{qty}</span>
           <button onClick={() => onUpdateQty(idx, qty + 1)}
             className="w-5 h-5 flex items-center justify-center text-gray-400 hover:text-white transition-colors">
             <Plus size={10} />
@@ -1370,10 +1370,10 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
 
         {/* Unit price */}
         <div className="flex items-center gap-1 bg-zinc-900 border border-white/12 rounded-lg px-2 py-1.5">
-          <span className="text-gray-500 text-xs">₹</span>
+          <span className="text-gray-500 text-sm">₹</span>
           <input type="number" min={0} value={unitPx}
             onChange={e => onUpdateUnitPrice(idx, Number(e.target.value))}
-            className="w-14 bg-transparent text-xs text-gray-200 text-right focus:outline-none focus:text-white transition-colors"
+            className="w-16 bg-transparent text-sm text-gray-200 text-right focus:outline-none focus:text-white transition-colors"
           />
         </div>
 
@@ -1381,13 +1381,13 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
         <div className="flex items-center gap-1 bg-zinc-900 border border-white/12 rounded-lg px-2 py-1.5">
           <input type="number" min={0} max={100} value={lineDisc}
             onChange={e => onUpdateLineDiscount(idx, Number(e.target.value))}
-            className="w-9 bg-transparent text-xs text-gray-200 text-right focus:outline-none focus:text-white transition-colors"
+            className="w-10 bg-transparent text-sm text-gray-200 text-right focus:outline-none focus:text-white transition-colors"
           />
-          <span className="text-gray-500 text-xs">%</span>
+          <span className="text-gray-500 text-sm">%</span>
         </div>
 
         {item.commissionAmount > 0 && (
-          <span className="ml-auto text-[10px] text-emerald-400 font-bold bg-emerald-500/8 border border-emerald-500/20 rounded-lg px-2 py-1 shrink-0">
+          <span className="ml-auto text-xs text-emerald-400 font-bold bg-emerald-500/8 border border-emerald-500/20 rounded-lg px-2.5 py-1 shrink-0">
             comm ₹{item.commissionAmount.toLocaleString('en-IN')}
           </span>
         )}
@@ -1457,7 +1457,7 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
                       {selected && <CheckCircle2 size={10} className="text-black" />}
                     </span>
                     <span className="flex-1 text-white truncate">{s.name}{s.role ? <span className="text-gray-500"> · {s.role}</span> : ''}</span>
-                    <span className="text-gray-500 text-[10px] font-bold">{s.commissionRate}%</span>
+                    <span className="text-gray-500 text-xs font-bold">{s.commissionRate}%</span>
                   </button>
                 );
               })}
@@ -1470,7 +1470,7 @@ function CartItemRow({ item, idx, staff, onRemove, onUpdateQty, onUpdateUnitPric
       {isMulti && (
         <div className="flex items-center gap-2 flex-wrap">
           <button onClick={() => setShowSplitEditor(!showSplitEditor)}
-            className="flex items-center gap-1.5 text-[10px] font-bold text-gold hover:text-yellow-300"
+            className="flex items-center gap-1.5 text-xs font-bold text-gold hover:text-yellow-300"
           >
             <Edit2 size={10} /> Edit Commission Split
           </button>
@@ -1506,7 +1506,7 @@ function SummaryPanel({ subtotal, discountPercent, onDiscountChange, total, item
   const discAmt = Math.round(subtotal * discountPercent / 100);
   return (
     <div className="flex flex-col h-full p-4 sm:p-6 gap-4 sm:gap-5">
-      <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Payment Details</p>
+      <p className="text-xs font-black uppercase tracking-widest text-gray-400">Payment Details</p>
 
       <div className="space-y-3">
         <div className="flex justify-between text-sm">
@@ -1693,7 +1693,7 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
           </span>
           <div className="text-right">
             <p className="text-emerald-400 font-black text-sm">-₹{alreadyPaidAmount.toLocaleString('en-IN')}</p>
-            <p className="text-gray-500 text-[10px]">Bal: ₹{remainingToCover.toLocaleString('en-IN')}</p>
+            <p className="text-gray-500 text-xs">Bal: ₹{remainingToCover.toLocaleString('en-IN')}</p>
           </div>
         </div>
       )}
@@ -1701,7 +1701,7 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
       {/* Tile grid */}
       {(!isOnline || remainingToCover > 0) && (
         <>
-          <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Payment Modes</p>
+          <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">Payment Modes</p>
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {TILE_METHODS.map(m => {
               const active = splits.some(s => s.method === m.id);
@@ -1724,7 +1724,7 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
 
       {/* Breakdown */}
       <div className="flex-1 space-y-2">
-        <p className="text-[9px] font-black uppercase tracking-widest text-gray-500">Payment Breakdown</p>
+        <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">Payment Breakdown</p>
         {splits.map((split, i) => (
           <div key={i} className="flex items-center gap-2">
             {/* Editable method — dropdown so user can change after adding */}
@@ -1802,12 +1802,12 @@ function PaymentTilePanel({ total, alreadyPaidAmount, splits, onSplitsChange, am
         return (
           <div className="bg-purple-500/8 border border-purple-500/20 rounded-2xl p-3.5 space-y-2.5">
             <div className="flex items-center justify-between">
-              <p className="text-[10px] font-black uppercase tracking-widest text-purple-400">
+              <p className="text-xs font-black uppercase tracking-widest text-purple-400">
                 🎟️ Promo Coupons
               </p>
-              <span className="text-[10px] text-purple-300 font-bold">{promoCoupons.length} / {maxCoupons}</span>
+              <span className="text-xs text-purple-300 font-bold">{promoCoupons.length} / {maxCoupons}</span>
             </div>
-            <p className="text-[10px] text-gray-500">Add up to {maxCoupons} coupon{maxCoupons > 1 ? 's' : ''} (1 per ₹1,000 spent)</p>
+            <p className="text-xs text-gray-500">Add up to {maxCoupons} coupon{maxCoupons > 1 ? 's' : ''} (1 per ₹1,000 spent)</p>
             <div className="space-y-1.5">
               {promoCoupons.map((code, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -1994,18 +1994,18 @@ function InvoicePreview({ invoice, customer, onClose }: {
         <div className="text-center mb-4">
           <p className="font-black text-xl uppercase tracking-tight">Hair Tech</p>
           <p className="font-bold text-sm">Unisex Salon, Araria</p>
-          <p className="text-gray-500 text-[10px]">+91 87896 03343</p>
+          <p className="text-gray-500 text-xs">+91 87896 03343</p>
           <div className="flex justify-center gap-1 mt-2">
-            <span className={`text-[9px] px-2 py-0.5 rounded border ${invoice.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+            <span className={`text-[11px] px-2 py-0.5 rounded border ${invoice.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
               {invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}
             </span>
             {invoice.billingType === 'vvip' && (
-              <span className="text-[9px] px-2 py-0.5 rounded border bg-gold/15 border-gold/40 text-gold font-black flex items-center gap-1">
+              <span className="text-[11px] px-2 py-0.5 rounded border bg-gold/15 border-gold/40 text-gold font-black flex items-center gap-1">
                 <Crown size={9} /> VVIP
               </span>
             )}
           </div>
-          <div className="mt-2 text-[9px] text-gray-400 space-y-0.5">
+          <div className="mt-2 text-[11px] text-gray-400 space-y-0.5">
             <p>Invoice: <span className="font-black text-black">{invoice.invoiceNumber}</span></p>
             <p>{new Date().toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
           </div>
@@ -2023,14 +2023,14 @@ function InvoicePreview({ invoice, customer, onClose }: {
           </div>
           <div className="flex justify-between text-xs">
             <span className="text-gray-500">Source</span>
-            <span className={`text-[9px] px-2 py-0.5 rounded border font-bold ${invoice.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+            <span className={`text-[11px] px-2 py-0.5 rounded border font-bold ${invoice.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
               {invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}
             </span>
           </div>
           {invoice.billingType === 'vvip' && (
             <div className="flex justify-between text-xs">
               <span className="text-gray-500">Tier</span>
-              <span className="text-[9px] px-2 py-0.5 rounded border font-black bg-amber-50 border-amber-300 text-amber-700 flex items-center gap-1">
+              <span className="text-[11px] px-2 py-0.5 rounded border font-black bg-amber-50 border-amber-300 text-amber-700 flex items-center gap-1">
                 <Crown size={9} /> VVIP
               </span>
             </div>
@@ -2039,7 +2039,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
 
         {/* Items */}
         <div className="border-t border-dashed border-gray-300 pt-3 mb-3 space-y-2.5">
-          <p className="text-[9px] font-black uppercase tracking-wider text-gray-500">Services</p>
+          <p className="text-[11px] font-black uppercase tracking-wider text-gray-500">Services</p>
           {invoice.items.map((item, i) => (
             <div key={i} className="space-y-0.5">
               <div className="flex justify-between items-start">
@@ -2047,21 +2047,21 @@ function InvoicePreview({ invoice, customer, onClose }: {
                 <span className="text-black font-bold shrink-0 text-xs">₹{item.price.toLocaleString('en-IN')}</span>
               </div>
               {(item.quantity ?? 1) > 1 && (
-                <p className="text-[9px] text-gray-400 pl-1">₹{item.unitPrice.toLocaleString('en-IN')} × {item.quantity}</p>
+                <p className="text-[11px] text-gray-400 pl-1">₹{item.unitPrice.toLocaleString('en-IN')} × {item.quantity}</p>
               )}
               {item.lineDiscount > 0 && (
-                <p className="text-[9px] text-red-500 pl-1">Line discount: {item.lineDiscount}%</p>
+                <p className="text-[11px] text-red-500 pl-1">Line discount: {item.lineDiscount}%</p>
               )}
               {item.staffSplits && item.staffSplits.length > 1 ? (
                 <div className="pl-1 space-y-0.5">
                   {item.staffSplits.map(sp => (
-                    <p key={sp.staffId} className="text-[9px] text-gray-400">
+                    <p key={sp.staffId} className="text-[11px] text-gray-400">
                       {sp.staffName} · {sp.splitPercent}% → ₹{sp.commissionAmount.toLocaleString('en-IN')}
                     </p>
                   ))}
                 </div>
               ) : item.staffName ? (
-                <p className="text-[9px] text-gray-400 pl-1">
+                <p className="text-[11px] text-gray-400 pl-1">
                   Staff: {item.staffName} · {item.commissionRate}% (₹{item.commissionAmount.toLocaleString('en-IN')})
                 </p>
               ) : null}
@@ -2102,7 +2102,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
             const hasDue = (invoice.amountDue ?? 0) > 0;
             return (
               <div className="pt-2 space-y-1.5">
-                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-black">Payment</p>
+                <p className="text-[11px] text-gray-500 uppercase tracking-wider font-black">Payment</p>
                 {(invoice.paymentSplits?.length ?? 0) > 0 ? (
                   <>
                     {invoice.paymentSplits.map((s, i) => (
@@ -2130,7 +2130,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
                   <span>
                     {hasDue ? 'Balance Due' : '✓ Fully Paid'}
                     {hasDue && (
-                      <span className="font-normal text-[9px] text-gray-400 ml-1">
+                      <span className="font-normal text-[11px] text-gray-400 ml-1">
                         (₹{invoice.total.toLocaleString('en-IN')} − ₹{effectivePaid.toLocaleString('en-IN')})
                       </span>
                     )}
@@ -2150,7 +2150,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
                   </div>
                 )}
                 {invoice.paymentId && (
-                  <div className="flex justify-between text-[9px] text-gray-400">
+                  <div className="flex justify-between text-[11px] text-gray-400">
                     <span>Ref ID</span><span className="font-mono">{invoice.paymentId}</span>
                   </div>
                 )}
@@ -2171,9 +2171,9 @@ function InvoicePreview({ invoice, customer, onClose }: {
           });
           return (
             <div className="border-t border-dashed border-gray-300 pt-2.5 mt-2.5">
-              <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider mb-1.5">Staff Commission</p>
+              <p className="text-[11px] text-gray-400 font-black uppercase tracking-wider mb-1.5">Staff Commission</p>
               {Object.entries(commAgg).map(([name, amt]) => (
-                <div key={name} className="flex justify-between text-[10px] text-gray-400">
+                <div key={name} className="flex justify-between text-xs text-gray-400">
                   <span>{name}</span><span>₹{(amt as number).toLocaleString('en-IN')}</span>
                 </div>
               ))}
@@ -2183,9 +2183,9 @@ function InvoicePreview({ invoice, customer, onClose }: {
 
         {(invoice.promoCoupons?.length ?? 0) > 0 && (
           <div className="border-t border-dashed border-gray-300 pt-2.5 mt-2.5">
-            <p className="text-[9px] text-purple-500 font-black uppercase tracking-wider mb-1.5">🎟️ Promo Coupons</p>
+            <p className="text-[11px] text-purple-500 font-black uppercase tracking-wider mb-1.5">🎟️ Promo Coupons</p>
             {invoice.promoCoupons!.map((c, i) => (
-              <div key={i} className="flex justify-between text-[10px]">
+              <div key={i} className="flex justify-between text-xs">
                 <span className="text-gray-400">★</span>
                 <span className="font-bold font-mono tracking-[3px] text-purple-600">{c}</span>
               </div>
@@ -2193,7 +2193,7 @@ function InvoicePreview({ invoice, customer, onClose }: {
           </div>
         )}
 
-        <div className="border-t border-dashed border-gray-300 mt-4 pt-3 text-center text-[9px] text-gray-400">
+        <div className="border-t border-dashed border-gray-300 mt-4 pt-3 text-center text-[11px] text-gray-400">
           Thank you for visiting Hair Tech Salon!<br/>Follow us @hairtech111
         </div>
       </div>
@@ -2725,7 +2725,7 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
               <p className="text-white font-black text-xs sm:text-sm leading-none truncate">
                 {isOnlineFlow ? 'Online Booking Bill' : 'Express Billing'}
               </p>
-              {customer && <p className="text-gold/70 text-[10px] mt-0.5 truncate">{customer.name} · {customer.phone}</p>}
+              {customer && <p className="text-gold/70 text-xs mt-0.5 truncate">{customer.name} · {customer.phone}</p>}
             </div>
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
@@ -2733,7 +2733,7 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
               <div className="hidden sm:flex items-center bg-white/[0.04] border border-white/10 rounded-xl p-1 gap-1">
                 <button
                   onClick={() => setBillingType('standard')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${
                     billingType === 'standard'
                       ? 'bg-white/10 text-white'
                       : 'text-gray-500 hover:text-gray-300'
@@ -2743,7 +2743,7 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
                 </button>
                 <button
                   onClick={() => setBillingType('vvip')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${
                     billingType === 'vvip'
                       ? 'bg-gold/20 border border-gold/40 text-gold'
                       : 'text-gray-500 hover:text-gray-300'
@@ -2769,11 +2769,11 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
             {/* Standard/VVIP toggle — mobile only (hidden on sm+ where it's in the header) */}
             <div className="flex sm:hidden items-center bg-white/[0.04] border border-white/10 rounded-lg p-0.5 gap-0.5">
               <button onClick={() => setBillingType('standard')}
-                className={`px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${billingType === 'standard' ? 'bg-white/10 text-white' : 'text-gray-500'}`}>
+                className={`px-2 py-1 rounded-md text-[11px] font-black uppercase transition-all ${billingType === 'standard' ? 'bg-white/10 text-white' : 'text-gray-500'}`}>
                 Standard
               </button>
               <button onClick={() => setBillingType('vvip')}
-                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[9px] font-black uppercase transition-all ${billingType === 'vvip' ? 'bg-gold/20 text-gold' : 'text-gray-500'}`}>
+                className={`flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-black uppercase transition-all ${billingType === 'vvip' ? 'bg-gold/20 text-gold' : 'text-gray-500'}`}>
                 <Crown size={10} /> VVIP
               </button>
             </div>
@@ -2782,7 +2782,7 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
               className="flex items-center gap-1.5 bg-white/[0.04] border border-white/10 rounded-xl px-2.5 py-1.5 cursor-pointer hover:border-gold/40 transition-all"
             >
               <Calendar size={12} className="text-gray-400 shrink-0" />
-              <span className="text-gray-400 text-[10px] font-bold uppercase tracking-wide">Bill Date</span>
+              <span className="text-gray-400 text-xs font-bold uppercase tracking-wide">Bill Date</span>
               <input
                 type="date"
                 value={billingDate}
@@ -2819,7 +2819,7 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
                         <span className="text-red-400 text-xs font-black">Due: ₹{outstandingDue.toLocaleString('en-IN')}</span>
                         <button
                           onClick={() => setSettleDues(s => !s)}
-                          className={`px-2.5 py-1 rounded-lg text-[10px] font-black border transition-all ${
+                          className={`px-2.5 py-1 rounded-lg text-xs font-black border transition-all ${
                             settleDues
                               ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
                               : 'bg-amber-500/10 border-amber-500/25 text-amber-400 hover:bg-amber-500/20'
@@ -2829,11 +2829,11 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
                         </button>
                       </div>
                     ) : (
-                      <span className="text-[10px] text-emerald-400 font-black shrink-0">No dues</span>
+                      <span className="text-xs text-emerald-400 font-black shrink-0">No dues</span>
                     )}
                   </div>
                   {outstandingDue > 0 && (
-                    <p className={`text-[10px] px-4 pb-3 -mt-1 ${settleDues ? 'text-emerald-400/70' : 'text-red-300/70'}`}>
+                    <p className={`text-xs px-4 pb-3 -mt-1 ${settleDues ? 'text-emerald-400/70' : 'text-red-300/70'}`}>
                       {settleDues
                         ? `₹${outstandingDue.toLocaleString('en-IN')} will be added to this bill and cleared on checkout.`
                         : 'Unpaid balance from a previous visit — settle now or carry forward.'}
@@ -2849,7 +2849,7 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
                     <span className="text-sky-400 text-xs font-black">Advance Available: ₹{advanceBalance.toLocaleString('en-IN')}</span>
                     <button
                       onClick={() => setUseAdvance(s => !s)}
-                      className={`px-2.5 py-1 rounded-lg text-[10px] font-black border transition-all ${
+                      className={`px-2.5 py-1 rounded-lg text-xs font-black border transition-all ${
                         useAdvance
                           ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
                           : 'bg-sky-500/10 border-sky-500/25 text-sky-400 hover:bg-sky-500/20'
@@ -2858,7 +2858,7 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
                       {useAdvance ? '✓ Applying' : 'Apply to Bill'}
                     </button>
                   </div>
-                  <p className={`text-[10px] px-4 pb-3 -mt-1 ${useAdvance ? 'text-emerald-400/70' : 'text-sky-300/70'}`}>
+                  <p className={`text-xs px-4 pb-3 -mt-1 ${useAdvance ? 'text-emerald-400/70' : 'text-sky-300/70'}`}>
                     {useAdvance
                       ? `₹${advanceSettlementAmount.toLocaleString('en-IN')} will be deducted from this bill's total.`
                       : 'Credit from a previous over-payment — apply it to reduce this bill.'}

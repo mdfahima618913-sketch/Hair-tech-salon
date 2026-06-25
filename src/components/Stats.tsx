@@ -54,7 +54,7 @@ export default function Stats() {
                 <Icon size={20} />
               </div>
               <Counter value={value} suffix={suffix} />
-              <p className="text-gray-500 text-[10px] uppercase tracking-[0.2em] font-bold mt-1.5">{label}</p>
+              <p className="text-gray-500 text-xs uppercase tracking-[0.2em] font-bold mt-1.5">{label}</p>
             </motion.div>
           ))}
         </div>

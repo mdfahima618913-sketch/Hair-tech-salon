@@ -61,14 +61,14 @@ function ServiceForm({
       initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }}
       className="bg-zinc-950 border border-gold/20 rounded-2xl p-5 space-y-4"
     >
-      <p className="text-[10px] uppercase font-black tracking-widest text-gold">
+      <p className="text-xs uppercase font-black tracking-widest text-gold">
         {isNew ? 'Add New Service' : 'Edit Service'}
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {/* Name */}
         <div className="sm:col-span-2">
-          <label className="text-[10px] text-gray-400 font-black uppercase tracking-wider block mb-1.5">
+          <label className="text-xs text-gray-400 font-black uppercase tracking-wider block mb-1.5">
             Service Name *
           </label>
           <input
@@ -80,7 +80,7 @@ function ServiceForm({
 
         {/* Category */}
         <div>
-          <label className="text-[10px] text-gray-400 font-black uppercase tracking-wider block mb-1.5">
+          <label className="text-xs text-gray-400 font-black uppercase tracking-wider block mb-1.5">
             Category *
           </label>
           {categories.length > 0 && (
@@ -114,7 +114,7 @@ function ServiceForm({
 
         {/* Price */}
         <div>
-          <label className="text-[10px] text-gray-400 font-black uppercase tracking-wider block mb-1.5">
+          <label className="text-xs text-gray-400 font-black uppercase tracking-wider block mb-1.5">
             Price (₹) *
           </label>
           <div className="relative">
@@ -130,7 +130,7 @@ function ServiceForm({
 
         {/* Duration */}
         <div>
-          <label className="text-[10px] text-gray-400 font-black uppercase tracking-wider block mb-1.5">
+          <label className="text-xs text-gray-400 font-black uppercase tracking-wider block mb-1.5">
             Duration
           </label>
           <input
@@ -142,7 +142,7 @@ function ServiceForm({
 
         {/* Image URL */}
         <div className="sm:col-span-2">
-          <label className="text-[10px] text-gray-400 font-black uppercase tracking-wider block mb-1.5">
+          <label className="text-xs text-gray-400 font-black uppercase tracking-wider block mb-1.5">
             Image URL
           </label>
           <div className="flex gap-2 items-start">
@@ -171,7 +171,7 @@ function ServiceForm({
               />
             </div>
           </div>
-          <p className="text-[10px] text-gray-500 mt-1.5">
+          <p className="text-xs text-gray-500 mt-1.5">
             {form.imageUrl
               ? 'Custom image set — click × to revert to auto.'
               : 'Auto-resolved from service name & category. Paste a URL to override.'}
@@ -410,7 +410,7 @@ export default function ServiceManager() {
         <div className="flex items-center gap-1.5 w-max">
           <button
             onClick={() => setCatFilter('')}
-            className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border whitespace-nowrap transition-all ${
+            className={`px-3 py-1 rounded-full text-[11px] font-black uppercase border whitespace-nowrap transition-all ${
               !catFilter ? 'bg-white/15 border-white/30 text-white' : 'bg-white/8 border-white/15 text-gray-300 hover:text-white'
             }`}
           >
@@ -419,7 +419,7 @@ export default function ServiceManager() {
           {categories.map(c => (
             <button key={c}
               onClick={() => setCatFilter(c === catFilter ? '' : c)}
-              className={`px-3 py-1 rounded-full text-[9px] font-black uppercase border whitespace-nowrap transition-all ${
+              className={`px-3 py-1 rounded-full text-[11px] font-black uppercase border whitespace-nowrap transition-all ${
                 catFilter === c ? 'bg-gold/20 border-gold/40 text-gold' : 'bg-white/8 border-white/15 text-gray-300 hover:text-white'
               }`}
             >
@@ -453,7 +453,7 @@ export default function ServiceManager() {
                 </button>
                 <button
                   onClick={() => { startNew(cat); }}
-                  className="flex items-center gap-1 px-2.5 py-1 bg-gold/10 border border-gold/25 rounded-lg text-gold text-[9px] font-black uppercase hover:bg-gold/20 transition-all shrink-0"
+                  className="flex items-center gap-1 px-2.5 py-1 bg-gold/10 border border-gold/25 rounded-lg text-gold text-[11px] font-black uppercase hover:bg-gold/20 transition-all shrink-0"
                 >
                   <Plus size={10} /> Add
                 </button>
@@ -522,7 +522,7 @@ export default function ServiceManager() {
                             {/* Info strip */}
                             <div className="px-3 py-2.5 bg-zinc-900">
                               <p className="text-white text-xs font-bold leading-snug line-clamp-2">{s.name}</p>
-                              <span className="flex items-center gap-1 text-[10px] text-gray-400 mt-1">
+                              <span className="flex items-center gap-1 text-xs text-gray-400 mt-1">
                                 <Clock size={9}/>{s.time}
                               </span>
                             </div>

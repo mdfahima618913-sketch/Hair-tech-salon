@@ -209,7 +209,7 @@ function PinPromptModal({ targetView, pin, onSuccess, onCancel }: {
       <div className="bg-zinc-900 border border-white/15 rounded-2xl p-6 w-[280px] text-center" onClick={e => e.stopPropagation()}>
         <Lock size={20} className="text-gold mx-auto mb-3" />
         <p className="text-white font-black text-sm mb-1">Enter PIN</p>
-        <p className="text-gray-500 text-[10px] mb-5 capitalize">{targetView}</p>
+        <p className="text-gray-500 text-xs mb-5 capitalize">{targetView}</p>
         <div className="flex justify-center gap-3 mb-4">
           {digits.map((d, i) => (
             <input
@@ -275,7 +275,7 @@ function NewBookingBanner({ booking, onDismiss, onAccept, onReview }: NewBooking
           </div>
 
           <div className="flex-1 min-w-0">
-            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isPending ? 'text-amber-400' : 'text-emerald-400'}`}>
+            <p className={`text-xs font-black uppercase tracking-widest mb-1 ${isPending ? 'text-amber-400' : 'text-emerald-400'}`}>
               {isPending ? '⏳ New Pending Booking — Review Required' : '🔔 New Booking — Action Required'}
             </p>
             <p className="text-white font-bold text-sm leading-tight truncate">
@@ -284,12 +284,12 @@ function NewBookingBanner({ booking, onDismiss, onAccept, onReview }: NewBooking
             <p className="text-gray-400 text-xs mt-0.5 truncate">{booking.serviceNames ?? '—'}</p>
             <div className="flex items-center gap-3 mt-2 flex-wrap">
               {booking.bookingTime && (
-                <span className="flex items-center gap-1 text-[10px] text-gray-500 font-bold">
+                <span className="flex items-center gap-1 text-xs text-gray-500 font-bold">
                   <Clock size={10} /> {booking.bookingTime}
                 </span>
               )}
               {booking.totalAmount ? (
-                <span className="text-[10px] font-black text-gold">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
+                <span className="text-xs font-black text-gold">₹{booking.totalAmount.toLocaleString('en-IN')}</span>
               ) : null}
             </div>
           </div>
@@ -381,7 +381,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           </div>
           <div>
             <p className="text-white font-black uppercase tracking-[0.2em] text-sm leading-none">Hair Tech</p>
-            <p className="text-gray-400 text-[10px] uppercase tracking-widest font-bold">Admin Console</p>
+            <p className="text-gray-400 text-xs uppercase tracking-widest font-bold">Admin Console</p>
           </div>
         </div>
 
@@ -399,7 +399,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
                 required
                 className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 px-5 text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500 text-sm"
               />
-              <label className="absolute -top-2 left-4 px-2 bg-zinc-900 text-[9px] font-black uppercase tracking-widest text-gold">Email</label>
+              <label className="absolute -top-2 left-4 px-2 bg-zinc-900 text-[11px] font-black uppercase tracking-widest text-gold">Email</label>
             </div>
 
             <div className="relative">
@@ -411,7 +411,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
                 required
                 className="w-full bg-white/8 border border-white/10 rounded-2xl py-4 pl-5 pr-12 text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500 text-sm"
               />
-              <label className="absolute -top-2 left-4 px-2 bg-zinc-900 text-[9px] font-black uppercase tracking-widest text-gold">Password</label>
+              <label className="absolute -top-2 left-4 px-2 bg-zinc-900 text-[11px] font-black uppercase tracking-widest text-gold">Password</label>
               <button type="button" onClick={() => setShowPw(v => !v)} className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors">
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -438,7 +438,7 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
           </form>
         </div>
 
-        <p className="text-center text-gray-700 text-[10px] mt-6 uppercase tracking-widest font-bold">
+        <p className="text-center text-gray-700 text-xs mt-6 uppercase tracking-widest font-bold">
           Only registered admin accounts can access this area
         </p>
       </motion.div>
@@ -460,14 +460,14 @@ function StatCard({ label, value, sub, icon, trend }: {
       <div className="flex items-start justify-between">
         <div className="p-2.5 bg-gold/10 rounded-xl text-gold">{icon}</div>
         {trend && (
-          <span className={`flex items-center gap-1 text-[10px] font-black ${trend.up ? 'text-emerald-400' : 'text-red-400'}`}>
+          <span className={`flex items-center gap-1 text-xs font-black ${trend.up ? 'text-emerald-400' : 'text-red-400'}`}>
             {trend.up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
             {trend.value}
           </span>
         )}
       </div>
       <div>
-        <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-1">{label}</p>
+        <p className="text-xs uppercase tracking-widest font-black text-gray-500 mb-1">{label}</p>
         <p className="text-2xl font-black text-white leading-none">{value}</p>
         {sub && <p className="text-xs text-gray-500 mt-1">{sub}</p>}
       </div>
@@ -480,7 +480,7 @@ function StatCard({ label, value, sub, icon, trend }: {
 function StatusBadge({ status }: { status: BookingStatus }) {
   const m = STATUS_META[status] ?? STATUS_META.pending;
   return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[10px] font-black uppercase tracking-wider ${m.color} ${m.bg}`}>
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-black uppercase tracking-wider ${m.color} ${m.bg}`}>
       {m.icon} {m.label}
     </span>
   );
@@ -583,15 +583,15 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
             </div>
             <div>
               <p className="text-white text-sm font-bold leading-none">{booking.customerName ?? '—'}</p>
-              <p className="text-gray-500 text-[10px] mt-0.5">{booking.customerPhone ?? '—'}</p>
+              <p className="text-gray-500 text-xs mt-0.5">{booking.customerPhone ?? '—'}</p>
             </div>
           </div>
         </td>
         <td className="py-4 px-5 hidden md:table-cell">
           <p className="text-gray-300 text-sm">{booking.bookingDate ? fmtDate(booking.bookingDate) : '—'}</p>
-          <p className="text-gray-400 text-[10px]">{booking.bookingTime ?? '—'}</p>
+          <p className="text-gray-400 text-xs">{booking.bookingTime ?? '—'}</p>
           {booking.rescheduledAt && (
-            <p className="text-[9px] text-blue-400 font-bold mt-0.5 flex items-center gap-1">
+            <p className="text-[11px] text-blue-400 font-bold mt-0.5 flex items-center gap-1">
               <Edit2 size={9} />
               <span className="line-through text-gray-600">{booking.originalBookingTime ?? '—'}</span>
               <ChevronRightIcon size={9} />
@@ -611,7 +611,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
           <div className="flex items-center gap-1.5 flex-wrap">
             <StatusBadge status={booking.status ?? 'pending'} />
             {labels?.map((l, i) => (
-              <span key={i} className={`inline-flex items-center px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider ${l.color} ${l.bg}`}>
+              <span key={i} className={`inline-flex items-center px-2.5 py-0.5 rounded-full border text-[11px] font-black uppercase tracking-wider ${l.color} ${l.bg}`}>
                 {l.text}
               </span>
             ))}
@@ -641,13 +641,13 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                       try { await onDelete?.(booking.id); } finally { setDeletingRow(false); setDeleteConfirm(false); }
                     }}
                     disabled={deletingRow}
-                    className="px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-[9px] font-black hover:bg-red-500/30 transition-all disabled:opacity-50 flex items-center gap-1"
+                    className="px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-[11px] font-black hover:bg-red-500/30 transition-all disabled:opacity-50 flex items-center gap-1"
                   >
                     {deletingRow && <Loader2 size={9} className="animate-spin" />} Confirm
                   </button>
                   <button
                     onClick={e => { e.stopPropagation(); setDeleteConfirm(false); }}
-                    className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-gray-400 text-[9px] font-black hover:text-white transition-all"
+                    className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-gray-400 text-[11px] font-black hover:text-white transition-all"
                   >
                     Cancel
                   </button>
@@ -687,33 +687,33 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                     { label: 'Booked At',   value: fmtTs(booking.createdAt) },
                   ].map(({ label, value }) => (
                     <div key={label}>
-                      <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-1">{label}</p>
+                      <p className="text-[11px] uppercase tracking-widest font-black text-gray-400 mb-1">{label}</p>
                       <p className="text-gray-300 text-xs font-medium break-all">{value}</p>
                     </div>
                   ))}
 
                   {/* Services full list */}
                   <div className="sm:col-span-2">
-                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-1">Services</p>
+                    <p className="text-[11px] uppercase tracking-widest font-black text-gray-400 mb-1">Services</p>
                     <p className="text-gray-300 text-xs">{booking.serviceNames}</p>
                   </div>
 
                   {/* Reschedule history */}
                   {booking.rescheduledAt && (
                     <div className="sm:col-span-2 lg:col-span-4 p-4 bg-blue-500/8 border border-blue-500/30 rounded-2xl">
-                      <p className="text-[9px] uppercase tracking-widest font-black text-blue-400 flex items-center gap-1.5 mb-2">
+                      <p className="text-[11px] uppercase tracking-widest font-black text-blue-400 flex items-center gap-1.5 mb-2">
                         <Edit2 size={11} /> Rescheduled{booking.rescheduleCount && booking.rescheduleCount > 1 ? ` (${booking.rescheduleCount}×)` : ''} — {fmtTs(booking.rescheduledAt)}
                       </p>
                       <div className="flex items-center gap-3 flex-wrap text-xs">
                         <div>
-                          <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-0.5">Originally Booked</p>
+                          <p className="text-[11px] uppercase tracking-widest font-black text-gray-500 mb-0.5">Originally Booked</p>
                           <p className="text-gray-400 line-through">
                             {booking.originalBookingDate ? fmtDate(booking.originalBookingDate) : '—'} · {booking.originalBookingTime ?? '—'}
                           </p>
                         </div>
                         <ChevronRightIcon size={14} className="text-gray-600 shrink-0" />
                         <div>
-                          <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-0.5">Now Scheduled</p>
+                          <p className="text-[11px] uppercase tracking-widest font-black text-gray-500 mb-0.5">Now Scheduled</p>
                           <p className="text-emerald-400 font-bold">
                             {booking.bookingDate ? fmtDate(booking.bookingDate) : '—'} · {booking.bookingTime ?? '—'}
                           </p>
@@ -725,13 +725,13 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                   {/* ── Pending-payment admin actions (only when status === 'pending') ── */}
                   {booking.status === 'pending' && (
                     <div className="sm:col-span-2 lg:col-span-4 space-y-3">
-                      <p className="text-[9px] uppercase tracking-widest font-black text-amber-500 flex items-center gap-1.5">
+                      <p className="text-[11px] uppercase tracking-widest font-black text-amber-500 flex items-center gap-1.5">
                         <AlertCircle size={11} /> Payment Pending — Admin Actions
                       </p>
 
                       {/* Add Payment ID */}
                       <div className="p-4 bg-amber-500/8 border border-amber-500/30 rounded-2xl space-y-3">
-                        <p className="text-[10px] text-amber-400 font-bold">Option 1 — Confirm with Razorpay Payment ID</p>
+                        <p className="text-xs text-amber-400 font-bold">Option 1 — Confirm with Razorpay Payment ID</p>
                         <div className="flex gap-2">
                           <input
                             type="text"
@@ -752,26 +752,26 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                               } finally { setConfirmingPay(false); }
                             }}
                             disabled={!pendingPayId.trim() || confirmingPay}
-                            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 rounded-xl text-black text-[10px] font-black uppercase tracking-wider disabled:opacity-40 transition-all shrink-0"
+                            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-500 hover:bg-emerald-400 rounded-xl text-black text-xs font-black uppercase tracking-wider disabled:opacity-40 transition-all shrink-0"
                           >
                             {confirmingPay ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />}
                             Confirm
                           </button>
                         </div>
-                        <p className="text-[9px] text-gray-400">Enter the Razorpay Payment ID from your dashboard to confirm this booking.</p>
+                        <p className="text-[11px] text-gray-400">Enter the Razorpay Payment ID from your dashboard to confirm this booking.</p>
                       </div>
 
                       {/* Pay at Salon */}
                       <div className="p-4 bg-blue-500/8 border border-blue-500/30 rounded-2xl space-y-2">
-                        <p className="text-[10px] text-blue-400 font-bold">Option 2 — Mark as Pay at Salon</p>
-                        <p className="text-[9px] text-gray-500">Customer will pay in person. Booking moves to confirmed — collect payment before billing.</p>
+                        <p className="text-xs text-blue-400 font-bold">Option 2 — Mark as Pay at Salon</p>
+                        <p className="text-[11px] text-gray-500">Customer will pay in person. Booking moves to confirmed — collect payment before billing.</p>
                         <button
                           onClick={async e => {
                             e.stopPropagation();
                             await onMarkPayAtSalon?.(booking.id);
                             setExpanded(false);
                           }}
-                          className="flex items-center gap-1.5 px-4 py-2 bg-blue-500/20 border border-blue-500/30 hover:bg-blue-500/30 rounded-xl text-blue-300 text-[10px] font-black uppercase tracking-wider transition-all"
+                          className="flex items-center gap-1.5 px-4 py-2 bg-blue-500/20 border border-blue-500/30 hover:bg-blue-500/30 rounded-xl text-blue-300 text-xs font-black uppercase tracking-wider transition-all"
                         >
                           <CheckSquare size={11} /> Mark — Pay at Salon
                         </button>
@@ -780,7 +780,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                       {/* Delete pending */}
                       <button
                         onClick={e => { e.stopPropagation(); if (confirm('Remove this pending booking?')) handleStatus('failed'); }}
-                        className="text-[9px] text-gray-400 hover:text-red-400 transition-colors"
+                        className="text-[11px] text-gray-400 hover:text-red-400 transition-colors"
                       >
                         Remove pending booking
                       </button>
@@ -790,7 +790,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                   {/* Status + actions (for non-pending bookings) */}
                   {booking.status !== 'pending' && (
                   <div className="sm:col-span-2 lg:col-span-2 flex items-end gap-2 flex-wrap">
-                    <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 w-full mb-1">Status</p>
+                    <p className="text-[11px] uppercase tracking-widest font-black text-gray-400 w-full mb-1">Status</p>
 
                     {/* Current status badge */}
                     <StatusBadge status={booking.status ?? 'paid'} />
@@ -800,7 +800,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                       <button key={s}
                         onClick={e => { e.stopPropagation(); handleStatus(s); }}
                         disabled={updating || booking.status === s}
-                        className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-40 ${
+                        className={`px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40 ${
                           booking.status === s
                             ? `${STATUS_META[s].color} ${STATUS_META[s].bg}`
                             : 'bg-white/8 border-white/10 text-gray-500 hover:border-white/20 hover:text-white'
@@ -811,18 +811,18 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                     ))}
 
                     <div className="w-full mt-1 flex flex-wrap gap-2">
-                      <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 w-full mb-0.5">Actions</p>
+                      <p className="text-[11px] uppercase tracking-widest font-black text-gray-400 w-full mb-0.5">Actions</p>
 
                       {/* Service Completed — shown after bill is generated */}
                       {booking.invoiceId ? (
-                        <span className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-purple-500/10 border-purple-500/20 text-purple-400 text-[10px] font-black uppercase tracking-wider">
+                        <span className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-purple-500/10 border-purple-500/20 text-purple-400 text-xs font-black uppercase tracking-wider">
                           <CheckSquare size={11} /> Service Completed
                         </span>
                       ) : (
                         <button
                           onClick={e => { e.stopPropagation(); handleStatus('completed'); }}
                           disabled={updating || booking.status === 'completed'}
-                          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-40 ${
+                          className={`flex items-center gap-1.5 px-4 py-1.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all disabled:opacity-40 ${
                             booking.status === 'completed'
                               ? 'bg-purple-500/10 border-purple-500/20 text-purple-400'
                               : 'bg-purple-500/20 border-purple-500/40 text-purple-300 hover:bg-purple-500/30'
@@ -837,7 +837,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                       {booking.invoiceId && onViewInvoice ? (
                         <button
                           onClick={e => { e.stopPropagation(); onViewInvoice(booking.invoiceId!); }}
-                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-gold/10 border-gold/30 text-gold text-[10px] font-black uppercase tracking-wider hover:bg-gold/20 transition-all"
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-gold/10 border-gold/30 text-gold text-xs font-black uppercase tracking-wider hover:bg-gold/20 transition-all"
                         >
                           <Receipt size={11} /> View Invoice
                         </button>
@@ -846,7 +846,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                         !booking.invoiceId && ['paid', 'confirmed', 'completed'].includes(booking.status) && onCreateBill && (
                           <button
                             onClick={e => { e.stopPropagation(); onCreateBill(booking); }}
-                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-500/20 transition-all"
+                            className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-xs font-black uppercase tracking-wider hover:bg-emerald-500/20 transition-all"
                           >
                             <Receipt size={11} /> Create Bill
                           </button>
@@ -865,7 +865,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                               loadSlots(today, booking.serviceDurationMins ?? 60);
                             }
                           }}
-                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-blue-500/10 border-blue-500/30 text-blue-300 text-[10px] font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all"
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-blue-500/10 border-blue-500/30 text-blue-300 text-xs font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all"
                         >
                           <Edit2 size={11} /> {isRescheduling ? 'Cancel Reschedule' : 'Reschedule'}
                         </button>
@@ -875,7 +875,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                       {booking.status !== 'failed' && booking.status !== 'completed' && (
                         <button
                           onClick={e => { e.stopPropagation(); setShowFailInput(v => !v); }}
-                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-red-500/10 border-red-500/30 text-red-400 text-[10px] font-black uppercase tracking-wider hover:bg-red-500/20 transition-all"
+                          className="flex items-center gap-1.5 px-4 py-1.5 rounded-xl border bg-red-500/10 border-red-500/30 text-red-400 text-xs font-black uppercase tracking-wider hover:bg-red-500/20 transition-all"
                         >
                           <XCircle size={11} /> {showFailInput ? 'Cancel' : 'Mark as Failed'}
                         </button>
@@ -931,7 +931,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                               </div>
                             ) : (
                               <>
-                                <p className="text-[10px] font-black uppercase tracking-wider text-gold flex items-center gap-1.5"><CalendarCheck size={12}/>Pick new date & time</p>
+                                <p className="text-xs font-black uppercase tracking-wider text-gold flex items-center gap-1.5"><CalendarCheck size={12}/>Pick new date & time</p>
                                 {/* Date strip */}
                                 <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
                                   {dateStrip.map(d => {
@@ -939,7 +939,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                                     return (
                                       <button key={d.toString()} onClick={() => { setEditDate(d); loadSlots(d, booking.serviceDurationMins ?? 60); }}
                                         className={`shrink-0 w-11 h-13 rounded-xl flex flex-col items-center justify-center transition-all border py-2 ${active ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.04] text-gray-400 hover:border-gold/40'}`}>
-                                        <span className={`text-[9px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{isToday(d) ? 'Today' : format(d,'EEE')}</span>
+                                        <span className={`text-[11px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{isToday(d) ? 'Today' : format(d,'EEE')}</span>
                                         <span className="text-sm font-black">{format(d,'d')}</span>
                                       </button>
                                     );
@@ -958,11 +958,11 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
                                       const Icon = sess === 'morning' ? Sun : sess === 'afternoon' ? CloudSun : Moon;
                                       return (
                                         <div key={sess}>
-                                          <div className="flex items-center gap-1.5 mb-1"><Icon size={10} className="text-gray-500"/><span className="text-[9px] text-gray-500 font-bold capitalize">{sess}</span></div>
+                                          <div className="flex items-center gap-1.5 mb-1"><Icon size={10} className="text-gray-500"/><span className="text-[11px] text-gray-500 font-bold capitalize">{sess}</span></div>
                                           <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
                                             {editSlots.filter(s => s.session === sess).map(slot => (
                                               <button key={slot.startISO} onClick={() => setEditSelSlot(slot)}
-                                                className={`py-2 text-[10px] font-bold rounded-xl border transition-all ${editSelSlot?.startISO === slot.startISO ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.03] text-gray-400 hover:border-gold/30 hover:text-white'}`}>
+                                                className={`py-2 text-xs font-bold rounded-xl border transition-all ${editSelSlot?.startISO === slot.startISO ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.03] text-gray-400 hover:border-gold/30 hover:text-white'}`}>
                                                 {slot.label.split('–')[0].trim()}
                                               </button>
                                             ))}
@@ -1153,19 +1153,19 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                 <div className="text-center mb-4">
                   <p className="font-black text-xl uppercase tracking-tight">Hair Tech</p>
                   <p className="font-bold text-sm">Unisex Salon, Araria</p>
-                  <p className="text-gray-400 text-[10px]">+91 87896 03343</p>
-                  <span className={`inline-block mt-1.5 text-[9px] px-2 py-0.5 rounded border font-bold ${
+                  <p className="text-gray-400 text-xs">+91 87896 03343</p>
+                  <span className={`inline-block mt-1.5 text-[11px] px-2 py-0.5 rounded border font-bold ${
                     invoice.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'
                   }`}>{invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}</span>
                 </div>
 
                 {/* Invoice meta */}
                 <div className="border-t border-dashed border-gray-300 pt-2.5 mb-3 space-y-1">
-                  <div className="flex justify-between text-[10px]">
+                  <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Invoice</span>
                     <span className="font-black text-black">{invoice.invoiceNumber}</span>
                   </div>
-                  <div className="flex justify-between text-[10px]">
+                  <div className="flex justify-between text-xs">
                     <span className="text-gray-500">Date</span>
                     <span className="text-gray-700">{invDate}</span>
                   </div>
@@ -1179,7 +1179,7 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
 
                 {/* Services */}
                 <div className="border-t border-dashed border-gray-300 pt-2.5 mb-3 space-y-2">
-                  <p className="text-[9px] font-black uppercase tracking-wider text-gray-500">Services</p>
+                  <p className="text-[11px] font-black uppercase tracking-wider text-gray-500">Services</p>
                   {invoice.items.map((item, i) => (
                     <div key={i} className="space-y-0.5">
                       <div className="flex justify-between text-xs">
@@ -1187,21 +1187,21 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                         <span className="font-bold text-black shrink-0">₹{item.price.toLocaleString('en-IN')}</span>
                       </div>
                       {(item.quantity ?? 1) > 1 && (
-                        <p className="text-[9px] text-gray-400 pl-1">₹{item.unitPrice.toLocaleString('en-IN')} × {item.quantity}</p>
+                        <p className="text-[11px] text-gray-400 pl-1">₹{item.unitPrice.toLocaleString('en-IN')} × {item.quantity}</p>
                       )}
                       {item.lineDiscount > 0 && (
-                        <p className="text-[9px] text-red-500 pl-1">Line discount: {item.lineDiscount}%</p>
+                        <p className="text-[11px] text-red-500 pl-1">Line discount: {item.lineDiscount}%</p>
                       )}
                       {(item as any).staffSplits && (item as any).staffSplits.length > 1 ? (
                         <div className="pl-1 space-y-0.5">
                           {(item as any).staffSplits.map((sp: any) => (
-                            <p key={sp.staffId} className="text-[9px] text-gray-400">
+                            <p key={sp.staffId} className="text-[11px] text-gray-400">
                               {sp.staffName} · {sp.splitPercent}% → ₹{sp.commissionAmount.toLocaleString('en-IN')}
                             </p>
                           ))}
                         </div>
                       ) : item.staffName ? (
-                        <p className="text-[9px] text-gray-400 pl-1">Staff: {item.staffName} · {item.commissionRate}% = ₹{item.commissionAmount.toLocaleString('en-IN')}</p>
+                        <p className="text-[11px] text-gray-400 pl-1">Staff: {item.staffName} · {item.commissionRate}% = ₹{item.commissionAmount.toLocaleString('en-IN')}</p>
                       ) : null}
                     </div>
                   ))}
@@ -1238,7 +1238,7 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                     const hasDue = (inv.amountDue ?? 0) > 0;
                     return (
                       <div className="pt-2 space-y-1.5">
-                        <p className="text-[9px] text-gray-500 uppercase tracking-wider font-black">Payment</p>
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider font-black">Payment</p>
                         {(invoice.paymentSplits?.length ?? 0) > 0 ? (
                           <>
                             {invoice.paymentSplits.map((s: any, i: number) => {
@@ -1269,7 +1269,7 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                           <span>
                             {hasDue ? 'Balance Due' : '✓ Fully Paid'}
                             {hasDue && (
-                              <span className="font-normal text-[9px] text-gray-400 ml-1">
+                              <span className="font-normal text-[11px] text-gray-400 ml-1">
                                 (₹{invoice.total.toLocaleString('en-IN')} − ₹{effectivePaid.toLocaleString('en-IN')})
                               </span>
                             )}
@@ -1289,7 +1289,7 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                           </div>
                         )}
                         {invoice.paymentId && (
-                          <div className="flex justify-between text-[9px] text-gray-400">
+                          <div className="flex justify-between text-[11px] text-gray-400">
                             <span>Razorpay ID</span>
                             <span className="font-mono truncate max-w-[140px]">{invoice.paymentId}</span>
                           </div>
@@ -1311,9 +1311,9 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                   });
                   return (
                     <div className="border-t border-dashed border-gray-300 pt-2.5 mt-2.5">
-                      <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider mb-1">Staff Commission</p>
+                      <p className="text-[11px] text-gray-400 font-black uppercase tracking-wider mb-1">Staff Commission</p>
                       {Object.entries(ca).map(([name, amt]) => (
-                        <div key={name} className="flex justify-between text-[10px] text-gray-400">
+                        <div key={name} className="flex justify-between text-xs text-gray-400">
                           <span>{name}</span><span>₹{(amt as number).toLocaleString('en-IN')}</span>
                         </div>
                       ))}
@@ -1323,9 +1323,9 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
 
                 {(inv as any).promoCoupons?.length > 0 && (
                   <div className="border-t border-dashed border-gray-300 pt-2.5 mt-2.5">
-                    <p className="text-[9px] text-purple-500 font-black uppercase tracking-wider mb-1.5">🎟️ Promo Coupons</p>
+                    <p className="text-[11px] text-purple-500 font-black uppercase tracking-wider mb-1.5">🎟️ Promo Coupons</p>
                     {(inv as any).promoCoupons.map((c: string, i: number) => (
-                      <div key={i} className="flex justify-between text-[10px]">
+                      <div key={i} className="flex justify-between text-xs">
                         <span className="text-gray-400">★</span>
                         <span className="font-bold font-mono tracking-[3px] text-purple-600">{c}</span>
                       </div>
@@ -1333,7 +1333,7 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
                   </div>
                 )}
 
-                <div className="border-t border-dashed border-gray-300 mt-4 pt-3 text-center text-[9px] text-gray-400">
+                <div className="border-t border-dashed border-gray-300 mt-4 pt-3 text-center text-[11px] text-gray-400">
                   Thank you for visiting Hair Tech Salon!<br />
                   <span className="text-gray-300">@hairtech111</span>
                 </div>
@@ -1427,6 +1427,9 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
     billingType: 'standard' | 'vvip';
     advanceAmount: number;
     dueAmount: number;
+    roundOff: number;
+    roundOffEnabled: boolean;
+    promoCoupons: string[];
   } | null>(null);
   const [savingEdit, setSavingEdit] = useState(false);
   const [editError,  setEditError]  = useState<string | null>(null);
@@ -1455,6 +1458,9 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
       billingType:     (inv as any).billingType === 'vvip' ? 'vvip' : 'standard',
       advanceAmount:   (inv as any).advanceAmount ?? 0,
       dueAmount:       inv.amountDue ?? 0,
+      roundOff:        (inv as any).roundOffAmount ?? 0,
+      roundOffEnabled: ((inv as any).roundOffAmount ?? 0) > 0,
+      promoCoupons:    (inv as any).promoCoupons ?? [],
     });
     setEditingInvId(inv.id);
     setExpandedInv(inv.id);
@@ -1466,6 +1472,7 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
     setEditForm(null);
     setEditError(null);
   };
+
 
   const updateEditItem = (idx: number, overrides: Partial<BillItem>) => {
     setEditForm(prev => {
@@ -1496,7 +1503,16 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   };
 
   const addEditSplit = () => {
-    setEditForm(prev => prev ? { ...prev, paymentSplits: [...prev.paymentSplits, { method: 'cash', amount: 0 }] } : prev);
+    setEditForm(prev => {
+      if (!prev) return prev;
+      const subtotal = prev.items.reduce((a, it) => a + it.price, 0);
+      const discAmt = Math.round(subtotal * prev.discountPercent / 100);
+      const roundOff = prev.roundOffEnabled ? (prev.roundOff ?? 0) : 0;
+      const total = Math.max(0, subtotal - discAmt - roundOff);
+      const currentSplitTotal = prev.paymentSplits.reduce((a, s) => a + (Number(s.amount) || 0), 0);
+      const remaining = Math.max(0, total - currentSplitTotal);
+      return { ...prev, paymentSplits: [...prev.paymentSplits, { method: 'cash' as PaymentMethod, amount: remaining }] };
+    });
   };
 
   const removeEditSplit = (idx: number) => {
@@ -1515,14 +1531,18 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
       const subtotal      = editForm.items.reduce((a, it) => a + it.price, 0);
       const discountAmount = Math.round(subtotal * editForm.discountPercent / 100);
       const dueSettlementAmount = (inv as any).dueSettlementAmount ?? 0;
-      const total          = subtotal - discountAmount + dueSettlementAmount;
+      const roundOff       = editForm.roundOffEnabled ? (editForm.roundOff ?? 0) : 0;
+      const total          = Math.max(0, subtotal - discountAmount + dueSettlementAmount - roundOff);
       const validSplits    = editForm.paymentSplits.filter(s => s.amount > 0);
-      const amountDue      = Math.min(total, Math.max(0, Math.round(editForm.dueAmount)));
-      const amountPaid     = Math.max(0, Math.round((total - amountDue) * 100) / 100);
+      const splitTotal     = validSplits.reduce((a, s) => a + (Number(s.amount) || 0), 0);
+      const overpayment    = Math.max(0, splitTotal - total);
+      const advanceAmount  = overpayment > 0 ? overpayment : Math.max(0, Math.round(editForm.advanceAmount));
+      const amountPaid     = Math.min(splitTotal, total);
+      const amountDue      = Math.max(0, total - splitTotal);
       const primaryMethod: PaymentMethod = validSplits[0]?.method ?? inv.paymentMethod ?? 'cash';
-      const advanceAmount  = Math.max(0, Math.round(editForm.advanceAmount));
+      const validCoupons   = editForm.promoCoupons.filter(c => c.trim().length > 0);
 
-      const updates = {
+      const updates: Record<string, unknown> = {
         customerName:    editForm.customerName,
         customerPhone:   editForm.customerPhone,
         items:           editForm.items,
@@ -1534,9 +1554,11 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
         paymentSplits:   validSplits,
         amountPaid,
         amountDue,
+        roundOffAmount:  roundOff,
         status:          amountDue > 0 ? 'due' as const : 'paid' as const,
         billingType:     editForm.billingType,
         advanceAmount,
+        ...(validCoupons.length > 0 && { promoCoupons: validCoupons }),
       };
       await updateDoc(doc(db, 'invoices', inv.id), updates);
       setBillingInvoices(prev => prev.map(i => i.id === inv.id ? { ...i, ...updates } : i));
@@ -1577,7 +1599,7 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   }, [isStaffMode, toolsTab]);
 
   // Salon settings (Tools > Settings tab)
-  const [sSettings, setSSettings] = useState({ staffCount: 3, openHour: 10, closeHour: 22, slotStepMins: 15, bufferMins: 30, defaultStaffId: '', expressServiceFee: 499 });
+  const [sSettings, setSSettings] = useState({ staffCount: 3, openHour: 10, closeHour: 22, slotStepMins: 15, bufferMins: 30, defaultStaffId: '', expressServiceFee: 499, legacyImageUrl: '' });
   const [sSettingsLoaded,  setSSettingsLoaded]  = useState(false);
   const [sSettingsSaving,  setSSettingsSaving]  = useState(false);
   const [sSettingsError,   setSSettingsError]   = useState<string | null>(null);
@@ -1606,6 +1628,7 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
           bufferMins:    d.bufferMins    ?? 30,
           defaultStaffId: d.defaultStaffId ?? '',
           expressServiceFee: d.expressServiceFee ?? 499,
+          legacyImageUrl: d.legacyImageUrl ?? '',
         });
         setAdminPin(d.adminPin ?? '');
       }
@@ -2672,16 +2695,16 @@ Your uid is: ${user.uid}
             </div>
             <div className="hidden sm:block">
               <p className="text-white font-black uppercase tracking-[0.15em] text-sm leading-none">Hair Tech</p>
-              <p className="text-gray-400 text-[9px] uppercase tracking-widest">
+              <p className="text-gray-400 text-[11px] uppercase tracking-widest">
                 {isStaffMode ? 'Staff Portal' : 'Admin'}
               </p>
             </div>
             {isStaffMode ? (
-              <span className="ml-1 px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-full text-[9px] text-blue-400 font-black uppercase tracking-widest">
+              <span className="ml-1 px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-full text-[11px] text-blue-400 font-black uppercase tracking-widest">
                 {staffMember?.name ?? 'Staff'}
               </span>
             ) : (
-              <span className="ml-1 px-2 py-0.5 bg-gold/10 border border-gold/20 rounded-full text-[9px] text-gold font-black uppercase tracking-widest">Live</span>
+              <span className="ml-1 px-2 py-0.5 bg-gold/10 border border-gold/20 rounded-full text-[11px] text-gold font-black uppercase tracking-widest">Live</span>
             )}
           </div>
 
@@ -2701,7 +2724,7 @@ Your uid is: ${user.uid}
               { id: 'tools',      label: 'Tools',     icon: <Wrench       size={13} /> },
             ]).map(tab => (
               <button key={tab.id} onClick={() => handleViewSwitch(tab.id as DashView)}
-                className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                   view === tab.id
                     ? 'bg-gold text-black shadow-sm'
                     : 'text-gray-400 hover:text-white hover:bg-white/8'
@@ -2805,14 +2828,14 @@ Your uid is: ${user.uid}
             {!isStaffMode && (view === 'bookings' || view === 'insights') && (
               <div className="flex items-center gap-2">
                 {lastRefreshedMs > 0 && (
-                  <span className="text-[9px] text-gray-400 font-bold hidden lg:block">
+                  <span className="text-[11px] text-gray-400 font-bold hidden lg:block">
                     Showing last 90 days
                   </span>
                 )}
                 <button
                   onClick={() => { setIsRefreshing(true); setRefreshKey(k => k + 1); }}
                   disabled={isRefreshing}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/8 border border-white/10 rounded-xl text-[10px] font-bold text-gray-400 hover:text-white hover:bg-white/8 transition-all disabled:opacity-40"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/8 border border-white/10 rounded-xl text-xs font-bold text-gray-400 hover:text-white hover:bg-white/8 transition-all disabled:opacity-40"
                   title="Refresh booking data"
                 >
                   <RefreshCw size={11} className={isRefreshing ? 'animate-spin text-gold' : ''}/>
@@ -2849,7 +2872,7 @@ Your uid is: ${user.uid}
               ] as const).map(p => (
                 <button key={p.id}
                   onClick={() => { setPeriod(p.id); setInsightsFrom(''); setInsightsTo(''); }}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                     period === p.id && !insightsFrom
                       ? 'bg-gold/20 border border-gold/30 text-gold'
                       : 'text-gray-500 hover:text-white'
@@ -2863,13 +2886,13 @@ Your uid is: ${user.uid}
               <input
                 type="date" value={insightsFrom}
                 onChange={e => setInsightsFrom(e.target.value)}
-                className="bg-transparent text-[10px] text-white focus:outline-none w-24 [color-scheme:dark]"
+                className="bg-transparent text-xs text-white focus:outline-none w-24 [color-scheme:dark]"
               />
-              <span className="text-gray-400 text-[10px]">–</span>
+              <span className="text-gray-400 text-xs">–</span>
               <input
                 type="date" value={insightsTo} min={insightsFrom}
                 onChange={e => setInsightsTo(e.target.value)}
-                className="bg-transparent text-[10px] text-white focus:outline-none w-24 [color-scheme:dark]"
+                className="bg-transparent text-xs text-white focus:outline-none w-24 [color-scheme:dark]"
               />
               {insightsFrom && (
                 <button onClick={() => { setInsightsFrom(''); setInsightsTo(''); }}
@@ -2888,18 +2911,18 @@ Your uid is: ${user.uid}
             className="bg-zinc-900 border border-emerald-500/30 rounded-2xl p-5 relative overflow-hidden"
           >
             <div className="absolute top-0 left-0 right-0 h-[3px] bg-emerald-500 rounded-t-2xl" />
-            <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Total Revenue</p>
+            <p className="text-xs uppercase tracking-widest font-black text-gray-400 mb-1.5">Total Revenue</p>
             <p className="text-2xl font-black text-white leading-none mb-1">
               ₹{stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </p>
-            <p className="text-[10px] text-gray-500">{stats.invoiceCount} invoice{stats.invoiceCount !== 1 ? 's' : ''} billed</p>
+            <p className="text-xs text-gray-500">{stats.invoiceCount} invoice{stats.invoiceCount !== 1 ? 's' : ''} billed</p>
             {stats.revenueForecast && (
-              <p className="text-[10px] text-blue-400 mt-1">
+              <p className="text-xs text-blue-400 mt-1">
                 ~₹{stats.revenueForecast.toLocaleString('en-IN')} projected
               </p>
             )}
             {stats.revenueTrend !== null && (
-              <span className={`absolute top-4 right-4 flex items-center gap-0.5 text-[10px] font-black ${stats.revenueTrend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              <span className={`absolute top-4 right-4 flex items-center gap-0.5 text-xs font-black ${stats.revenueTrend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                 {stats.revenueTrend >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
                 {Math.abs(stats.revenueTrend)}%
               </span>
@@ -2911,11 +2934,11 @@ Your uid is: ${user.uid}
             className="bg-zinc-900 border border-blue-500/30 rounded-2xl p-5 relative overflow-hidden"
           >
             <div className="absolute top-0 left-0 right-0 h-[3px] bg-blue-500 rounded-t-2xl" />
-            <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Collected</p>
+            <p className="text-xs uppercase tracking-widest font-black text-gray-400 mb-1.5">Collected</p>
             <p className="text-2xl font-black text-white leading-none mb-1">
               ₹{stats.collectedAmount.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </p>
-            <p className="text-[10px] text-gray-500">Amount collected from invoices</p>
+            <p className="text-xs text-gray-500">Amount collected from invoices</p>
           </motion.div>
 
           {/* Avg Bill */}
@@ -2923,11 +2946,11 @@ Your uid is: ${user.uid}
             className="bg-zinc-900 border border-amber-500/30 rounded-2xl p-5 relative overflow-hidden"
           >
             <div className="absolute top-0 left-0 right-0 h-[3px] bg-amber-500 rounded-t-2xl" />
-            <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Avg Bill</p>
+            <p className="text-xs uppercase tracking-widest font-black text-gray-400 mb-1.5">Avg Bill</p>
             <p className="text-2xl font-black text-white leading-none mb-1">
               ₹{Math.round(stats.avgBill).toLocaleString('en-IN')}
             </p>
-            <p className="text-[10px] text-gray-500">Per invoice</p>
+            <p className="text-xs text-gray-500">Per invoice</p>
           </motion.div>
 
           {/* Amount Due */}
@@ -2935,11 +2958,11 @@ Your uid is: ${user.uid}
             className="bg-zinc-900 border border-red-500/30 rounded-2xl p-5 relative overflow-hidden"
           >
             <div className="absolute top-0 left-0 right-0 h-[3px] bg-red-500 rounded-t-2xl" />
-            <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">Outstanding Dues</p>
+            <p className="text-xs uppercase tracking-widest font-black text-gray-400 mb-1.5">Outstanding Dues</p>
             <p className="text-2xl font-black text-white leading-none mb-1">
               ₹{stats.amountDue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
             </p>
-            <p className="text-[10px] text-gray-500">Partially paid invoices</p>
+            <p className="text-xs text-gray-500">Partially paid invoices</p>
           </motion.div>
         </div>
 
@@ -2961,9 +2984,9 @@ Your uid is: ${user.uid}
             >
               <div className={`p-2 bg-white/8 rounded-xl ${color} shrink-0`}>{icon}</div>
               <div className="min-w-0">
-                <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 truncate">{label}</p>
+                <p className="text-[11px] uppercase tracking-widest font-black text-gray-500 truncate">{label}</p>
                 <p className="text-xl font-black text-white leading-none">{value}</p>
-                <p className="text-[9px] text-gray-400 mt-0.5 truncate">{sub}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5 truncate">{sub}</p>
               </div>
             </motion.div>
           ))}
@@ -2973,13 +2996,13 @@ Your uid is: ${user.uid}
         <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 mb-4">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Channel Breakdown</p>
+              <p className="text-xs uppercase tracking-widest font-black text-gray-500">Channel Breakdown</p>
               <p className="text-white font-black text-sm mt-0.5">
                 {stats.invoiceCount} invoice{stats.invoiceCount !== 1 ? 's' : ''} · Online vs Walk-in
               </p>
             </div>
             {stats.totalRevenue > 0 && (
-              <div className="flex items-center gap-2 text-[10px] font-black">
+              <div className="flex items-center gap-2 text-xs font-black">
                 <span className="flex items-center gap-1 text-blue-400">
                   <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
                   {Math.round((stats.onlineRevenue / stats.totalRevenue) * 100)}% Online
@@ -2999,30 +3022,30 @@ Your uid is: ${user.uid}
             <div className="p-4 bg-blue-500/8 border border-blue-500/20 rounded-2xl">
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2 h-2 rounded-full bg-blue-400 shrink-0" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-blue-400">Online</span>
+                <span className="text-xs font-black uppercase tracking-widest text-blue-400">Online</span>
               </div>
               <p className="text-2xl font-black text-white leading-none">
                 ₹{stats.onlineRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </p>
               <div className="mt-2 space-y-0.5">
-                <p className="text-[10px] text-gray-400">{stats.onlineCount} invoice{stats.onlineCount !== 1 ? 's' : ''}</p>
-                <p className="text-[10px] text-gray-400">₹{stats.onlineAvgBill.toLocaleString('en-IN')} avg bill</p>
-                <p className="text-[10px] text-emerald-400">₹{stats.onlineCollected.toLocaleString('en-IN', { maximumFractionDigits: 0 })} collected</p>
+                <p className="text-xs text-gray-400">{stats.onlineCount} invoice{stats.onlineCount !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-gray-400">₹{stats.onlineAvgBill.toLocaleString('en-IN')} avg bill</p>
+                <p className="text-xs text-emerald-400">₹{stats.onlineCollected.toLocaleString('en-IN', { maximumFractionDigits: 0 })} collected</p>
               </div>
             </div>
             {/* Walk-in */}
             <div className="p-4 bg-amber-500/8 border border-amber-500/20 rounded-2xl">
               <div className="flex items-center gap-2 mb-3">
                 <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" />
-                <span className="text-[10px] font-black uppercase tracking-widest text-amber-400">Walk-in</span>
+                <span className="text-xs font-black uppercase tracking-widest text-amber-400">Walk-in</span>
               </div>
               <p className="text-2xl font-black text-white leading-none">
                 ₹{stats.walkinRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </p>
               <div className="mt-2 space-y-0.5">
-                <p className="text-[10px] text-gray-400">{stats.walkinCount} invoice{stats.walkinCount !== 1 ? 's' : ''}</p>
-                <p className="text-[10px] text-gray-400">₹{stats.walkinAvgBill.toLocaleString('en-IN')} avg bill</p>
-                <p className="text-[10px] text-emerald-400">₹{stats.walkinCollected.toLocaleString('en-IN', { maximumFractionDigits: 0 })} collected</p>
+                <p className="text-xs text-gray-400">{stats.walkinCount} invoice{stats.walkinCount !== 1 ? 's' : ''}</p>
+                <p className="text-xs text-gray-400">₹{stats.walkinAvgBill.toLocaleString('en-IN')} avg bill</p>
+                <p className="text-xs text-emerald-400">₹{stats.walkinCollected.toLocaleString('en-IN', { maximumFractionDigits: 0 })} collected</p>
               </div>
             </div>
           </div>
@@ -3046,17 +3069,17 @@ Your uid is: ${user.uid}
           <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/10">
             <div className="text-center">
               <p className="text-lg font-black text-white">{stats.invoiceCount}</p>
-              <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Total Bills</p>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">Total Bills</p>
             </div>
             <div className="text-center">
               <p className="text-lg font-black text-gold">₹{Math.round(stats.avgBill).toLocaleString('en-IN')}</p>
-              <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Avg Bill</p>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">Avg Bill</p>
             </div>
             <div className="text-center">
               <p className="text-lg font-black text-purple-400">
                 ₹{stats.discountGiven.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
               </p>
-              <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Discounts Given</p>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">Discounts Given</p>
             </div>
           </div>
         </div>
@@ -3068,7 +3091,7 @@ Your uid is: ${user.uid}
           <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Order Status Trend</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-500">Order Status Trend</p>
                 <p className="text-white font-black text-sm mt-0.5">Pending vs Confirmed</p>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-end">
@@ -3077,7 +3100,7 @@ Your uid is: ${user.uid}
                   { label: 'Confirmed', count: stats.totalConfirmed, color: 'bg-blue-400',  text: 'text-blue-400'  },
                   { label: 'Completed', count: stats.totalCompleted, color: 'bg-purple-400',text: 'text-purple-400'},
                 ].map(({ label, count, color, text }) => (
-                  <span key={label} className="flex items-center gap-1 text-[9px] font-black">
+                  <span key={label} className="flex items-center gap-1 text-[11px] font-black">
                     <span className={`w-1.5 h-1.5 rounded-full ${color}`} />
                     <span className={text}>{count}</span>
                     <span className="text-gray-600">{label}</span>
@@ -3111,7 +3134,7 @@ Your uid is: ${user.uid}
                           </div>
                           {total > 0 && (
                             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
-                              <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[9px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
+                              <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
                                 <p className="text-gray-300">{d.label}</p>
                                 {d.pending   > 0 && <p className="text-amber-400">{d.pending} pending</p>}
                                 {d.confirmed > 0 && <p className="text-blue-400">{d.confirmed} confirmed</p>}
@@ -3153,16 +3176,16 @@ Your uid is: ${user.uid}
           <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Appointments by Source</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-500">Appointments by Source</p>
                 <p className="text-white font-black text-sm mt-0.5">Walk-in vs Online</p>
               </div>
               <div className="flex items-center gap-2">
-                <span className="flex items-center gap-1 text-[9px] font-black">
+                <span className="flex items-center gap-1 text-[11px] font-black">
                   <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
                   <span className="text-amber-400">{stats.totalWalkin}</span>
                   <span className="text-gray-600">Walk-in</span>
                 </span>
-                <span className="flex items-center gap-1 text-[9px] font-black">
+                <span className="flex items-center gap-1 text-[11px] font-black">
                   <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
                   <span className="text-blue-400">{stats.totalOnlineAppts}</span>
                   <span className="text-gray-600">Online</span>
@@ -3193,7 +3216,7 @@ Your uid is: ${user.uid}
                           </div>
                           {total > 0 && (
                             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
-                              <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[9px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
+                              <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
                                 <p className="text-gray-300">{d.label}</p>
                                 {d.walkin  > 0 && <p className="text-amber-400">{d.walkin} walk-in</p>}
                                 {d.online  > 0 && <p className="text-blue-400">{d.online} online</p>}
@@ -3238,13 +3261,13 @@ Your uid is: ${user.uid}
           <div className="lg:col-span-2 bg-zinc-900 border border-white/12 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Day-of-Week Pattern</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-500">Day-of-Week Pattern</p>
                 <p className="text-white font-black text-sm mt-0.5">Revenue by weekday</p>
               </div>
               {(() => {
                 const best = stats.dowData.reduce((a, d) => d.amount > a.amount ? d : a, stats.dowData[0]);
                 return best?.amount > 0 ? (
-                  <span className="text-[10px] font-black text-gold px-2 py-1 bg-gold/10 border border-gold/20 rounded-full">
+                  <span className="text-xs font-black text-gold px-2 py-1 bg-gold/10 border border-gold/20 rounded-full">
                     Best: {best.day}
                   </span>
                 ) : null;
@@ -3273,7 +3296,7 @@ Your uid is: ${user.uid}
                           />
                           {d.amount > 0 && (
                             <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
-                              <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[9px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
+                              <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
                                 <p className="text-gold">₹{d.amount.toLocaleString('en-IN')}</p>
                                 <p className="text-gray-400">{d.count} invoice{d.count !== 1 ? 's' : ''}</p>
                               </div>
@@ -3287,7 +3310,7 @@ Your uid is: ${user.uid}
                   <div className="flex gap-2 mt-2">
                     {stats.dowData.map((d, i) => (
                       <div key={i} className="flex-1 text-center">
-                        <span className={`text-[9px] font-black ${d.amount === maxAmt && d.amount > 0 ? 'text-gold' : 'text-gray-600'}`}>{d.day}</span>
+                        <span className={`text-[11px] font-black ${d.amount === maxAmt && d.amount > 0 ? 'text-gold' : 'text-gray-600'}`}>{d.day}</span>
                       </div>
                     ))}
                   </div>
@@ -3300,16 +3323,16 @@ Your uid is: ${user.uid}
           <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 flex flex-col">
             {stats.revenueForecast ? (
               <>
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-1">Monthly Forecast</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-500 mb-1">Monthly Forecast</p>
                 <p className="text-white font-black text-sm mb-4">End-of-month projection</p>
                 <p className="text-3xl font-black text-gold leading-none mb-1">
                   ₹{stats.revenueForecast.toLocaleString('en-IN')}
                 </p>
-                <p className="text-[10px] text-gray-500 mb-4">
+                <p className="text-xs text-gray-500 mb-4">
                   ₹{stats.totalRevenue.toLocaleString('en-IN')} so far · day {new Date().getDate()} of {new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).getDate()}
                 </p>
                 <div className="mt-auto space-y-2">
-                  <div className="flex justify-between text-[10px] text-gray-400">
+                  <div className="flex justify-between text-xs text-gray-400">
                     <span>Progress</span>
                     <span className="font-black text-white">{stats.forecastProgress}%</span>
                   </div>
@@ -3322,7 +3345,7 @@ Your uid is: ${user.uid}
                     />
                   </div>
                   {stats.prevRevenue > 0 && (
-                    <p className={`text-[10px] font-bold flex items-center gap-1 mt-2 ${stats.revenueForecast >= stats.prevRevenue ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <p className={`text-xs font-bold flex items-center gap-1 mt-2 ${stats.revenueForecast >= stats.prevRevenue ? 'text-emerald-400' : 'text-red-400'}`}>
                       {stats.revenueForecast >= stats.prevRevenue ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
                       {Math.abs(Math.round(((stats.revenueForecast - stats.prevRevenue) / stats.prevRevenue) * 100))}% vs last month
                       <span className="text-gray-600 font-normal">(₹{stats.prevRevenue.toLocaleString('en-IN')})</span>
@@ -3332,20 +3355,20 @@ Your uid is: ${user.uid}
               </>
             ) : (
               <>
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-1">Customer Retention</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-500 mb-1">Customer Retention</p>
                 <p className="text-white font-black text-sm mb-5">New vs Returning</p>
                 <div className="flex gap-3 mb-4">
                   <div className="flex-1 p-3 bg-emerald-500/8 border border-emerald-500/20 rounded-xl text-center">
                     <p className="text-2xl font-black text-emerald-400">{stats.newCustomerCount}</p>
-                    <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">New</p>
+                    <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">New</p>
                   </div>
                   <div className="flex-1 p-3 bg-purple-500/8 border border-purple-500/20 rounded-xl text-center">
                     <p className="text-2xl font-black text-purple-400">{stats.returningCustomerCount}</p>
-                    <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Returning</p>
+                    <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">Returning</p>
                   </div>
                 </div>
                 <div className="mt-auto space-y-2">
-                  <div className="flex justify-between text-[10px] text-gray-400">
+                  <div className="flex justify-between text-xs text-gray-400">
                     <span>Return rate (all time)</span>
                     <span className="font-black text-purple-400">{stats.returnRate}%</span>
                   </div>
@@ -3357,7 +3380,7 @@ Your uid is: ${user.uid}
                       className="h-full bg-purple-500 rounded-full"
                     />
                   </div>
-                  <p className="text-[9px] text-gray-500">
+                  <p className="text-[11px] text-gray-500">
                     {stats.returningCustomers} of {stats.totalCustomers} customers visited 2+ times
                   </p>
                 </div>
@@ -3373,7 +3396,7 @@ Your uid is: ${user.uid}
           <div className="lg:col-span-2 bg-zinc-900 border border-white/12 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Revenue Trend</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-500">Revenue Trend</p>
                 <p className="text-white font-black text-sm">
                   {period === 'today' ? 'Today' : period === 'week' ? 'Last 7 Days' : period === 'month' ? 'This Month' : 'All Time'}
                 </p>
@@ -3381,7 +3404,7 @@ Your uid is: ${user.uid}
               <div className="text-right">
                 <p className="text-gold font-black text-lg">₹{stats.totalRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
                 {stats.revenueTrend !== null && (
-                  <p className={`text-[10px] font-bold flex items-center justify-end gap-0.5 ${stats.revenueTrend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  <p className={`text-xs font-bold flex items-center justify-end gap-0.5 ${stats.revenueTrend >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                     {stats.revenueTrend >= 0 ? <ArrowUpRight size={11} /> : <ArrowDownRight size={11} />}
                     {Math.abs(stats.revenueTrend)}% vs prev period
                   </p>
@@ -3410,7 +3433,7 @@ Your uid is: ${user.uid}
                           />
                           {/* Tooltip */}
                           <div className="absolute bottom-full mb-1 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
-                            <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[9px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
+                            <div className="bg-zinc-800 border border-white/10 rounded-lg px-2 py-1.5 text-[11px] text-white font-bold whitespace-nowrap shadow-xl space-y-0.5">
                               <p className="text-gold">₹{d.amount.toLocaleString('en-IN')}</p>
                               <p className="text-gray-400">{d.invoices} invoice{d.invoices !== 1 ? 's' : ''}</p>
                             </div>
@@ -3432,8 +3455,8 @@ Your uid is: ${user.uid}
                   </div>
                   {/* Y-axis reference */}
                   <div className="flex items-center justify-between mt-2 pt-2 border-t border-white/10">
-                    <span className="text-[9px] text-gray-700 font-bold">₹0</span>
-                    <span className="text-[9px] text-gray-700 font-bold">₹{maxAmt.toLocaleString('en-IN',{maximumFractionDigits:0})}</span>
+                    <span className="text-[11px] text-gray-700 font-bold">₹0</span>
+                    <span className="text-[11px] text-gray-700 font-bold">₹{maxAmt.toLocaleString('en-IN',{maximumFractionDigits:0})}</span>
                   </div>
                 </div>
               );
@@ -3448,7 +3471,7 @@ Your uid is: ${user.uid}
           <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 flex flex-col gap-5">
             {/* Donut chart — pure SVG */}
             <div>
-              <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-3">Booking Breakdown</p>
+              <p className="text-xs uppercase tracking-widest font-black text-gray-500 mb-3">Booking Breakdown</p>
               {stats.statusBreakdown.length === 0 ? (
                 <p className="text-gray-400 text-xs text-center py-4">No data</p>
               ) : (() => {
@@ -3488,8 +3511,8 @@ Your uid is: ${user.uid}
                       {stats.statusBreakdown.map(({ status, count, color }) => (
                         <div key={status} className="flex items-center gap-2">
                           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                          <span className="text-[10px] text-gray-400 capitalize truncate">{STATUS_META[status].label}</span>
-                          <span className="text-[10px] font-black text-white ml-auto">{count}</span>
+                          <span className="text-xs text-gray-400 capitalize truncate">{STATUS_META[status].label}</span>
+                          <span className="text-xs font-black text-white ml-auto">{count}</span>
                         </div>
                       ))}
                     </div>
@@ -3501,7 +3524,7 @@ Your uid is: ${user.uid}
             {/* Collection rate */}
             <div className="pt-4 border-t border-white/10">
               <div className="flex items-center justify-between mb-2">
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Collection Rate</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-500">Collection Rate</p>
                 <span className={`text-sm font-black ${stats.collectionRate >= 80 ? 'text-emerald-400' : stats.collectionRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                   {stats.collectionRate}%
                 </span>
@@ -3514,7 +3537,7 @@ Your uid is: ${user.uid}
                   className={`h-full rounded-full ${stats.collectionRate >= 80 ? 'bg-emerald-500' : stats.collectionRate >= 50 ? 'bg-amber-500' : 'bg-red-500'}`}
                 />
               </div>
-              <p className="text-[9px] text-gray-400 mt-1.5">
+              <p className="text-[11px] text-gray-400 mt-1.5">
                 ₹{stats.collectedAmount.toLocaleString('en-IN')} collected of ₹{stats.totalRevenue.toLocaleString('en-IN')}
               </p>
             </div>
@@ -3522,7 +3545,7 @@ Your uid is: ${user.uid}
             {/* Return customer rate */}
             <div className="pt-3 border-t border-white/10">
               <div className="flex items-center justify-between mb-1">
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Returning Customers</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-500">Returning Customers</p>
                 <span className="text-sm font-black text-purple-400">{stats.returnRate}%</span>
               </div>
               <div className="h-2 bg-white/8 rounded-full overflow-hidden">
@@ -3533,7 +3556,7 @@ Your uid is: ${user.uid}
                   className="h-full rounded-full bg-purple-500"
                 />
               </div>
-              <p className="text-[9px] text-gray-400 mt-1.5">
+              <p className="text-[11px] text-gray-400 mt-1.5">
                 {stats.returningCustomers} of {stats.totalCustomers} customers visited 2+ times
               </p>
             </div>
@@ -3546,7 +3569,7 @@ Your uid is: ${user.uid}
           {/* Top services — interactive drill-down */}
           <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 overflow-hidden">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Top Services</p>
+              <p className="text-xs uppercase tracking-widest font-black text-gray-500">Top Services</p>
               <span className="text-[8px] text-gray-700 font-bold uppercase tracking-wider">Tap to drill down</span>
             </div>
 
@@ -3566,12 +3589,12 @@ Your uid is: ${user.uid}
                       >
                         <div className="flex items-center justify-between mb-1">
                           <div className="flex items-center gap-2 min-w-0">
-                            <span className={`text-[9px] font-black w-3 ${isOpen ? 'text-gold' : 'text-gray-400'}`}>{i + 1}</span>
+                            <span className={`text-[11px] font-black w-3 ${isOpen ? 'text-gold' : 'text-gray-400'}`}>{i + 1}</span>
                             <span className={`text-xs font-medium truncate ${isOpen ? 'text-gold' : 'text-gray-300 group-hover:text-white'}`}>{name}</span>
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0 ml-2">
-                            <span className="text-[10px] font-black text-white">{count}×</span>
-                            <span className="text-[9px] text-gray-400">₹{revenue.toLocaleString('en-IN')}</span>
+                            <span className="text-xs font-black text-white">{count}×</span>
+                            <span className="text-[11px] text-gray-400">₹{revenue.toLocaleString('en-IN')}</span>
                             <ChevronDown size={11} className={`transition-transform ${isOpen ? 'rotate-180 text-gold' : 'text-gray-700'}`} />
                           </div>
                         </div>
@@ -3597,7 +3620,7 @@ Your uid is: ${user.uid}
                                 {(['today','week','month','year','all'] as const).map(p => (
                                   <button key={p}
                                     onClick={e => { e.stopPropagation(); setServiceDrillPeriod(p); }}
-                                    className={`px-2.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider transition-all ${
+                                    className={`px-2.5 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider transition-all ${
                                       serviceDrillPeriod === p ? 'bg-gold/25 text-gold' : 'text-gray-400 hover:text-white'
                                     }`}>
                                     {p === 'today' ? 'Today' : p === 'week' ? 'Week' : p === 'month' ? 'Month' : p === 'year' ? 'Year' : 'All'}
@@ -3646,7 +3669,7 @@ Your uid is: ${user.uid}
                                       </div>
                                     </div>
                                   ) : (
-                                    <p className="text-[10px] text-gray-400 text-center py-2">No bookings in this period</p>
+                                    <p className="text-xs text-gray-400 text-center py-2">No bookings in this period</p>
                                   )}
                                 </>
                               ) : (
@@ -3667,11 +3690,11 @@ Your uid is: ${user.uid}
 
           {/* Peak hours heatmap */}
           <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
-            <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-4">Peak Hours</p>
+            <p className="text-xs uppercase tracking-widest font-black text-gray-500 mb-4">Peak Hours</p>
             <div className="space-y-2">
               {stats.peakHours.map(({ label, count }) => (
                 <div key={label} className="flex items-center gap-2">
-                  <span className="text-[9px] text-gray-400 font-bold w-10 shrink-0">{label}</span>
+                  <span className="text-[11px] text-gray-400 font-bold w-10 shrink-0">{label}</span>
                   <div className="flex-1 h-5 bg-white/8 rounded-md overflow-hidden relative">
                     <motion.div
                       initial={{ width: 0 }}
@@ -3685,7 +3708,7 @@ Your uid is: ${user.uid}
                       }`}
                     />
                     {count > 0 && (
-                      <span className="absolute inset-0 flex items-center pl-2 text-[9px] font-black text-white">
+                      <span className="absolute inset-0 flex items-center pl-2 text-[11px] font-black text-white">
                         {count} booking{count !== 1 ? 's' : ''}
                       </span>
                     )}
@@ -3709,8 +3732,8 @@ Your uid is: ${user.uid}
           {/* Today's schedule */}
           <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-4">
-              <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Today's Schedule</p>
-              <span className="text-[9px] font-black text-gold px-2 py-0.5 bg-gold/10 border border-gold/20 rounded-full">
+              <p className="text-xs uppercase tracking-widest font-black text-gray-500">Today's Schedule</p>
+              <span className="text-[11px] font-black text-gold px-2 py-0.5 bg-gold/10 border border-gold/20 rounded-full">
                 {stats.todaySchedule.length} appts
               </span>
             </div>
@@ -3750,8 +3773,8 @@ Your uid is: ${user.uid}
                           </p>
                           <StatusBadge status={b.status ?? 'pending'} />
                         </div>
-                        <p className="text-[10px] text-gray-500 truncate mt-0.5">{b.serviceNames ?? '—'}</p>
-                        <p className="text-[9px] text-gray-400 mt-0.5">{b.bookingTime ?? '—'}</p>
+                        <p className="text-xs text-gray-500 truncate mt-0.5">{b.serviceNames ?? '—'}</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">{b.bookingTime ?? '—'}</p>
                       </div>
                     </div>
                   );
@@ -3768,10 +3791,10 @@ Your uid is: ${user.uid}
           <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Staff Performance</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-500">Staff Performance</p>
                 <p className="text-white font-black text-sm mt-0.5">Revenue & commissions</p>
               </div>
-              <span className="text-[9px] font-black text-gray-600 uppercase tracking-wider">This period</span>
+              <span className="text-[11px] font-black text-gray-600 uppercase tracking-wider">This period</span>
             </div>
             {stats.staffLeaderboard.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2">
@@ -3802,7 +3825,7 @@ Your uid is: ${user.uid}
                             className={`h-full rounded-full ${barColor}`}
                           />
                         </div>
-                        <div className="flex items-center gap-3 text-[9px] text-gray-500">
+                        <div className="flex items-center gap-3 text-[11px] text-gray-500">
                           <span>{s.bills} bill{s.bills !== 1 ? 's' : ''}</span>
                           <span>{s.services} service{s.services !== 1 ? 's' : ''}</span>
                           <span className="text-emerald-500">₹{s.commission.toLocaleString('en-IN')} commission</span>
@@ -3819,10 +3842,10 @@ Your uid is: ${user.uid}
           <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6">
             <div className="flex items-center justify-between mb-5">
               <div>
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Top Customers</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-500">Top Customers</p>
                 <p className="text-white font-black text-sm mt-0.5">By lifetime spend</p>
               </div>
-              <span className="text-[9px] font-black text-gray-600 uppercase tracking-wider">All time</span>
+              <span className="text-[11px] font-black text-gray-600 uppercase tracking-wider">All time</span>
             </div>
             {stats.topCustomers.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-10 gap-2">
@@ -3845,7 +3868,7 @@ Your uid is: ${user.uid}
                   })();
                   return (
                     <div key={c.phone} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-white/[0.03] transition-colors">
-                      <span className="text-[10px] font-black text-gray-600 w-5 text-center shrink-0">{i + 1}</span>
+                      <span className="text-xs font-black text-gray-600 w-5 text-center shrink-0">{i + 1}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-0.5">
                           <span className="text-xs font-bold text-white truncate">{c.name || c.phone}</span>
@@ -3857,7 +3880,7 @@ Your uid is: ${user.uid}
                             style={{ width: `${maxSpend > 0 ? (c.spend / maxSpend) * 100 : 0}%` }}
                           />
                         </div>
-                        <div className="flex items-center gap-3 text-[9px] text-gray-500">
+                        <div className="flex items-center gap-3 text-[11px] text-gray-500">
                           <span>{c.visits} visit{c.visits !== 1 ? 's' : ''}</span>
                           <span>Last: {lastSeen}</span>
                           <span>₹{Math.round(c.spend / c.visits).toLocaleString('en-IN')} avg</span>
@@ -3894,7 +3917,7 @@ Your uid is: ${user.uid}
             </div>
             <button
               onClick={confirmAllPending}
-              className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 rounded-xl text-black font-black text-[10px] uppercase tracking-widest transition-all shrink-0"
+              className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 rounded-xl text-black font-black text-xs uppercase tracking-widest transition-all shrink-0"
             >
               <CheckSquare size={12} /> Confirm All
             </button>
@@ -3919,7 +3942,7 @@ Your uid is: ${user.uid}
               }`}
             >
               {tab.icon} {tab.label}
-              <span className={`px-1.5 py-0.5 rounded-md text-[9px] font-black ${
+              <span className={`px-1.5 py-0.5 rounded-md text-[11px] font-black ${
                 activeTab === tab.id ? 'bg-white/10' : 'bg-white/8'
               }`}>{tab.count}</span>
             </button>
@@ -3946,7 +3969,7 @@ Your uid is: ${user.uid}
               <Filter size={13} className="text-gray-400 shrink-0" />
               {(['all', 'paid', 'confirmed', 'pending', 'failed'] as const).map(s => (
                 <button key={s} onClick={() => setStatusFilter(s)}
-                  className={`px-3 py-1.5 rounded-xl border text-[10px] font-black uppercase tracking-wider transition-all ${
+                  className={`px-3 py-1.5 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${
                     statusFilter === s
                       ? s === 'all' ? 'bg-gold/10 border-gold/30 text-gold' : `${STATUS_META[s].color} ${STATUS_META[s].bg}`
                       : 'bg-white/8 border-white/10 text-gray-500 hover:text-white hover:border-white/20'
@@ -3974,19 +3997,19 @@ Your uid is: ${user.uid}
               <div>
                 <p className="text-red-400 font-black text-sm uppercase tracking-wider mb-1">Setup Required</p>
                 <p className="text-gray-300 text-xs leading-relaxed">
-                  The dashboard can't read bookings. Most likely the <code className="text-gold bg-gold/10 px-1 py-0.5 rounded text-[10px]">admins/{user.uid}</code> document doesn't exist yet.
+                  The dashboard can't read bookings. Most likely the <code className="text-gold bg-gold/10 px-1 py-0.5 rounded text-xs">admins/{user.uid}</code> document doesn't exist yet.
                 </p>
               </div>
             </div>
 
             {/* UID copy box */}
             <div className="bg-black/40 border border-white/10 rounded-xl p-4 mb-4">
-              <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-2">Your Firebase UID (use this as the Document ID)</p>
+              <p className="text-[11px] uppercase tracking-widest font-black text-gray-500 mb-2">Your Firebase UID (use this as the Document ID)</p>
               <div className="flex items-center gap-3">
                 <code className="text-gold font-mono text-sm flex-1 break-all">{user.uid}</code>
                 <button
                   onClick={() => navigator.clipboard.writeText(user.uid)}
-                  className="px-3 py-1.5 bg-gold/10 border border-gold/20 rounded-lg text-gold text-[10px] font-black uppercase tracking-wider hover:bg-gold/20 transition-all shrink-0"
+                  className="px-3 py-1.5 bg-gold/10 border border-gold/20 rounded-lg text-gold text-xs font-black uppercase tracking-wider hover:bg-gold/20 transition-all shrink-0"
                 >
                   Copy
                 </button>
@@ -3995,14 +4018,14 @@ Your uid is: ${user.uid}
 
             {/* Step-by-step instructions */}
             <div className="space-y-2">
-              <p className="text-[9px] uppercase tracking-widest font-black text-gray-500 mb-3">Fix in 3 steps</p>
+              <p className="text-[11px] uppercase tracking-widest font-black text-gray-500 mb-3">Fix in 3 steps</p>
               {[
                 'Go to Firebase Console → Firestore Database → Data tab',
                 'Create (or open) the "admins" collection',
                 `Add a document with ID = ${user.uid} and fields: { email: "${user.email}", role: "admin" }`,
               ].map((step, i) => (
                 <div key={i} className="flex items-start gap-3">
-                  <span className="w-5 h-5 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-[9px] font-black flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
+                  <span className="w-5 h-5 rounded-full bg-red-500/20 border border-red-500/30 text-red-400 text-[11px] font-black flex items-center justify-center shrink-0 mt-0.5">{i + 1}</span>
                   <p className="text-gray-400 text-xs">{step}</p>
                 </div>
               ))}
@@ -4055,7 +4078,7 @@ Your uid is: ${user.uid}
                       <th
                         key={i}
                         onClick={() => key && toggleSort(key)}
-                        className={`py-3 px-5 text-left text-[10px] font-black uppercase tracking-widest text-gray-300 select-none
+                        className={`py-3 px-5 text-left text-xs font-black uppercase tracking-widest text-gray-300 select-none
                           ${key ? 'cursor-pointer hover:text-gray-400 transition-colors' : ''}
                           ${hidden === 'md' ? 'hidden md:table-cell' : ''}
                           ${hidden === 'lg' ? 'hidden lg:table-cell' : ''}
@@ -4077,7 +4100,7 @@ Your uid is: ${user.uid}
                 </tbody>
               </table>
 
-              <div className="px-5 py-3 border-t border-white/10 flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+              <div className="px-5 py-3 border-t border-white/10 flex items-center justify-between text-xs text-gray-400 font-bold uppercase tracking-widest">
                 <span>Showing {filtered.length} of {bookings.length} bookings</span>
                 <span>₹{filtered.reduce((a, b) => a + (b.totalAmount ?? 0), 0).toLocaleString('en-IN')} filtered total</span>
               </div>
@@ -4102,7 +4125,7 @@ Your uid is: ${user.uid}
                 {(['today','week','month','all'] as const).map(p => (
                   <button key={p}
                     onClick={() => { setBillingPeriod(p); setBillingFrom(''); setBillingTo(''); }}
-                    className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                       billingPeriod === p && !billingFrom ? 'bg-gold/20 border border-gold/30 text-gold' : 'text-gray-500 hover:text-white'
                     }`}>
                     {p === 'today' ? 'Today' : p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : 'All Time'}
@@ -4115,13 +4138,13 @@ Your uid is: ${user.uid}
                 <input
                   type="date" value={billingFrom}
                   onChange={e => setBillingFrom(e.target.value)}
-                  className="bg-transparent text-[10px] text-white focus:outline-none w-24 [color-scheme:dark]"
+                  className="bg-transparent text-xs text-white focus:outline-none w-24 [color-scheme:dark]"
                 />
-                <span className="text-gray-400 text-[10px]">–</span>
+                <span className="text-gray-400 text-xs">–</span>
                 <input
                   type="date" value={billingTo} min={billingFrom}
                   onChange={e => setBillingTo(e.target.value)}
-                  className="bg-transparent text-[10px] text-white focus:outline-none w-24 [color-scheme:dark]"
+                  className="bg-transparent text-xs text-white focus:outline-none w-24 [color-scheme:dark]"
                 />
                 {billingFrom && (
                   <button onClick={() => { setBillingFrom(''); setBillingTo(''); }}
@@ -4131,7 +4154,7 @@ Your uid is: ${user.uid}
                 )}
               </div>
               {billingFrom && billingTo && (
-                <span className="text-[10px] text-gold font-bold">
+                <span className="text-xs text-gold font-bold">
                   {new Date(billingFrom).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} – {new Date(billingTo).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
                 </span>
               )}
@@ -4178,9 +4201,9 @@ Your uid is: ${user.uid}
             ].map(({ label, value, sub, color, bar }) => (
               <div key={label} className={`bg-zinc-900 border ${color} rounded-2xl p-5 relative overflow-hidden`}>
                 <div className={`absolute top-0 left-0 right-0 h-[2px] ${bar} rounded-t-2xl`} />
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">{label}</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-400 mb-1.5">{label}</p>
                 <p className="text-2xl font-black text-white leading-none mb-1">{value}</p>
-                <p className="text-[10px] text-gray-400">{sub}</p>
+                <p className="text-xs text-gray-400">{sub}</p>
               </div>
             ))}
           </div>
@@ -4192,7 +4215,7 @@ Your uid is: ${user.uid}
               <div className="w-8 h-8 rounded-lg bg-gold/15 border border-gold/30 flex items-center justify-center shrink-0">
                 <Crown size={14} className="text-gold" />
               </div>
-              <p className="text-[10px] uppercase tracking-widest font-black text-gold/80">VVIP Customer Trends</p>
+              <p className="text-xs uppercase tracking-widest font-black text-gold/80">VVIP Customer Trends</p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
@@ -4202,9 +4225,9 @@ Your uid is: ${user.uid}
                 { label: 'Average Bill',    value: `₹${Math.round(billingStats.vvipAvgBill).toLocaleString('en-IN')}`,                sub: 'Per VVIP bill' },
               ].map(({ label, value, sub }) => (
                 <div key={label}>
-                  <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1.5">{label}</p>
+                  <p className="text-xs uppercase tracking-widest font-black text-gray-400 mb-1.5">{label}</p>
                   <p className="text-2xl font-black text-white leading-none mb-1">{value}</p>
-                  <p className="text-[10px] text-gray-400">{sub}</p>
+                  <p className="text-xs text-gray-400">{sub}</p>
                 </div>
               ))}
             </div>
@@ -4225,7 +4248,7 @@ Your uid is: ${user.uid}
                     <AlertCircle size={18} className="text-red-400" />
                   </div>
                   <div>
-                    <p className="text-[10px] uppercase tracking-widest font-black text-red-400/70 mb-0.5">Outstanding Dues</p>
+                    <p className="text-xs uppercase tracking-widest font-black text-red-400/70 mb-0.5">Outstanding Dues</p>
                     <p className="text-2xl font-black text-red-400 leading-none">
                       ₹{billingStats.totalDue.toLocaleString('en-IN')}
                     </p>
@@ -4234,7 +4257,7 @@ Your uid is: ${user.uid}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-[10px] font-black text-red-400/60 uppercase tracking-wider group-hover:text-red-400 transition-colors shrink-0">
+                <div className="flex items-center gap-1 text-xs font-black text-red-400/60 uppercase tracking-wider group-hover:text-red-400 transition-colors shrink-0">
                   View Details <ChevronRightIcon size={13} />
                 </div>
               </div>
@@ -4245,7 +4268,7 @@ Your uid is: ${user.uid}
                 <CheckCircle2 size={18} className="text-emerald-400" />
               </div>
               <div>
-                <p className="text-[10px] uppercase tracking-widest font-black text-emerald-400/70 mb-0.5">Outstanding Dues</p>
+                <p className="text-xs uppercase tracking-widest font-black text-emerald-400/70 mb-0.5">Outstanding Dues</p>
                 <p className="text-2xl font-black text-emerald-400 leading-none">₹0</p>
                 <p className="text-[11px] text-gray-400 mt-1">All bills are fully settled — no pending dues</p>
               </div>
@@ -4255,7 +4278,7 @@ Your uid is: ${user.uid}
           {/* ── Payment method breakdown ── */}
           {Object.keys(billingStats.pmRevenue).length > 0 && (
             <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
-              <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-4">Revenue by Payment Method</p>
+              <p className="text-xs uppercase tracking-widest font-black text-gray-500 mb-4">Revenue by Payment Method</p>
               <div className="space-y-2.5">
                 {Object.entries(billingStats.pmRevenue)
                   .sort((a,b) => b[1] - a[1])
@@ -4268,12 +4291,12 @@ Your uid is: ${user.uid}
                     const bar = PM_COLORS[pm] ?? 'bg-gray-500';
                     return (
                       <div key={pm} className="flex items-center gap-3">
-                        <span className="text-[10px] font-black text-gray-400 uppercase w-16 shrink-0">{pm === 'online' ? 'Razorpay' : pm}</span>
+                        <span className="text-xs font-black text-gray-400 uppercase w-16 shrink-0">{pm === 'online' ? 'Razorpay' : pm}</span>
                         <div className="flex-1 h-2 bg-white/8 rounded-full overflow-hidden">
                           <div className={`h-full rounded-full ${bar}`} style={{ width: `${pct}%`, transition: 'width 0.6s ease' }} />
                         </div>
                         <span className="text-xs font-black text-white w-20 text-right shrink-0">₹{(amt as number).toLocaleString('en-IN',{maximumFractionDigits:0})}</span>
-                        <span className="text-[10px] text-gray-400 w-8 text-right shrink-0">{pct}%</span>
+                        <span className="text-xs text-gray-400 w-8 text-right shrink-0">{pct}%</span>
                       </div>
                     );
                   })}
@@ -4299,7 +4322,7 @@ Your uid is: ${user.uid}
                     <thead>
                       <tr className="border-b border-white/12 bg-white/[0.05]">
                         {['Invoice #', 'Customer', 'Date', 'Services', 'Amount', 'Payment', 'Source', ''].map(h => (
-                          <th key={h} className="py-3 px-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-400">{h}</th>
+                          <th key={h} className="py-3 px-4 text-left text-xs font-black uppercase tracking-widest text-gray-400">{h}</th>
                         ))}
                       </tr>
                     </thead>
@@ -4328,35 +4351,35 @@ Your uid is: ${user.uid}
                               className="border-b border-white/10 hover:bg-white/[0.06] transition-colors cursor-pointer group"
                             >
                               <td className="py-3 px-4">
-                                <p className="text-gold text-[10px] font-black font-mono">{inv.invoiceNumber}</p>
+                                <p className="text-gold text-xs font-black font-mono">{inv.invoiceNumber}</p>
                                 {isDue && (
-                                  <span className="inline-block mt-0.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-red-500/15 border border-red-500/25 text-red-400 uppercase tracking-wide">
+                                  <span className="inline-block mt-0.5 text-[11px] font-black px-1.5 py-0.5 rounded bg-red-500/15 border border-red-500/25 text-red-400 uppercase tracking-wide">
                                     Due ₹{((inv as any).amountDue ?? 0).toLocaleString('en-IN')}
                                   </span>
                                 )}
                               </td>
                               <td className="py-3 px-4">
                                 <p className="text-white text-xs font-bold">{inv.customerName}</p>
-                                <p className="text-gray-400 text-[9px]">{inv.customerPhone}</p>
+                                <p className="text-gray-400 text-[11px]">{inv.customerPhone}</p>
                               </td>
                               <td className="py-3 px-4 text-gray-400 text-xs">{invDate}</td>
                               <td className="py-3 px-4 hidden lg:table-cell">
-                                <p className="text-gray-400 text-[10px] max-w-[160px] truncate">{services}</p>
+                                <p className="text-gray-400 text-xs max-w-[160px] truncate">{services}</p>
                               </td>
                               <td className="py-3 px-4">
                                 <p className="text-white font-black text-sm">₹{(inv.total ?? 0).toLocaleString('en-IN')}</p>
                                 {inv.discountAmount > 0 && (
-                                  <p className="text-red-400 text-[9px]">-₹{inv.discountAmount.toLocaleString('en-IN')} disc.</p>
+                                  <p className="text-red-400 text-[11px]">-₹{inv.discountAmount.toLocaleString('en-IN')} disc.</p>
                                 )}
                               </td>
                               <td className="py-3 px-4">
-                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${pmStyle}`}>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black uppercase border ${pmStyle}`}>
                                   {(inv.paymentMethod ?? 'cash').toUpperCase()}
                                 </span>
                               </td>
                               <td className="py-3 px-4">
                                 <div className="flex items-center gap-1 flex-wrap">
-                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${
+                                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black uppercase border ${
                                     inv.source === 'online'
                                       ? 'text-blue-400 bg-blue-400/10 border-blue-400/20'
                                       : 'text-amber-400 bg-amber-400/10 border-amber-400/20'
@@ -4364,7 +4387,7 @@ Your uid is: ${user.uid}
                                     {inv.source === 'online' ? '🌐 Online' : '🏪 Walk-in'}
                                   </span>
                                   {(inv as any).billingType === 'vvip' && (
-                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase border text-gold bg-gold/10 border-gold/30">
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-black uppercase border text-gold bg-gold/10 border-gold/30">
                                       <Crown size={9} /> VVIP
                                     </span>
                                   )}
@@ -4407,14 +4430,14 @@ Your uid is: ${user.uid}
                                         <button
                                           onClick={() => handleDeleteInvoice((inv as any).id)}
                                           disabled={deleting}
-                                          className="px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-[9px] font-black hover:bg-red-500/30 transition-all disabled:opacity-50 flex items-center gap-1"
+                                          className="px-2 py-1 rounded-lg bg-red-500/20 border border-red-500/30 text-red-400 text-[11px] font-black hover:bg-red-500/30 transition-all disabled:opacity-50 flex items-center gap-1"
                                         >
                                           {deleting ? <Loader2 size={10} className="animate-spin" /> : null}
                                           Confirm
                                         </button>
                                         <button
                                           onClick={() => setDeleteConfirmId(null)}
-                                          className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-gray-400 text-[9px] font-black hover:text-white transition-all"
+                                          className="px-2 py-1 rounded-lg bg-white/[0.04] border border-white/10 text-gray-400 text-[11px] font-black hover:text-white transition-all"
                                         >
                                           Cancel
                                         </button>
@@ -4441,18 +4464,18 @@ Your uid is: ${user.uid}
                                 <td colSpan={8} className="p-0">
                                   {editingInvId === (inv as any).id && editForm ? (
                                     <div className="px-6 py-4 bg-zinc-800/60 border-b border-white/10 space-y-3" onClick={e => e.stopPropagation()}>
-                                      <p className="text-[9px] uppercase tracking-widest font-black text-gold mb-1">Edit Invoice</p>
+                                      <p className="text-[11px] uppercase tracking-widest font-black text-gold mb-1">Edit Invoice</p>
 
                                       {/* Customer info */}
                                       <div className="grid grid-cols-2 gap-3">
                                         <div>
-                                          <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Customer Name</label>
+                                          <label className="text-[11px] uppercase tracking-widest font-black text-gray-500">Customer Name</label>
                                           <input value={editForm.customerName}
                                             onChange={e => setEditForm(prev => prev ? { ...prev, customerName: e.target.value } : prev)}
                                             className="w-full mt-1 bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50" />
                                         </div>
                                         <div>
-                                          <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Phone</label>
+                                          <label className="text-[11px] uppercase tracking-widest font-black text-gray-500">Phone</label>
                                           <input value={editForm.customerPhone}
                                             onChange={e => setEditForm(prev => prev ? { ...prev, customerPhone: e.target.value } : prev)}
                                             className="w-full mt-1 bg-zinc-900 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-gold/50" />
@@ -4461,17 +4484,17 @@ Your uid is: ${user.uid}
 
                                       {/* Billing tier */}
                                       <div>
-                                        <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Billing Type</label>
+                                        <label className="text-[11px] uppercase tracking-widest font-black text-gray-500">Billing Type</label>
                                         <div className="flex items-center bg-zinc-900 border border-white/10 rounded-xl p-1 gap-1 mt-1 w-fit">
                                           <button onClick={() => setEditForm(prev => prev ? { ...prev, billingType: 'standard' } : prev)}
-                                            className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                                            className={`px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${
                                               editForm.billingType === 'standard' ? 'bg-white/10 text-white' : 'text-gray-500 hover:text-gray-300'
                                             }`}
                                           >
                                             Standard
                                           </button>
                                           <button onClick={() => setEditForm(prev => prev ? { ...prev, billingType: 'vvip' } : prev)}
-                                            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all ${
+                                            className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${
                                               editForm.billingType === 'vvip' ? 'bg-gold/20 border border-gold/40 text-gold' : 'text-gray-500 hover:text-gray-300'
                                             }`}
                                           >
@@ -4482,26 +4505,26 @@ Your uid is: ${user.uid}
 
                                       {/* Line items */}
                                       <div className="space-y-2">
-                                        <p className="text-[9px] uppercase tracking-widest font-black text-gray-500">Line Items</p>
+                                        <p className="text-[11px] uppercase tracking-widest font-black text-gray-500">Line Items</p>
                                         {editForm.items.map((it, i) => (
                                           <div key={i} className="flex flex-wrap items-center gap-2 bg-zinc-900 border border-white/10 rounded-lg p-2">
                                             <span className="text-xs text-gray-200 font-bold flex-1 min-w-[120px]">{it.serviceName}</span>
                                             <div className="flex items-center gap-1">
-                                              <span className="text-[9px] text-gray-500">Price</span>
-                                              <input type="number" min={0} value={it.unitPrice}
-                                                onChange={e => updateEditItem(i, { unitPrice: Math.max(0, Number(e.target.value)) })}
+                                              <span className="text-[11px] text-gray-500">Price</span>
+                                              <input type="text" inputMode="numeric" value={it.unitPrice}
+                                                onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ''); updateEditItem(i, { unitPrice: Number(v) || 0 }); }}
                                                 className="w-20 bg-zinc-800 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
                                             </div>
                                             <div className="flex items-center gap-1">
-                                              <span className="text-[9px] text-gray-500">Qty</span>
-                                              <input type="number" min={1} value={it.quantity}
-                                                onChange={e => updateEditItem(i, { quantity: Math.max(1, Number(e.target.value)) })}
+                                              <span className="text-[11px] text-gray-500">Qty</span>
+                                              <input type="text" inputMode="numeric" value={it.quantity}
+                                                onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ''); updateEditItem(i, { quantity: Math.max(1, Number(v) || 1) }); }}
                                                 className="w-14 bg-zinc-800 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
                                             </div>
                                             <div className="flex items-center gap-1">
-                                              <span className="text-[9px] text-gray-500">Disc %</span>
-                                              <input type="number" min={0} max={100} value={it.lineDiscount}
-                                                onChange={e => updateEditItem(i, { lineDiscount: Math.min(100, Math.max(0, Number(e.target.value))) })}
+                                              <span className="text-[11px] text-gray-500">Disc %</span>
+                                              <input type="text" inputMode="numeric" value={it.lineDiscount}
+                                                onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ''); updateEditItem(i, { lineDiscount: Math.min(100, Number(v) || 0) }); }}
                                                 className="w-14 bg-zinc-800 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
                                             </div>
                                             <select value={it.staffId} onChange={e => updateEditItemStaff(i, e.target.value)}
@@ -4519,17 +4542,17 @@ Your uid is: ${user.uid}
 
                                       {/* Overall discount */}
                                       <div className="flex items-center gap-2">
-                                        <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Overall Discount %</label>
-                                        <input type="number" min={0} max={100} value={editForm.discountPercent}
-                                          onChange={e => setEditForm(prev => prev ? { ...prev, discountPercent: Math.min(100, Math.max(0, Number(e.target.value))) } : prev)}
+                                        <label className="text-[11px] uppercase tracking-widest font-black text-gray-500">Overall Discount %</label>
+                                        <input type="text" inputMode="numeric" value={editForm.discountPercent}
+                                          onChange={e => { const v = e.target.value.replace(/[^0-9]/g, ''); setEditForm(prev => prev ? { ...prev, discountPercent: Math.min(100, Number(v) || 0) } : prev); }}
                                           className="w-16 bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
                                       </div>
 
                                       {/* Payment splits */}
                                       <div className="space-y-2">
                                         <div className="flex items-center justify-between">
-                                          <p className="text-[9px] uppercase tracking-widest font-black text-gray-500">Payment Splits</p>
-                                          <button onClick={addEditSplit} className="text-[9px] font-black text-gold hover:underline">+ Add Split</button>
+                                          <p className="text-[11px] uppercase tracking-widest font-black text-gray-500">Payment Splits</p>
+                                          <button onClick={addEditSplit} className="text-[11px] font-black text-gold hover:underline">+ Add Split</button>
                                         </div>
                                         {editForm.paymentSplits.map((s, i) => (
                                           <div key={i} className="flex items-center gap-2">
@@ -4537,56 +4560,59 @@ Your uid is: ${user.uid}
                                               className="bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white focus:outline-none focus:border-gold/50">
                                               {EDIT_PAYMENT_METHODS.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
                                             </select>
-                                            <input type="number" min={0} value={s.amount}
-                                              onChange={e => updateEditSplit(i, { amount: Math.max(0, Number(e.target.value)) })}
+                                            <input type="text" inputMode="numeric" value={s.amount}
+                                              onChange={e => { const v = e.target.value.replace(/[^0-9.]/g, ''); updateEditSplit(i, { amount: Number(v) || 0 }); }}
                                               className="w-24 bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
-                                            {s.isAdvance && <span className="text-[9px] text-amber-400 font-bold">Advance</span>}
+                                            {s.isAdvance && <span className="text-[11px] text-amber-400 font-bold">Advance</span>}
                                             <button onClick={() => removeEditSplit(i)} className="p-1 rounded text-gray-600 hover:text-red-400 hover:bg-red-400/10" title="Remove split">
                                               <Trash2 size={12} />
                                             </button>
                                           </div>
                                         ))}
                                         {editForm.paymentSplits.length === 0 && (
-                                          <p className="text-[10px] text-gray-500">No payment splits — invoice will be marked fully due.</p>
+                                          <p className="text-xs text-gray-500">No payment splits — click "+ Add Split" to record payment.</p>
                                         )}
-                                        {editForm.paymentSplits.length > 1 && (
+                                        {editForm.paymentSplits.length >= 1 && (
                                           <div className="flex justify-between text-xs text-gray-400 border-t border-dashed border-white/10 pt-1">
-                                            <span>Collected</span>
+                                            <span>Total Collected</span>
                                             <span className="font-bold text-white">₹{editForm.paymentSplits.reduce((a, s) => a + (Number(s.amount) || 0), 0).toLocaleString('en-IN')}</span>
                                           </div>
                                         )}
                                       </div>
 
-                                      {/* Saved as advance */}
-                                      <div className="flex items-center gap-2">
-                                        <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Saved as Advance (₹)</label>
-                                        <input type="number" min={0} value={editForm.advanceAmount}
-                                          onChange={e => setEditForm(prev => prev ? { ...prev, advanceAmount: Math.max(0, Number(e.target.value)) } : prev)}
-                                          className="w-24 bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
-                                        <span className="text-[9px] text-gray-500">Adjusts customer's advance credit balance</span>
-                                      </div>
+                                      {/* Round-off checkbox */}
+                                      {(() => {
+                                        const subtotal = editForm.items.reduce((a, it) => a + it.price, 0);
+                                        const discAmt = Math.round(subtotal * editForm.discountPercent / 100);
+                                        const dueSettle = (inv as any).dueSettlementAmount ?? 0;
+                                        const splitTotal = editForm.paymentSplits.reduce((a, s) => a + (Number(s.amount) || 0), 0);
+                                        const rawTotal = subtotal - discAmt + dueSettle;
+                                        const remainder = rawTotal - splitTotal;
+                                        const showRoundOff = remainder > 0 && remainder <= 50;
+                                        return showRoundOff ? (
+                                          <label className="flex items-center gap-2 cursor-pointer">
+                                            <input type="checkbox" checked={editForm.roundOffEnabled}
+                                              onChange={e => {
+                                                const checked = e.target.checked;
+                                                setEditForm(prev => prev ? { ...prev, roundOffEnabled: checked, roundOff: checked ? remainder : 0 } : prev);
+                                              }}
+                                              className="w-4 h-4 rounded border-white/20 bg-zinc-900 accent-cyan-500" />
+                                            <span className="text-xs text-cyan-400 font-bold">Round off ₹{remainder.toLocaleString('en-IN')}</span>
+                                          </label>
+                                        ) : null;
+                                      })()}
 
-                                      {/* Outstanding due */}
-                                      <div className="flex items-center gap-2">
-                                        <label className="text-[9px] uppercase tracking-widest font-black text-gray-500">Outstanding Due (₹)</label>
-                                        <input type="number" min={0} value={editForm.dueAmount}
-                                          onChange={e => setEditForm(prev => prev ? { ...prev, dueAmount: Math.max(0, Number(e.target.value)) } : prev)}
-                                          className="w-24 bg-zinc-900 border border-white/10 rounded px-1.5 py-1 text-xs text-white text-right focus:outline-none focus:border-gold/50" />
-                                        {editForm.dueAmount > 0 && (
-                                          <button onClick={() => setEditForm(prev => prev ? { ...prev, dueAmount: 0 } : prev)}
-                                            className="text-[9px] font-black text-emerald-400 hover:underline">Mark Recovered</button>
-                                        )}
-                                        <span className="text-[9px] text-gray-500">e.g. set to ₹0 once recovery team collects payment</span>
-                                      </div>
-
-                                      {/* Computed totals */}
+                                      {/* Computed totals — auto-calculated due & advance */}
                                       {(() => {
                                         const subtotal = editForm.items.reduce((a, it) => a + it.price, 0);
                                         const discountAmount = Math.round(subtotal * editForm.discountPercent / 100);
                                         const dueSettlementAmount = (inv as any).dueSettlementAmount ?? 0;
-                                        const total = subtotal - discountAmount + dueSettlementAmount;
-                                        const amountDue = Math.min(total, Math.max(0, Math.round(editForm.dueAmount)));
-                                        const amountPaid = Math.max(0, Math.round((total - amountDue) * 100) / 100);
+                                        const roundOff = editForm.roundOffEnabled ? (editForm.roundOff ?? 0) : 0;
+                                        const total = Math.max(0, subtotal - discountAmount + dueSettlementAmount - roundOff);
+                                        const splitTotal = editForm.paymentSplits.reduce((a, s) => a + (Number(s.amount) || 0), 0);
+                                        const amountDue = Math.max(0, total - splitTotal);
+                                        const overpayment = Math.max(0, splitTotal - total);
+                                        const amountPaid = Math.min(splitTotal, total);
                                         return (
                                           <div className="pt-2 border-t border-white/10 space-y-1 text-xs">
                                             <div className="flex justify-between text-gray-400"><span>Subtotal</span><span>₹{subtotal.toLocaleString('en-IN')}</span></div>
@@ -4596,32 +4622,77 @@ Your uid is: ${user.uid}
                                             {dueSettlementAmount > 0 && (
                                               <div className="flex justify-between text-amber-400 font-bold"><span>Previous Dues Settled</span><span>+₹{dueSettlementAmount.toLocaleString('en-IN')}</span></div>
                                             )}
+                                            {roundOff > 0 && (
+                                              <div className="flex justify-between text-cyan-400"><span>Round Off</span><span>-₹{roundOff.toLocaleString('en-IN')}</span></div>
+                                            )}
                                             <div className="flex justify-between text-white font-black pt-1 border-t border-white/10"><span>Total</span><span className="text-gold">₹{total.toLocaleString('en-IN')}</span></div>
-                                            <div className="flex justify-between text-gray-400"><span>Paid</span><span>₹{amountPaid.toLocaleString('en-IN')}</span></div>
+                                            <div className="flex justify-between text-emerald-400"><span>Collected</span><span>₹{amountPaid.toLocaleString('en-IN')}</span></div>
                                             {amountDue > 0 && (
-                                              <div className="flex justify-between text-red-400 font-bold"><span>Due</span><span>₹{amountDue.toLocaleString('en-IN')}</span></div>
+                                              <div className="flex justify-between text-red-400 font-bold animate-pulse"><span>Due</span><span>₹{amountDue.toLocaleString('en-IN')}</span></div>
+                                            )}
+                                            {overpayment > 0 && (
+                                              <div className="flex justify-between text-purple-400 font-bold"><span>Saved as Advance</span><span>₹{overpayment.toLocaleString('en-IN')}</span></div>
+                                            )}
+                                            {amountDue === 0 && overpayment === 0 && (
+                                              <div className="flex justify-between text-emerald-400 font-bold"><span>Status</span><span>Fully Paid ✓</span></div>
                                             )}
                                           </div>
                                         );
                                       })()}
 
-                                      {editError && <p className="text-[10px] text-red-400 font-bold">{editError}</p>}
+                                      {/* Promo Coupons — 1 per ₹999 spent */}
+                                      {(() => {
+                                        const subtotal = editForm.items.reduce((a, it) => a + it.price, 0);
+                                        const maxCoupons = Math.floor(subtotal / 999);
+                                        if (maxCoupons < 1) return null;
+                                        return (
+                                          <div className="bg-purple-500/8 border border-purple-500/20 rounded-xl p-3 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                              <p className="text-[11px] font-black uppercase tracking-widest text-purple-400">🎟️ Promo Coupons</p>
+                                              <span className="text-xs text-purple-300 font-bold">{editForm.promoCoupons.length} / {maxCoupons}</span>
+                                            </div>
+                                            <p className="text-xs text-gray-500">1 coupon per ₹999 spent — up to {maxCoupons}</p>
+                                            <div className="space-y-1.5">
+                                              {editForm.promoCoupons.map((code, i) => (
+                                                <div key={i} className="flex items-center gap-2">
+                                                  <input type="text" value={code} placeholder={`Coupon ${i + 1}`}
+                                                    onChange={e => {
+                                                      const v = e.target.value.replace(/\s/g, '').toUpperCase();
+                                                      setEditForm(prev => prev ? { ...prev, promoCoupons: prev.promoCoupons.map((c, ci) => ci === i ? v : c) } : prev);
+                                                    }}
+                                                    className="flex-1 bg-zinc-900 border border-purple-500/25 rounded-lg px-2.5 py-1.5 text-xs text-white font-mono tracking-wider focus:outline-none focus:border-purple-400 placeholder:text-gray-600" />
+                                                  <button onClick={() => setEditForm(prev => prev ? { ...prev, promoCoupons: prev.promoCoupons.filter((_, ci) => ci !== i) } : prev)}
+                                                    className="text-gray-500 hover:text-red-400 p-1"><X size={12} /></button>
+                                                </div>
+                                              ))}
+                                            </div>
+                                            {editForm.promoCoupons.length < maxCoupons && (
+                                              <button onClick={() => setEditForm(prev => prev ? { ...prev, promoCoupons: [...prev.promoCoupons, ''] } : prev)}
+                                                className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg border border-dashed border-purple-500/30 text-purple-400 text-xs font-bold hover:bg-purple-500/8">
+                                                + Add Coupon
+                                              </button>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+
+                                      {editError && <p className="text-xs text-red-400 font-bold">{editError}</p>}
 
                                       {/* Save / Cancel */}
                                       <div className="flex items-center gap-2 pt-1">
                                         <button onClick={() => handleSaveEditInvoice(inv as Invoice & { id: string })} disabled={savingEdit}
-                                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gold text-black text-[10px] font-black hover:bg-gold/90 transition-all disabled:opacity-50">
+                                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gold text-black text-xs font-black hover:bg-gold/90 transition-all disabled:opacity-50">
                                           {savingEdit ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Save Changes
                                         </button>
                                         <button onClick={handleCancelEditInvoice}
-                                          className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-gray-400 text-[10px] font-black hover:text-white transition-all">
+                                          className="px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/10 text-gray-400 text-xs font-black hover:text-white transition-all">
                                           Cancel
                                         </button>
                                       </div>
                                     </div>
                                   ) : (
                                     <div className="px-6 py-4 bg-zinc-800/60 border-b border-white/10 space-y-2">
-                                      <p className="text-[9px] uppercase tracking-widest font-black text-gray-400 mb-2">Line Items</p>
+                                      <p className="text-[11px] uppercase tracking-widest font-black text-gray-400 mb-2">Line Items</p>
                                       {inv.items?.map((it: BillItem, i: number) => (
                                         <div key={i} className="space-y-0.5">
                                           <div className="flex items-center justify-between gap-3 text-xs">
@@ -4632,13 +4703,13 @@ Your uid is: ${user.uid}
                                             <span className="text-white font-bold shrink-0">₹{it.price.toLocaleString('en-IN')}</span>
                                           </div>
                                           {(it.quantity ?? 1) > 1 && (
-                                            <p className="text-[9px] text-gray-500 pl-1">₹{it.unitPrice.toLocaleString('en-IN')} × {it.quantity}</p>
+                                            <p className="text-[11px] text-gray-500 pl-1">₹{it.unitPrice.toLocaleString('en-IN')} × {it.quantity}</p>
                                           )}
                                         </div>
                                       ))}
                                       {(inv.paymentSplits?.length ?? 0) > 0 && (
                                         <div className="pt-2 border-t border-white/10 space-y-1">
-                                          <p className="text-[9px] uppercase tracking-widest font-black text-gray-400">Payment Breakup</p>
+                                          <p className="text-[11px] uppercase tracking-widest font-black text-gray-400">Payment Breakup</p>
                                           {inv.paymentSplits!.map((s: any, i: number) => {
                                             const label = s.method === 'online' ? 'Razorpay' : s.method;
                                             return (
@@ -4705,7 +4776,7 @@ Your uid is: ${user.uid}
                     </tbody>
                   </table>
                 </div>
-                <div className="px-5 py-3 border-t border-white/10 flex items-center justify-between text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+                <div className="px-5 py-3 border-t border-white/10 flex items-center justify-between text-xs text-gray-400 font-bold uppercase tracking-widest">
                   <span>{billingStats.displayed.length} invoices shown</span>
                   <span>₹{billingStats.totalRevenue.toLocaleString('en-IN',{maximumFractionDigits:0})} total</span>
                 </div>
@@ -4727,7 +4798,7 @@ Your uid is: ${user.uid}
             {/* Header */}
             <div className="shrink-0 bg-zinc-950 border-b border-white/10 px-5 py-4 flex items-center justify-between">
               <div>
-                <p className="text-[10px] uppercase tracking-widest font-black text-red-400/70">Outstanding Dues</p>
+                <p className="text-xs uppercase tracking-widest font-black text-red-400/70">Outstanding Dues</p>
                 <p className="text-white font-black text-xl leading-none mt-0.5">
                   ₹{billingStats.totalDue.toLocaleString('en-IN')}
                 </p>
@@ -4755,7 +4826,7 @@ Your uid is: ${user.uid}
                     </div>
                     <div className="text-right">
                       <p className="text-red-400 font-black text-base">₹{customer.totalDue.toLocaleString('en-IN')}</p>
-                      <p className="text-[9px] text-gray-500 uppercase tracking-wider">Total due</p>
+                      <p className="text-[11px] text-gray-500 uppercase tracking-wider">Total due</p>
                     </div>
                   </div>
                   {/* Due invoices */}
@@ -4771,21 +4842,21 @@ Your uid is: ${user.uid}
                         <div key={(inv as any).id} className="px-4 py-3 flex items-start gap-3">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 mb-0.5">
-                              <span className="text-gold text-[10px] font-black font-mono">{inv.invoiceNumber}</span>
-                              <span className="text-[9px] text-gray-500">{invDate}</span>
+                              <span className="text-gold text-xs font-black font-mono">{inv.invoiceNumber}</span>
+                              <span className="text-[11px] text-gray-500">{invDate}</span>
                             </div>
                             <p className="text-gray-300 text-[11px] truncate mb-1.5">{services}</p>
                             <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5">
-                              <span className="text-gray-400 text-[10px]">Total ₹{inv.total.toLocaleString('en-IN')}</span>
-                              <span className="text-gray-600 text-[10px]">·</span>
-                              <span className="text-emerald-400 text-[10px]">Paid ₹{amountPaid.toLocaleString('en-IN')}</span>
-                              <span className="text-gray-600 text-[10px]">·</span>
-                              <span className="text-red-400 text-[10px] font-bold">Due ₹{amountDue.toLocaleString('en-IN')}</span>
+                              <span className="text-gray-400 text-xs">Total ₹{inv.total.toLocaleString('en-IN')}</span>
+                              <span className="text-gray-600 text-xs">·</span>
+                              <span className="text-emerald-400 text-xs">Paid ₹{amountPaid.toLocaleString('en-IN')}</span>
+                              <span className="text-gray-600 text-xs">·</span>
+                              <span className="text-red-400 text-xs font-bold">Due ₹{amountDue.toLocaleString('en-IN')}</span>
                             </div>
                           </div>
                           <button
                             onClick={() => { setInvoiceModalId((inv as any).id); }}
-                            className="shrink-0 px-2.5 py-1.5 rounded-lg bg-gold/10 border border-gold/20 text-gold text-[10px] font-black uppercase tracking-wider hover:bg-gold/20 transition-colors"
+                            className="shrink-0 px-2.5 py-1.5 rounded-lg bg-gold/10 border border-gold/20 text-gold text-xs font-black uppercase tracking-wider hover:bg-gold/20 transition-colors"
                           >
                             View
                           </button>
@@ -4810,7 +4881,7 @@ Your uid is: ${user.uid}
           {!isStaffMode && (
             <div className="flex items-center gap-1 bg-zinc-800 border border-white/12 rounded-xl p-1 w-fit">
               <button onClick={() => setStaffSubView('list')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                   staffSubView === 'list'
                     ? 'bg-gold/15 border border-gold/25 text-gold'
                     : 'text-gray-500 hover:text-white'
@@ -4818,7 +4889,7 @@ Your uid is: ${user.uid}
                 <Users size={12}/> Staff List
               </button>
               <button onClick={() => setStaffSubView('analytics')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                   staffSubView === 'analytics'
                     ? 'bg-purple-500/15 border border-purple-500/25 text-purple-400'
                     : 'text-gray-500 hover:text-white'
@@ -4838,7 +4909,7 @@ Your uid is: ${user.uid}
           <>{/* Staff mode: show own profile only */}
           {isStaffMode && staffMember && (
             <div className="bg-zinc-900 border border-white/12 rounded-2xl p-6 space-y-4">
-              <p className="text-[10px] uppercase tracking-widest font-black text-gold">My Profile</p>
+              <p className="text-xs uppercase tracking-widest font-black text-gold">My Profile</p>
               <div className="flex items-center gap-4">
                 <div className="w-14 h-14 rounded-full bg-gold/10 border border-gold/20 flex items-center justify-center text-gold font-black text-xl">
                   {staffMember.name.charAt(0).toUpperCase()}
@@ -4852,12 +4923,12 @@ Your uid is: ${user.uid}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-2 border-t border-white/10">
                 <div className="text-center p-3 bg-white/8 rounded-xl">
                   <p className="text-gold font-black text-xl">{staffMember.commissionRate}%</p>
-                  <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">My Commission Rate</p>
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">My Commission Rate</p>
                 </div>
                 {(staffMember as any).salary > 0 && (
                   <div className="text-center p-3 bg-white/8 rounded-xl">
                     <p className="text-white font-black text-lg">₹{((staffMember as any).salary ?? 0).toLocaleString('en-IN')}</p>
-                    <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Monthly Salary</p>
+                    <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">Monthly Salary</p>
                   </div>
                 )}
                 {(() => {
@@ -4867,15 +4938,15 @@ Your uid is: ${user.uid}
                     <>
                       <div className="text-center p-3 bg-white/8 rounded-xl">
                         <p className="text-white font-black text-lg">{stat.services}</p>
-                        <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Services Done</p>
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">Services Done</p>
                       </div>
                       <div className="text-center p-3 bg-gold/10 border border-gold/20 rounded-xl">
                         <p className="text-gold font-black text-lg">₹{stat.commission.toLocaleString('en-IN')}</p>
-                        <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Commission Earned</p>
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">Commission Earned</p>
                       </div>
                       <div className="text-center p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-xl col-span-2 sm:col-span-1">
                         <p className="text-emerald-400 font-black text-lg">₹{(salary + stat.commission).toLocaleString('en-IN')}</p>
-                        <p className="text-[9px] text-gray-500 uppercase tracking-wider mt-0.5">Total Payable</p>
+                        <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">Total Payable</p>
                       </div>
                     </>
                   );
@@ -4922,7 +4993,7 @@ Your uid is: ${user.uid}
                 initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                 className="bg-zinc-900 border border-gold/30 rounded-2xl p-6 space-y-4"
               >
-                <p className="text-[10px] uppercase font-black tracking-widest text-gold">{staffForm.id ? 'Edit Staff' : 'New Staff Member'}</p>
+                <p className="text-xs uppercase font-black tracking-widest text-gold">{staffForm.id ? 'Edit Staff' : 'New Staff Member'}</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {[
                     { key: 'name',  placeholder: 'Full name *',   type: 'text'   },
@@ -4953,14 +5024,14 @@ Your uid is: ${user.uid}
                     />
                   </div>
                   <div className="sm:col-span-2">
-                    <label className="text-[10px] font-black uppercase tracking-widest text-gold block mb-1.5">Staff Portal Login Email</label>
+                    <label className="text-xs font-black uppercase tracking-widest text-gold block mb-1.5">Staff Portal Login Email</label>
                     <input type="email"
                       placeholder="staff@example.com"
                       value={(staffForm as any).email ?? ''}
                       onChange={e => setStaffForm(f => ({ ...f, email: e.target.value.trim() } as any))}
                       className="w-full bg-white/8 border border-white/10 rounded-xl py-2.5 px-4 text-sm text-white focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
                     />
-                    <p className="text-[9px] text-gray-400 mt-1">Staff logs in at /admin with this email + a password you set in Firebase Console.</p>
+                    <p className="text-[11px] text-gray-400 mt-1">Staff logs in at /admin with this email + a password you set in Firebase Console.</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
@@ -5028,20 +5099,20 @@ Your uid is: ${user.uid}
                     </div>
                   </div>
                   <p className="text-white font-bold text-sm">{s.name}</p>
-                  {s.role && <p className="text-gray-500 text-[10px] mt-0.5">{s.role}</p>}
-                  {s.phone && <p className="text-gray-400 text-[10px]">{s.phone}</p>}
+                  {s.role && <p className="text-gray-500 text-xs mt-0.5">{s.role}</p>}
+                  {s.phone && <p className="text-gray-400 text-xs">{s.phone}</p>}
                   {/* Salary + commission row */}
                   <div className="flex items-center gap-3 mt-3 pt-3 border-t border-white/10 flex-wrap">
-                    <span className="flex items-center gap-1 text-[10px] text-gold font-black">
+                    <span className="flex items-center gap-1 text-xs text-gold font-black">
                       <Percent size={9} /> {s.commissionRate}% commission
                     </span>
                     {(s as any).salary > 0 && (
-                      <span className="text-[10px] text-gray-400 font-bold">
+                      <span className="text-xs text-gray-400 font-bold">
                         ₹{((s as any).salary ?? 0).toLocaleString('en-IN')}/mo salary
                       </span>
                     )}
                     {!s.isActive && (
-                      <span className="ml-auto text-[9px] text-gray-400 font-black uppercase">Inactive</span>
+                      <span className="ml-auto text-[11px] text-gray-400 font-black uppercase">Inactive</span>
                     )}
                   </div>
                   {/* Commission breakdown from invoices */}
@@ -5054,19 +5125,19 @@ Your uid is: ${user.uid}
                       <div className="grid grid-cols-3 gap-2">
                         <div className="text-center p-2 bg-white/8 rounded-xl">
                           <p className="text-white font-black text-sm">{stat.services}</p>
-                          <p className="text-[9px] text-gray-400 uppercase">Services</p>
+                          <p className="text-[11px] text-gray-400 uppercase">Services</p>
                         </div>
                         <div className="text-center p-2 bg-white/8 rounded-xl">
                           <p className="text-gold font-black text-sm">₹{stat.commission.toLocaleString('en-IN')}</p>
-                          <p className="text-[9px] text-gray-400 uppercase">Commission</p>
+                          <p className="text-[11px] text-gray-400 uppercase">Commission</p>
                         </div>
                         <div className="text-center p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
                           <p className="text-emerald-400 font-black text-sm">₹{totalPayable.toLocaleString('en-IN')}</p>
-                          <p className="text-[9px] text-emerald-600 uppercase">Total Pay</p>
+                          <p className="text-[11px] text-emerald-600 uppercase">Total Pay</p>
                         </div>
                       </div>
                       {(salary > 0 || stat.commission > 0) && (
-                        <p className="text-[9px] text-gray-700 text-center">
+                        <p className="text-[11px] text-gray-700 text-center">
                           ₹{salary.toLocaleString('en-IN')} salary + ₹{stat.commission.toLocaleString('en-IN')} commission = ₹{totalPayable.toLocaleString('en-IN')}
                         </p>
                       )}
@@ -5091,7 +5162,7 @@ Your uid is: ${user.uid}
           {/* Sub-view toggle */}
           <div className="flex items-center gap-1 bg-zinc-800 border border-white/12 rounded-xl p-1 w-fit">
             <button onClick={() => setCustomerSubView('list')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                 customerSubView === 'list'
                   ? 'bg-gold/15 border border-gold/25 text-gold'
                   : 'text-gray-500 hover:text-white'
@@ -5099,7 +5170,7 @@ Your uid is: ${user.uid}
               <Users size={12}/> Customers
             </button>
             <button onClick={() => setCustomerSubView('analytics')}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                 customerSubView === 'analytics'
                   ? 'bg-blue-500/15 border border-blue-500/25 text-blue-400'
                   : 'text-gray-500 hover:text-white'
@@ -5145,7 +5216,7 @@ Your uid is: ${user.uid}
                 const active = customerSourceFilter === src;
                 return (
                   <button key={src} onClick={() => setCustomerSourceFilter(src)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border transition-all ${active ? activeCls : cls}`}>
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-black uppercase border transition-all ${active ? activeCls : cls}`}>
                     {label}
                     <span className={`${active ? 'opacity-80' : 'opacity-50'}`}>{count}</span>
                   </button>
@@ -5183,7 +5254,7 @@ Your uid is: ${user.uid}
                 <thead>
                   <tr className="border-b border-white/12 bg-white/[0.05]">
                     {['Customer', 'Phone', 'Visits', 'Total Spend', 'Last Visit', 'Source', 'Status'].map(h => (
-                      <th key={h} className="py-3 px-4 text-left text-[10px] font-black uppercase tracking-widest text-gray-400">{h}</th>
+                      <th key={h} className="py-3 px-4 text-left text-xs font-black uppercase tracking-widest text-gray-400">{h}</th>
                     ))}
                   </tr>
                 </thead>
@@ -5213,12 +5284,12 @@ Your uid is: ${user.uid}
                           {c.lastVisit ? new Date(c.lastVisit).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}
                         </td>
                         <td className="py-3 px-4">
-                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${sm.cls}`}>
+                          <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black uppercase border ${sm.cls}`}>
                             {sm.label}
                           </span>
                         </td>
                         <td className="py-3 px-4">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase border ${
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-black uppercase border ${
                             isReturning
                               ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
                               : 'bg-blue-500/10 border-blue-500/20 text-blue-400'
@@ -5238,7 +5309,7 @@ Your uid is: ${user.uid}
                   <Loader2 size={16} className="animate-spin text-gold" />
                 </div>
               )}
-              <div className="px-5 py-3 border-t border-white/10 text-[10px] text-gray-400 font-bold uppercase tracking-widest">
+              <div className="px-5 py-3 border-t border-white/10 text-xs text-gray-400 font-bold uppercase tracking-widest">
                 Showing {visible.length} of {filtered.length} · ₹{customers.reduce((a: number, c: any) => a + (c.totalSpend ?? 0), 0).toLocaleString('en-IN')} combined spend
               </div>
             </div>
@@ -5265,7 +5336,7 @@ Your uid is: ${user.uid}
               { id: 'settings', label: 'Settings',      icon: <Building2   size={12}/>, adminOnly: true  },
             ] as const).filter(t => !t.adminOnly || !isStaffMode).map(t => (
               <button key={t.id} onClick={() => setToolsTab(t.id)}
-                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+                className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
                   toolsTab === t.id
                     ? 'bg-gold/15 border border-gold/25 text-gold'
                     : 'text-gray-400 hover:text-white hover:bg-white/8'
@@ -5287,7 +5358,7 @@ Your uid is: ${user.uid}
           {toolsTab === 'settings' && !isStaffMode && (
             <div className="space-y-6 max-w-xl">
               <div className="bg-zinc-900 border border-white/10 rounded-2xl p-6">
-                <p className="text-[10px] uppercase tracking-widest font-black text-gray-400 mb-1">Salon Configuration</p>
+                <p className="text-xs uppercase tracking-widest font-black text-gray-400 mb-1">Salon Configuration</p>
                 <p className="text-xs text-gray-500 mb-6">Controls booking slots, capacity, and voice assistant hours. Changes take effect immediately for new bookings.</p>
 
                 {!sSettingsLoaded ? (
@@ -5299,7 +5370,7 @@ Your uid is: ${user.uid}
                     {/* Staff count */}
                     <div>
                       <label className="block text-xs font-bold text-gray-300 mb-1">Staff / Simultaneous Appointments</label>
-                      <p className="text-[10px] text-gray-500 mb-2">How many appointments can run at the same time</p>
+                      <p className="text-xs text-gray-500 mb-2">How many appointments can run at the same time</p>
                       <input type="number" min={1} max={20}
                         value={sSettings.staffCount}
                         onChange={e => setSSettings(p => ({ ...p, staffCount: Math.max(1, +e.target.value) }))}
@@ -5311,30 +5382,30 @@ Your uid is: ${user.uid}
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="block text-xs font-bold text-gray-300 mb-1">Opening Hour</label>
-                        <p className="text-[10px] text-gray-500 mb-2">24-hour format (e.g. 10 = 10:00 AM)</p>
+                        <p className="text-xs text-gray-500 mb-2">24-hour format (e.g. 10 = 10:00 AM)</p>
                         <input type="number" min={0} max={23}
                           value={sSettings.openHour}
                           onChange={e => setSSettings(p => ({ ...p, openHour: Math.min(23, Math.max(0, +e.target.value)) }))}
                           className="w-32 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40"
                         />
-                        <p className="text-[10px] text-gold mt-1">{sSettings.openHour === 0 ? '12:00 AM' : sSettings.openHour < 12 ? `${sSettings.openHour}:00 AM` : sSettings.openHour === 12 ? '12:00 PM' : `${sSettings.openHour - 12}:00 PM`}</p>
+                        <p className="text-xs text-gold mt-1">{sSettings.openHour === 0 ? '12:00 AM' : sSettings.openHour < 12 ? `${sSettings.openHour}:00 AM` : sSettings.openHour === 12 ? '12:00 PM' : `${sSettings.openHour - 12}:00 PM`}</p>
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-gray-300 mb-1">Closing Hour</label>
-                        <p className="text-[10px] text-gray-500 mb-2">24-hour format (e.g. 22 = 10:00 PM)</p>
+                        <p className="text-xs text-gray-500 mb-2">24-hour format (e.g. 22 = 10:00 PM)</p>
                         <input type="number" min={0} max={23}
                           value={sSettings.closeHour}
                           onChange={e => setSSettings(p => ({ ...p, closeHour: Math.min(23, Math.max(0, +e.target.value)) }))}
                           className="w-32 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40"
                         />
-                        <p className="text-[10px] text-gold mt-1">{sSettings.closeHour === 0 ? '12:00 AM' : sSettings.closeHour < 12 ? `${sSettings.closeHour}:00 AM` : sSettings.closeHour === 12 ? '12:00 PM' : `${sSettings.closeHour - 12}:00 PM`}</p>
+                        <p className="text-xs text-gold mt-1">{sSettings.closeHour === 0 ? '12:00 AM' : sSettings.closeHour < 12 ? `${sSettings.closeHour}:00 AM` : sSettings.closeHour === 12 ? '12:00 PM' : `${sSettings.closeHour - 12}:00 PM`}</p>
                       </div>
                     </div>
 
                     {/* Slot step */}
                     <div>
                       <label className="block text-xs font-bold text-gray-300 mb-1">Slot Interval (minutes)</label>
-                      <p className="text-[10px] text-gray-500 mb-2">How frequently new time slots are generated (e.g. every 15 min)</p>
+                      <p className="text-xs text-gray-500 mb-2">How frequently new time slots are generated (e.g. every 15 min)</p>
                       <select value={sSettings.slotStepMins}
                         onChange={e => setSSettings(p => ({ ...p, slotStepMins: +e.target.value }))}
                         className="w-40 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40">
@@ -5345,7 +5416,7 @@ Your uid is: ${user.uid}
                     {/* Buffer */}
                     <div>
                       <label className="block text-xs font-bold text-gray-300 mb-1">Advance Buffer (minutes)</label>
-                      <p className="text-[10px] text-gray-500 mb-2">Minimum time ahead required before the first available slot</p>
+                      <p className="text-xs text-gray-500 mb-2">Minimum time ahead required before the first available slot</p>
                       <select value={sSettings.bufferMins}
                         onChange={e => setSSettings(p => ({ ...p, bufferMins: +e.target.value }))}
                         className="w-40 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40">
@@ -5356,7 +5427,7 @@ Your uid is: ${user.uid}
                     {/* Express service fee */}
                     <div>
                       <label className="block text-xs font-bold text-gray-300 mb-1">Express Service Fee (₹)</label>
-                      <p className="text-[10px] text-gray-500 mb-2">Extra charge for priority/express bookings (customers skip the queue)</p>
+                      <p className="text-xs text-gray-500 mb-2">Extra charge for priority/express bookings (customers skip the queue)</p>
                       <input type="number" min={0}
                         value={sSettings.expressServiceFee}
                         onChange={e => setSSettings(p => ({ ...p, expressServiceFee: Math.max(0, +e.target.value) }))}
@@ -5367,7 +5438,7 @@ Your uid is: ${user.uid}
                     {/* Default staff for unassigned services */}
                     <div>
                       <label className="block text-xs font-bold text-gray-300 mb-1">Default Staff (for unassigned services)</label>
-                      <p className="text-[10px] text-gray-500 mb-2">
+                      <p className="text-xs text-gray-500 mb-2">
                         If a service is billed without a staff member selected, it's silently credited to this
                         staff member's commission &amp; service count. The Billing screen is unaffected — no staff
                         appears selected there, but invoices and staff totals reflect this default.
@@ -5387,7 +5458,7 @@ Your uid is: ${user.uid}
                       <label className="block text-xs font-bold text-gray-300 mb-1 flex items-center gap-1.5">
                         <Lock size={12} className="text-gold" /> Security PIN
                       </label>
-                      <p className="text-[10px] text-gray-500 mb-2">
+                      <p className="text-xs text-gray-500 mb-2">
                         Set a 4-digit PIN to lock Billing, Insights &amp; Staff sections.
                         Anyone will need this PIN to access them. Leave empty to disable.
                       </p>
@@ -5403,19 +5474,44 @@ Your uid is: ${user.uid}
                             setPinSettingsInput(v);
                             if (v.length === 4) setAdminPin(v);
                           }}
-                          className="w-56 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm tracking-[0.3em] text-center font-mono focus:outline-none focus:border-gold/40 placeholder:tracking-normal placeholder:text-gray-600 placeholder:text-[10px]"
+                          className="w-56 bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm tracking-[0.3em] text-center font-mono focus:outline-none focus:border-gold/40 placeholder:tracking-normal placeholder:text-gray-600 placeholder:text-xs"
                         />
                         {adminPin && (
                           <button
                             onClick={() => { setAdminPin(''); setPinSettingsInput(''); }}
-                            className="text-red-400 text-[10px] font-bold hover:text-red-300 transition-colors"
+                            className="text-red-400 text-xs font-bold hover:text-red-300 transition-colors"
                           >
                             Remove PIN
                           </button>
                         )}
                       </div>
                       {pinSettingsInput.length > 0 && pinSettingsInput.length < 4 && (
-                        <p className="text-orange-400 text-[10px] mt-1">PIN must be exactly 4 digits</p>
+                        <p className="text-orange-400 text-xs mt-1">PIN must be exactly 4 digits</p>
+                      )}
+                    </div>
+
+                    {/* ── Legacy Section Image ── */}
+                    <div className="pt-4 border-t border-white/8">
+                      <label className="block text-xs font-bold text-gray-300 mb-1">Legacy Section Image URL</label>
+                      <p className="text-xs text-gray-500 mb-2">
+                        Image shown in the "Our Legacy" section on the landing page. Paste a public image URL.
+                        Leave empty to use the default image.
+                      </p>
+                      <input type="url"
+                        value={sSettings.legacyImageUrl}
+                        onChange={e => setSSettings(p => ({ ...p, legacyImageUrl: e.target.value }))}
+                        placeholder="https://example.com/image.jpg"
+                        className="w-full max-w-md bg-zinc-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-gold/40 placeholder:text-gray-600"
+                      />
+                      {sSettings.legacyImageUrl && (
+                        <div className="mt-2 flex items-center gap-3">
+                          <div className="w-20 h-20 rounded-xl border border-white/10 overflow-hidden bg-zinc-800">
+                            <img src={sSettings.legacyImageUrl} alt="Preview" className="w-full h-full object-cover"
+                              onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                          </div>
+                          <button onClick={() => setSSettings(p => ({ ...p, legacyImageUrl: '' }))}
+                            className="text-red-400 text-xs font-bold hover:text-red-300">Remove</button>
+                        </div>
                       )}
                     </div>
 

@@ -400,7 +400,7 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                         {upcomingCount > 0 && (
                           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gold/8 border border-gold/20">
                             <CalendarClock size={11} className="text-gold" />
-                            <span className="text-[10px] font-black text-gold uppercase tracking-wider">
+                            <span className="text-xs font-black text-gold uppercase tracking-wider">
                               {upcomingCount} upcoming
                             </span>
                           </div>
@@ -408,13 +408,13 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                         {pastCount > 0 && (
                           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.04] border border-white/8">
                             <History size={11} className="text-gray-400" />
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                            <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">
                               {pastCount} past
                             </span>
                           </div>
                         )}
                         {lastVisit && (
-                          <span className="text-[10px] text-gray-600 ml-auto">
+                          <span className="text-xs text-gray-600 ml-auto">
                             Last visit: {fmtDate(lastVisit)}
                           </span>
                         )}
@@ -441,13 +441,13 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                               <div className="flex items-center justify-between gap-2 px-4 pt-3.5 pb-2">
                                 <div className="flex items-center gap-2 flex-wrap">
                                   {badge && (
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${badge.cls}`}>
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider border ${badge.cls}`}>
                                       {badge.label}
                                     </span>
                                   )}
                                   <span className="text-white font-bold text-sm">{b.customerName}</span>
                                 </div>
-                                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${sm.cls}`}>
+                                <span className={`shrink-0 px-2 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider border ${sm.cls}`}>
                                   {sm.text}
                                 </span>
                               </div>
@@ -474,7 +474,7 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                       <div className="flex-1 min-w-0">
                                         <p className="text-gray-300 text-[11px] leading-tight truncate">{item.name}</p>
                                         {item.staffName && (
-                                          <p className="text-gray-600 text-[9px]">
+                                          <p className="text-gray-600 text-[11px]">
                                             Staff: {item.staffName}
                                             {item.commissionRate ? ` · ${item.commissionRate}%` : ''}
                                           </p>
@@ -486,7 +486,7 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                     </div>
                                   ))}
                                   {(b.discountPercent ?? 0) > 0 && (
-                                    <div className="flex justify-between text-[10px] text-red-400 pt-1 border-t border-white/5">
+                                    <div className="flex justify-between text-xs text-red-400 pt-1 border-t border-white/5">
                                       <span>Discount ({b.discountPercent}%)</span>
                                       <span>-₹{(b.discountAmount ?? 0).toLocaleString('en-IN')}</span>
                                     </div>
@@ -513,43 +513,43 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                     </span>
                                     {/* Show original if finalAmount differs (discount applied) */}
                                     {b.finalAmount && b.finalAmount !== b.totalAmount && (
-                                      <span className="text-gray-600 text-[10px] line-through">
+                                      <span className="text-gray-600 text-xs line-through">
                                         ₹{(b.totalAmount ?? 0).toLocaleString('en-IN')}
                                       </span>
                                     )}
                                     {hasCoupon && b.originalAmount && !b.finalAmount && (
-                                      <span className="text-gray-600 text-[10px] line-through">
+                                      <span className="text-gray-600 text-xs line-through">
                                         ₹{b.originalAmount.toLocaleString('en-IN')}
                                       </span>
                                     )}
                                   </div>
                                   {hasCoupon && (
-                                    <p className="text-emerald-400/80 text-[9px] font-bold mt-0.5">
+                                    <p className="text-emerald-400/80 text-[11px] font-bold mt-0.5">
                                       Coupon {b.couponCode} — saved ₹{b.discountAmount?.toLocaleString('en-IN')}
                                     </p>
                                   )}
                                   {b.invoiceId && (
-                                    <p className="text-purple-400/70 text-[9px] font-bold mt-0.5">✓ Invoice generated</p>
+                                    <p className="text-purple-400/70 text-[11px] font-bold mt-0.5">✓ Invoice generated</p>
                                   )}
                                 </div>
 
                                 {/* Payment status */}
                                 <div className="flex flex-col items-end gap-0.5">
                                   {isPaid ? (
-                                    <span className="flex items-center gap-1 text-emerald-400 text-[10px] font-black">
+                                    <span className="flex items-center gap-1 text-emerald-400 text-xs font-black">
                                       <CheckCircle2 size={11} /> Payment Confirmed
                                     </span>
                                   ) : b.status === 'pending' ? (
-                                    <span className="flex items-center gap-1 text-amber-400 text-[10px] font-black">
+                                    <span className="flex items-center gap-1 text-amber-400 text-xs font-black">
                                       <Clock size={11} /> Payment Pending
                                     </span>
                                   ) : (
-                                    <span className="flex items-center gap-1 text-red-400 text-[10px] font-black">
+                                    <span className="flex items-center gap-1 text-red-400 text-xs font-black">
                                       <AlertCircle size={11} /> {sm.text}
                                     </span>
                                   )}
                                   {b.paymentId && (
-                                    <span className="text-gray-700 text-[9px] font-mono">ID: {b.paymentId.slice(-8)}</span>
+                                    <span className="text-gray-700 text-[11px] font-mono">ID: {b.paymentId.slice(-8)}</span>
                                   )}
                                 </div>
                               </div>
@@ -558,27 +558,27 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                               {b.status === 'pending' && (
                                 <div className="px-4 pb-3 space-y-2">
                                   <div className="p-3 rounded-xl bg-amber-400/8 border border-amber-400/20 space-y-2">
-                                    <p className="text-amber-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5">
+                                    <p className="text-amber-400 text-xs font-black uppercase tracking-wider flex items-center gap-1.5">
                                       <AlertCircle size={12} /> Payment Incomplete
                                     </p>
-                                    <p className="text-gray-400 text-[10px] leading-relaxed">
+                                    <p className="text-gray-400 text-xs leading-relaxed">
                                       Your booking is saved but payment was not completed. Tap below to pay and confirm your slot.
                                     </p>
                                     {payErr2 && b.id === payingId && (
-                                      <p className="text-red-400 text-[10px]">{payErr2}</p>
+                                      <p className="text-red-400 text-xs">{payErr2}</p>
                                     )}
                                     <div className="flex gap-2 pt-1">
                                       <button
                                         onClick={() => retryPayment(b)}
                                         disabled={payingId === b.id}
-                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gold text-black text-[10px] font-black uppercase tracking-wider disabled:opacity-50 transition-all"
+                                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-gold text-black text-xs font-black uppercase tracking-wider disabled:opacity-50 transition-all"
                                       >
                                         {payingId === b.id
                                           ? <><Loader2 size={11} className="animate-spin" /> Processing…</>
                                           : <><IndianRupee size={11} /> Pay ₹{(b.totalAmount ?? 0).toLocaleString('en-IN')} to Confirm</>}
                                       </button>
                                     </div>
-                                    <p className="text-gray-600 text-[9px] text-center">
+                                    <p className="text-gray-600 text-[11px] text-center">
                                       Your payment is being verified. If the amount has already been deducted, please{' '}
                                       <a href="tel:+918789603343" className="text-gold underline">contact the salon</a>{' '}
                                       for assistance.
@@ -592,7 +592,7 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                 <div className="px-4 pb-3">
                                   <button
                                     onClick={() => viewInvoice(b.invoiceId!)}
-                                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-gold/30 bg-gold/8 text-gold text-[10px] font-black uppercase tracking-wider hover:bg-gold/15 transition-all"
+                                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-gold/30 bg-gold/8 text-gold text-xs font-black uppercase tracking-wider hover:bg-gold/15 transition-all"
                                   >
                                     <CheckCircle2 size={11} /> {invoiceId === b.invoiceId ? 'Hide Invoice' : 'View Invoice'}
                                   </button>
@@ -614,14 +614,14 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                           <div className="bg-white text-black rounded-2xl p-4 font-mono text-xs">
                                             <div className="text-center mb-3">
                                               <p className="font-black text-base uppercase">Hair Tech</p>
-                                              <p className="text-gray-500 text-[10px]">Unisex Salon, Araria</p>
-                                              <p className="text-[9px] text-gray-400 mt-1">
+                                              <p className="text-gray-500 text-xs">Unisex Salon, Araria</p>
+                                              <p className="text-[11px] text-gray-400 mt-1">
                                                 Invoice: <span className="font-black text-black">{invoiceData.invoiceNumber}</span>
                                               </p>
                                             </div>
                                             <div className="border-t border-dashed border-gray-300 pt-2 mb-2 space-y-1">
                                               {invoiceData.items?.map((it: any, i: number) => (
-                                                <div key={i} className="flex justify-between text-[10px]">
+                                                <div key={i} className="flex justify-between text-xs">
                                                   <span className="text-gray-700 truncate flex-1 pr-2">{it.serviceName}</span>
                                                   <span className="font-bold">₹{it.price?.toLocaleString('en-IN')}</span>
                                                 </div>
@@ -629,7 +629,7 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                             </div>
                                             <div className="border-t border-dashed border-gray-300 pt-2 space-y-1">
                                               {invoiceData.discountAmount > 0 && (
-                                                <div className="flex justify-between text-[10px] text-red-600">
+                                                <div className="flex justify-between text-xs text-red-600">
                                                   <span>Discount ({invoiceData.discountPercent}%)</span>
                                                   <span>-₹{invoiceData.discountAmount?.toLocaleString('en-IN')}</span>
                                                 </div>
@@ -638,17 +638,17 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                                 <span>Total</span>
                                                 <span style={{ color: '#B8941F' }}>₹{invoiceData.total?.toLocaleString('en-IN')}</span>
                                               </div>
-                                              <div className="flex justify-between text-[10px] text-gray-500">
+                                              <div className="flex justify-between text-xs text-gray-500">
                                                 <span>Payment</span>
                                                 <span className="uppercase font-bold text-black">{invoiceData.paymentMethod}</span>
                                               </div>
                                             </div>
-                                            <div className="text-center text-[9px] text-gray-400 mt-3 pt-2 border-t border-dashed border-gray-300">
+                                            <div className="text-center text-[11px] text-gray-400 mt-3 pt-2 border-t border-dashed border-gray-300">
                                               Thank you for visiting Hair Tech Salon!
                                             </div>
                                           </div>
                                         ) : (
-                                          <p className="text-gray-600 text-[10px] text-center py-3">Invoice not available.</p>
+                                          <p className="text-gray-600 text-xs text-center py-3">Invoice not available.</p>
                                         )}
                                       </motion.div>
                                     )}
@@ -663,7 +663,7 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                     /* ── Inline reschedule panel ── */
                                     <div className="mt-2 rounded-2xl border border-gold/20 bg-gold/[0.04] p-3 space-y-3">
                                       <div className="flex items-center justify-between">
-                                        <p className="text-[10px] font-black uppercase tracking-wider text-gold flex items-center gap-1.5">
+                                        <p className="text-xs font-black uppercase tracking-wider text-gold flex items-center gap-1.5">
                                           <CalendarCheck size={12} /> Change Appointment
                                         </p>
                                         <button onClick={closeEdit} className="text-gray-600 hover:text-white transition-colors">
@@ -679,7 +679,7 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                         <>
                                           {/* Date strip */}
                                           <div>
-                                            <p className="text-[9px] text-gray-600 uppercase tracking-wider font-bold mb-2">Pick a date</p>
+                                            <p className="text-[11px] text-gray-600 uppercase tracking-wider font-bold mb-2">Pick a date</p>
                                             <div className="flex gap-1.5 overflow-x-auto pb-0.5 scrollbar-hide">
                                               {dateStrip.map(d => {
                                                 const active = isSameDay(d, editDate);
@@ -692,7 +692,7 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                                         : 'border-white/10 bg-white/[0.04] text-gray-400 hover:border-gold/40'
                                                     }`}
                                                   >
-                                                    <span className={`text-[9px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>
+                                                    <span className={`text-[11px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>
                                                       {format(d, 'EEE')}
                                                     </span>
                                                     <span className="text-sm font-black">{format(d, 'd')}</span>
@@ -708,16 +708,16 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                               <Loader2 size={14} className="animate-spin text-gold" /> Checking availability…
                                             </div>
                                           ) : editSlots.length === 0 && isSameDay(editDate, addDays(new Date(), 1)) ? (
-                                            <p className="text-gray-600 text-[10px] text-center py-2">
+                                            <p className="text-gray-600 text-xs text-center py-2">
                                               Select a date above to see available slots
                                             </p>
                                           ) : editSlots.length === 0 ? (
-                                            <p className="text-amber-400 text-[10px] text-center py-2">
+                                            <p className="text-amber-400 text-xs text-center py-2">
                                               No slots available on this date. Try another day.
                                             </p>
                                           ) : (
                                             <div className="space-y-2">
-                                              <p className="text-[9px] text-gray-600 uppercase tracking-wider font-bold">Available slots</p>
+                                              <p className="text-[11px] text-gray-600 uppercase tracking-wider font-bold">Available slots</p>
                                               {(['morning','afternoon','evening'] as const).map(sess => {
                                                 const list = editSlots.filter(s => s.session === sess);
                                                 if (!list.length) return null;
@@ -727,13 +727,13 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                                   <div key={sess}>
                                                     <div className="flex items-center gap-1.5 mb-1">
                                                       <SessionIcon size={10} className={iconCls} />
-                                                      <span className="text-[9px] text-gray-600 font-bold capitalize">{sess}</span>
+                                                      <span className="text-[11px] text-gray-600 font-bold capitalize">{sess}</span>
                                                     </div>
                                                     <div className="grid grid-cols-2 gap-1">
                                                       {list.slice(0, 6).map(slot => (
                                                         <button key={slot.startISO}
                                                           onClick={() => setEditSelSlot(slot)}
-                                                          className={`py-2 px-2 rounded-lg text-[9px] font-bold text-center transition-all border ${
+                                                          className={`py-2 px-2 rounded-lg text-[11px] font-bold text-center transition-all border ${
                                                             editSelSlot?.startISO === slot.startISO
                                                               ? 'bg-gold border-gold text-black'
                                                               : 'border-white/10 bg-white/[0.03] text-gray-400 hover:border-gold/30 hover:text-white'
@@ -753,13 +753,13 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                           {/* Action buttons */}
                                           <div className="flex gap-2 pt-1">
                                             <button onClick={closeEdit}
-                                              className="flex-1 py-2 rounded-xl border border-white/10 text-gray-500 text-[10px] font-black uppercase tracking-wider hover:bg-white/5 transition-all">
+                                              className="flex-1 py-2 rounded-xl border border-white/10 text-gray-500 text-xs font-black uppercase tracking-wider hover:bg-white/5 transition-all">
                                               Cancel
                                             </button>
                                             <button
                                               onClick={() => saveReschedule(b)}
                                               disabled={!editSelSlot || editSaving}
-                                              className="flex-1 py-2 rounded-xl bg-gold text-black text-[10px] font-black uppercase tracking-wider disabled:opacity-40 transition-all flex items-center justify-center gap-1.5"
+                                              className="flex-1 py-2 rounded-xl bg-gold text-black text-xs font-black uppercase tracking-wider disabled:opacity-40 transition-all flex items-center justify-center gap-1.5"
                                             >
                                               {editSaving ? <Loader2 size={11} className="animate-spin" /> : <CalendarCheck size={11} />}
                                               {editSaving ? 'Saving…' : 'Confirm'}
@@ -772,7 +772,7 @@ export default function AppointmentLookup({ isOpen, onClose }: Props) {
                                     /* ── Reschedule trigger button ── */
                                     <button
                                       onClick={() => openEdit(b)}
-                                      className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-white/8 text-gray-500 text-[10px] font-black uppercase tracking-wider hover:border-gold/30 hover:text-gold transition-all"
+                                      className="mt-2 w-full flex items-center justify-center gap-1.5 py-2 rounded-xl border border-white/8 text-gray-500 text-xs font-black uppercase tracking-wider hover:border-gold/30 hover:text-gold transition-all"
                                     >
                                       <Edit2 size={11} /> Reschedule Appointment
                                     </button>

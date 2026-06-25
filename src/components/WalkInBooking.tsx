@@ -118,14 +118,14 @@ function StepBar({ current }: { current: Step }) {
       {stepLabels.map((label, i) => (
         <div key={label} className="flex items-center">
           <div className="flex items-center gap-1.5">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-black transition-all ${
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-black transition-all ${
               i < idx    ? 'bg-emerald-500 text-white'
               : i === idx ? 'bg-gold text-black scale-110'
               : 'bg-white/8 text-gray-400 border border-white/10'
             }`}>
               {i < idx ? <CheckCircle2 size={13}/> : i + 1}
             </div>
-            <span className={`text-[10px] font-black uppercase tracking-wider ${i === idx ? 'text-gold' : i < idx ? 'text-emerald-400' : 'text-gray-500'}`}>{label}</span>
+            <span className={`text-xs font-black uppercase tracking-wider ${i === idx ? 'text-gold' : i < idx ? 'text-emerald-400' : 'text-gray-500'}`}>{label}</span>
           </div>
           {i < stepLabels.length - 1 && (
             <div className={`w-3 sm:w-8 h-px mx-1 ${i < idx ? 'bg-emerald-500/50' : 'bg-white/8'}`}/>
@@ -387,7 +387,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
             </div>
             <div>
               <p className="text-white font-black text-sm leading-none">{t('walkInBooking')}</p>
-              <p className="text-teal-400/70 text-[10px] mt-0.5">{t('bookingNote')}</p>
+              <p className="text-teal-400/70 text-xs mt-0.5">{t('bookingNote')}</p>
             </div>
           </div>
           <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/12 text-white hover:bg-white/15 hover:border-white/20 transition-all shrink-0">
@@ -499,7 +499,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                 {/* Cart summary */}
                 {cart.length > 0 && (
                   <div className="bg-white/[0.03] border border-white/12 rounded-xl p-3 space-y-1">
-                    <p className="text-[9px] uppercase tracking-wider font-black text-gray-500 mb-2">Selected ({cart.length} services · ₹{totalAmt.toLocaleString('en-IN')})</p>
+                    <p className="text-[11px] uppercase tracking-wider font-black text-gray-500 mb-2">Selected ({cart.length} services · ₹{totalAmt.toLocaleString('en-IN')})</p>
                     {cart.map(({ service, qty: q }) => (
                       <div key={service.id} className="flex items-center justify-between text-xs">
                         <span className="text-gray-300 truncate flex-1">{service.name}{q > 1 ? ` ×${q}` : ''}</span>
@@ -515,9 +515,9 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                     <div key={cat} className="border border-white/12 rounded-xl overflow-hidden">
                       <button onClick={() => setOpenCat(openCat === cat ? null : cat)}
                         className="w-full flex items-center justify-between px-4 py-2.5 bg-white/[0.03] hover:bg-white/[0.06] transition-all">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">{cat}</span>
+                        <span className="text-xs font-black uppercase tracking-widest text-gray-400">{cat}</span>
                         <div className="flex items-center gap-2">
-                          <span className="text-[9px] text-gray-400">{(svcs as Service[]).length}</span>
+                          <span className="text-[11px] text-gray-400">{(svcs as Service[]).length}</span>
                           {openCat === cat ? <ChevronUp size={11} className="text-gray-400"/> : <ChevronDown size={11} className="text-gray-400"/>}
                         </div>
                       </button>
@@ -574,9 +574,9 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                       return (
                         <button key={d.toString()} onClick={() => setSelDate(d)}
                           className={`shrink-0 w-16 h-20 rounded-2xl flex flex-col items-center justify-center transition-all border-2 ${active ? 'bg-gold border-gold text-black' : 'bg-white/[0.03] border-white/12 text-gray-400 hover:border-gold/30'}`}>
-                          <span className={`text-[10px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{format(d,'EEE')}</span>
+                          <span className={`text-xs font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{format(d,'EEE')}</span>
                           <span className="text-xl font-black">{format(d,'d')}</span>
-                          {isSameDay(d, new Date()) && <span className={`text-[9px] font-black ${active ? 'text-black/60' : 'text-gold'}`}>{t('today')}</span>}
+                          {isSameDay(d, new Date()) && <span className={`text-[11px] font-black ${active ? 'text-black/60' : 'text-gold'}`}>{t('today')}</span>}
                         </button>
                       );
                     })}
@@ -620,7 +620,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                                       : 'border-white/10 bg-white/[0.03] text-gray-400 hover:border-gold/30 hover:text-white'
                                 }`}>
                                 <div className="text-sm">{slot.label.split('–')[0].trim()}</div>
-                                {slot.available === 1 && <div className="text-[10px] text-orange-400 mt-0.5">1 spot left</div>}
+                                {slot.available === 1 && <div className="text-xs text-orange-400 mt-0.5">1 spot left</div>}
                               </button>
                             ))}
                           </div>
@@ -650,7 +650,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                     <div className="flex justify-between text-sm"><span className="text-gray-500">Customer</span><span className="text-white font-bold">{customerName}</span></div>
                     <div className="flex justify-between text-sm"><span className="text-gray-500">Phone</span><span className="text-gray-300">{customerPhone}</span></div>
                     <div className="border-t border-white/10 pt-3">
-                      <p className="text-[9px] uppercase tracking-wider text-gray-500 mb-2">Services</p>
+                      <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Services</p>
                       {cart.map(({ service, qty: q }) => (
                         <div key={service.id} className="flex justify-between text-xs mb-1">
                           <span className="text-gray-300">{service.name}{q > 1 ? ` ×${q}` : ''}</span>
@@ -699,7 +699,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                         <button
                           type="button"
                           onClick={() => { setShowAdvance(v => !v); setAdvanceAmount(0); }}
-                          className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider transition-all ${
+                          className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider transition-all ${
                             showAdvance
                               ? 'bg-amber-500/20 border border-amber-500/30 text-amber-400'
                               : 'bg-white/8 border border-white/12 text-gray-400 hover:text-white'
@@ -747,7 +747,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                       ) : (
                         <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
                           <AlertCircle size={13} className="text-amber-400 shrink-0"/>
-                          <p className="text-amber-400 text-[10px] font-bold">Full payment will be collected at the salon during billing.</p>
+                          <p className="text-amber-400 text-xs font-bold">Full payment will be collected at the salon during billing.</p>
                         </div>
                       )}
                     </div>
@@ -790,7 +790,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                   ) : (
                     <div className="flex justify-between text-xs"><span className="text-gray-500">Payment</span><span className="text-amber-400 font-bold">Pay at Salon</span></div>
                   )}
-                  {savedId && <div className="flex justify-between text-xs"><span className="text-gray-500">Ref ID</span><span className="text-gray-400 font-mono text-[10px]">{savedId.slice(-8)}</span></div>}
+                  {savedId && <div className="flex justify-between text-xs"><span className="text-gray-500">Ref ID</span><span className="text-gray-400 font-mono text-xs">{savedId.slice(-8)}</span></div>}
                 </div>
                 <button onClick={onClose} className="w-full py-4 bg-white/8 border border-white/10 rounded-2xl text-white font-bold text-base hover:bg-white/10 transition-all">
                   {t('done')}

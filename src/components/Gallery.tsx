@@ -87,7 +87,7 @@ export default function Gallery() {
         <div className="text-center mb-8 sm:mb-12">
           <motion.div
             initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gold/8 border border-gold/20 text-gold text-[10px] font-black uppercase tracking-[0.3em] mb-4"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-gold/8 border border-gold/20 text-gold text-xs font-black uppercase tracking-[0.3em] mb-4"
           >
             <Images size={11} /> Our Gallery
           </motion.div>
@@ -115,7 +115,7 @@ export default function Gallery() {
           onMouseLeave={() => setPaused(false)}
         >
           {/* Image */}
-          <div className="relative w-full" style={{ paddingBottom: '56.25%' /* 16:9 */ }}>
+          <div className="relative w-full bg-black flex items-center justify-center" style={{ minHeight: '300px' }}>
             <AnimatePresence mode="sync" custom={dir}>
               <motion.img
                 key={item.url + current}
@@ -126,7 +126,7 @@ export default function Gallery() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: dir * -60 }}
                 transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
-                className="absolute inset-0 w-full h-full object-cover"
+                className="w-full max-h-[70vh] object-contain"
                 onError={e => { (e.target as any).style.opacity = '0'; }}
               />
             </AnimatePresence>
@@ -198,7 +198,7 @@ export default function Gallery() {
         </motion.div>
 
         {/* Counter */}
-        <p className="text-center text-gray-700 text-[10px] uppercase tracking-widest font-bold mt-4">
+        <p className="text-center text-gray-700 text-xs uppercase tracking-widest font-bold mt-4">
           {current + 1} / {items.length}
         </p>
       </div>

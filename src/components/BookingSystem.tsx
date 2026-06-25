@@ -624,7 +624,7 @@ function SlotScreen({ totalMins, onBack, onSelect, config }: {
                     active ? 'bg-[#D4AF37] border-[#D4AF37] text-black shadow-md'
                            : 'bg-white border-gray-100 text-gray-400 hover:border-[#D4AF37]/40'
                   }`}>
-                  <span className={`text-[10px] font-bold ${active?'text-black/70':'text-gray-400'}`}>{format(d,'EEE')}</span>
+                  <span className={`text-xs font-bold ${active?'text-black/70':'text-gray-400'}`}>{format(d,'EEE')}</span>
                   <span className="text-lg font-black">{format(d,'d')}</span>
                   {isSameDay(d,new Date())&&<span className={`text-[8px] font-bold ${active?'text-black/60':'text-[#D4AF37]'}`}>Today</span>}
                 </button>
@@ -674,7 +674,7 @@ function SlotScreen({ totalMins, onBack, onSelect, config }: {
                               : 'border-gray-200 bg-white text-gray-700 hover:border-[#D4AF37] hover:bg-[#D4AF37]/5'
                           }`}>
                           <div className="leading-tight">{slot.label}</div>
-                          {slot.available===1&&<div className="text-[9px] text-orange-500 font-bold mt-0.5">1 spot left</div>}
+                          {slot.available===1&&<div className="text-[11px] text-orange-500 font-bold mt-0.5">1 spot left</div>}
                         </button>
                       ))}
                     </div>
@@ -1103,7 +1103,7 @@ export default function BookingSystem() {
           <div className="flex items-center gap-2 mb-1">
             {isExpress ? <Zap size={14} className="text-orange-500"/> : <Calendar size={14} className="text-[#D4AF37]"/>}
             <span className="text-sm font-bold text-gray-800">{format(selDate,'EEE, MMM d')} · {selSlot?.label}</span>
-            {isExpress && <span className="text-[9px] font-black text-white bg-orange-500 rounded-md px-1.5 py-0.5 uppercase">Express</span>}
+            {isExpress && <span className="text-[11px] font-black text-white bg-orange-500 rounded-md px-1.5 py-0.5 uppercase">Express</span>}
           </div>
           <p className="text-xs text-gray-500 pl-5">{cart.map(i=>i.service.name).join(', ')}</p>
         </div>
@@ -1307,7 +1307,7 @@ export default function BookingSystem() {
                 <CheckCircle2 size={15} className="text-green-500 shrink-0" />
                 <div>
                   <p className="text-xs font-black text-green-700 tracking-wider">{couponData.code}</p>
-                  <p className="text-[10px] text-green-600">
+                  <p className="text-xs text-green-600">
                     You save ₹{couponData.discount.toLocaleString('en-IN')}
                     {couponData.type === 'percent' ? ` (${couponData.value}% off)` : ''}
                   </p>
@@ -1372,7 +1372,7 @@ export default function BookingSystem() {
           <p className="text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">Accepted Payments</p>
           <div className="flex flex-wrap gap-2">
             {['UPI','Cards','Net Banking','Wallets','PhonePe','GPay'].map(m=>(
-              <span key={m} className="px-2.5 py-1 bg-gray-100 rounded-full text-[10px] font-bold text-gray-400">{m}</span>
+              <span key={m} className="px-2.5 py-1 bg-gray-100 rounded-full text-xs font-bold text-gray-400">{m}</span>
             ))}
           </div>
         </div>
@@ -1386,7 +1386,7 @@ export default function BookingSystem() {
           {loading ? <><Loader2 size={18} className="animate-spin"/> Opening Payment…</>
                    : <><CreditCard size={16}/> Pay ₹{finalAmount.toLocaleString('en-IN')} Securely</>}
         </button>
-        <p className="flex items-center justify-center gap-1.5 text-[10px] text-gray-400">
+        <p className="flex items-center justify-center gap-1.5 text-xs text-gray-400">
           <Lock size={10}/> Secured by Razorpay · PCI DSS Compliant
         </p>
       </div>
@@ -1410,7 +1410,7 @@ export default function BookingSystem() {
               <p className="font-black text-gray-900 text-sm leading-none">Hair Tech Salon</p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <Star size={10} className="text-[#D4AF37] fill-[#D4AF37]"/>
-                <span className="text-[10px] font-bold text-gray-500">4.8 · 10AM–10PM</span>
+                <span className="text-xs font-bold text-gray-500">4.8 · 10AM–10PM</span>
               </div>
             </div>
           </div>
@@ -1468,7 +1468,7 @@ export default function BookingSystem() {
                   <span className="text-xl">{CAT_EMOJI[cat]??'💈'}</span>
                   <div>
                     <h2 className="text-white font-black text-base leading-tight">{cat}</h2>
-                    <p className="text-white/60 text-[10px]">{grouped[cat]?.length} services</p>
+                    <p className="text-white/60 text-xs">{grouped[cat]?.length} services</p>
                   </div>
                 </div>
               </div>
@@ -1487,7 +1487,7 @@ export default function BookingSystem() {
                       {/* Left: text content */}
                       <div className="flex-1 min-w-0 pr-1">
                         {prem&&(
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[9px] font-bold text-amber-600 mb-1.5">
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-600 mb-1.5">
                             <Coffee size={8}/> Free Drink
                           </span>
                         )}
@@ -1501,7 +1501,7 @@ export default function BookingSystem() {
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-bold text-gray-900">{svc.price}</span>
                           <span className="w-1 h-1 rounded-full bg-gray-300"/>
-                          <span className="flex items-center gap-1 text-[10px] text-gray-400">
+                          <span className="flex items-center gap-1 text-xs text-gray-400">
                             <Clock size={9}/>{svc.time}
                           </span>
                         </div>
@@ -1571,7 +1571,7 @@ export default function BookingSystem() {
                 </div>
                 <div className="text-left">
                   <p className={`text-sm font-black leading-none ${isExpress ? 'text-orange-600' : 'text-gray-700'}`}>Express Service</p>
-                  <p className="text-[10px] text-gray-400 mt-0.5">Skip the queue — walk in within 15 min</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Skip the queue — walk in within 15 min</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

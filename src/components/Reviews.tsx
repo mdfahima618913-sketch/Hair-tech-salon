@@ -65,7 +65,7 @@ export default function Reviews() {
         <div className="flex items-end justify-between gap-6">
           <div>
             <motion.span initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-              className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-gold mb-3">
+              className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.3em] text-gold mb-3">
               <span className="w-5 h-px bg-gold" /> Client Testimonials
             </motion.span>
             <motion.h2 initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -142,7 +142,7 @@ export default function Reviews() {
                     {formError && <p className="text-red-400 text-xs p-3 bg-red-500/10 rounded-xl border border-red-500/20">{formError}</p>}
                     
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gold block mb-2">Rating</label>
+                      <label className="text-xs font-black uppercase tracking-widest text-gold block mb-2">Rating</label>
                       <div className="flex gap-2">
                         {[1,2,3,4,5].map(s => (
                           <button key={s} type="button" onClick={() => setForm(f => ({ ...f, rating: s }))}>
@@ -152,13 +152,13 @@ export default function Reviews() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gold block mb-2">Name</label>
+                      <label className="text-xs font-black uppercase tracking-widest text-gold block mb-2">Name</label>
                       <input type="text" placeholder="Your name" value={form.name}
                         onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
                         className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-700" />
                     </div>
                     <div>
-                      <label className="text-[10px] font-black uppercase tracking-widest text-gold block mb-2">Your Experience</label>
+                      <label className="text-xs font-black uppercase tracking-widest text-gold block mb-2">Your Experience</label>
                       <textarea rows={4} placeholder="Tell us about your visit…" value={form.text}
                         onChange={e => setForm(f => ({ ...f, text: e.target.value }))}
                         className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all resize-none placeholder:text-gray-700" />

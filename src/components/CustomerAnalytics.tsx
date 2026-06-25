@@ -190,11 +190,11 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
           const active = segment === seg;
           return (
             <button key={seg} onClick={() => setSegment(seg)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase border transition-all ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-black uppercase border transition-all ${
                 active ? cls : 'bg-white/3 border-white/12 text-gray-400 hover:text-white hover:border-white/15'
               }`}>
               <Icon size={10}/> {label}
-              <span className={`ml-0.5 text-[9px] ${active ? 'opacity-80' : 'text-gray-700'}`}>
+              <span className={`ml-0.5 text-[11px] ${active ? 'opacity-80' : 'text-gray-700'}`}>
                 {seg === 'all' ? customers.length : segCounts[seg]}
               </span>
             </button>
@@ -204,16 +204,16 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
 
       {/* ── Source breakdown ── */}
       <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5 space-y-3">
-        <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">Customer Sources</p>
+        <p className="text-xs uppercase tracking-widest font-black text-gray-500">Customer Sources</p>
         {sourceBreak.filter(s => s.count > 0).map(s => (
           <div key={s.label} className="flex items-center gap-3">
-            <span className="text-[10px] text-gray-400 font-bold w-20 shrink-0">{s.label}</span>
+            <span className="text-xs text-gray-400 font-bold w-20 shrink-0">{s.label}</span>
             <div className="flex-1 h-2 bg-white/8 rounded-full overflow-hidden">
               <motion.div initial={{ width: 0 }} animate={{ width: `${s.pct}%` }} transition={{ duration: 0.7, ease: 'easeOut' }}
                 className={`h-full rounded-full ${s.color}`}/>
             </div>
             <span className="text-white text-xs font-black w-6 text-right shrink-0">{s.count}</span>
-            <span className="text-gray-400 text-[10px] w-7 text-right shrink-0">{s.pct}%</span>
+            <span className="text-gray-400 text-xs w-7 text-right shrink-0">{s.pct}%</span>
           </div>
         ))}
       </div>
@@ -222,17 +222,17 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {/* Best by spend */}
         <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5 space-y-3">
-          <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
+          <p className="text-xs uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
             <Crown size={12} className="text-gold"/> Best Customers
           </p>
           {[...customers].sort((a,b) => (b.totalSpend??0)-(a.totalSpend??0)).slice(0,8).filter(c => c.totalSpend > 0).map((c, i) => (
             <div key={c.phone} className="space-y-1">
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className="text-sm shrink-0">{MEDALS[i] ?? <span className="text-[10px] text-gray-400 w-4">{i+1}.</span>}</span>
+                  <span className="text-sm shrink-0">{MEDALS[i] ?? <span className="text-xs text-gray-400 w-4">{i+1}.</span>}</span>
                   <div className="min-w-0">
                     <p className="text-white text-xs font-bold truncate">{c.name}</p>
-                    <p className="text-gray-400 text-[9px]">{c.visitCount} visits</p>
+                    <p className="text-gray-400 text-[11px]">{c.visitCount} visits</p>
                   </div>
                 </div>
                 <span className="text-gold font-black text-sm shrink-0">₹{(c.totalSpend??0).toLocaleString('en-IN',{maximumFractionDigits:0})}</span>
@@ -246,7 +246,7 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
 
         {/* Most loyal by visits */}
         <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5 space-y-3">
-          <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
+          <p className="text-xs uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
             <Heart size={12} className="text-pink-400"/> Most Loyal
           </p>
           {[...customers].sort((a,b) => (b.visitCount??0)-(a.visitCount??0)).slice(0,8).filter(c => c.visitCount > 0).map((c, i) => {
@@ -255,10 +255,10 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
               <div key={c.phone} className="space-y-1">
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm shrink-0">{MEDALS[i] ?? <span className="text-[10px] text-gray-400">{i+1}.</span>}</span>
+                    <span className="text-sm shrink-0">{MEDALS[i] ?? <span className="text-xs text-gray-400">{i+1}.</span>}</span>
                     <div className="min-w-0">
                       <p className="text-white text-xs font-bold truncate">{c.name}</p>
-                      {c.firstVisit && <p className="text-gray-400 text-[9px]">Since {new Date(c.firstVisit).toLocaleDateString('en-IN',{month:'short',year:'numeric'})}</p>}
+                      {c.firstVisit && <p className="text-gray-400 text-[11px]">Since {new Date(c.firstVisit).toLocaleDateString('en-IN',{month:'short',year:'numeric'})}</p>}
                     </div>
                   </div>
                   <span className="text-pink-400 font-black text-sm shrink-0">{c.visitCount} visits</span>
@@ -275,7 +275,7 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
       {/* ── Loyalty Tiers ── */}
       {customers.length > 0 && (
         <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
-          <p className="text-[10px] uppercase tracking-widest font-black text-gray-500 mb-4">Loyalty Tiers</p>
+          <p className="text-xs uppercase tracking-widest font-black text-gray-500 mb-4">Loyalty Tiers</p>
           {(['Gold','Silver','Bronze','New'] as const).map(tier => {
             const list = customers.filter(c => loyaltyTier(loyaltyScore(c)).tier === tier);
             if (!list.length) return null;
@@ -284,19 +284,19 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
               <div key={tier} className="mb-3 last:mb-0">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className={`text-xs font-black uppercase tracking-wider ${meta.color}`}>{tier}</span>
-                  <span className="text-gray-500 text-[10px]">{list.length} customers</span>
+                  <span className="text-gray-500 text-xs">{list.length} customers</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {list.slice(0, 8).map(c => {
                     const score = loyaltyScore(c);
                     return (
                       <div key={c.phone} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border ${meta.bg} ${meta.border}`}>
-                        <span className={`text-[10px] font-bold ${meta.color}`}>{c.name.split(' ')[0]}</span>
-                        <span className={`text-[9px] ${meta.color} opacity-60`}>{score}</span>
+                        <span className={`text-xs font-bold ${meta.color}`}>{c.name.split(' ')[0]}</span>
+                        <span className={`text-[11px] ${meta.color} opacity-60`}>{score}</span>
                       </div>
                     );
                   })}
-                  {list.length > 8 && <span className="text-gray-400 text-[10px] self-center">+{list.length-8} more</span>}
+                  {list.length > 8 && <span className="text-gray-400 text-xs self-center">+{list.length-8} more</span>}
                 </div>
               </div>
             );
@@ -309,14 +309,14 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
         <div className="flex items-center gap-1 px-5 pt-4 pb-0">
           {(['active','inactive'] as const).map(tab => (
             <button key={tab} onClick={() => setVisitTab(tab)}
-              className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all ${
+              className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${
                 visitTab === tab
                   ? tab === 'active' ? 'bg-emerald-500/15 border border-emerald-500/25 text-emerald-400'
                                      : 'bg-red-500/15 border border-red-500/25 text-red-400'
                   : 'text-gray-500 hover:text-white'
               }`}>
               {tab === 'active' ? `✓ Active (≤30d)` : `⚠ Inactive (>30d)`}
-              <span className="ml-1.5 text-[9px] opacity-70">
+              <span className="ml-1.5 text-[11px] opacity-70">
                 {tab === 'active' ? activeList.length : inactiveList.length}
               </span>
             </button>
@@ -332,13 +332,13 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-white text-xs font-bold truncate">{c.name}</p>
-                  <p className="text-gray-400 text-[9px]">{c.phone} · {c.visitCount} visits</p>
+                  <p className="text-gray-400 text-[11px]">{c.phone} · {c.visitCount} visits</p>
                 </div>
                 <div className="text-right shrink-0">
-                  <p className={`text-[10px] font-black ${days <= 7 ? 'text-emerald-400' : days <= 30 ? 'text-blue-400' : days <= 60 ? 'text-amber-400' : 'text-red-400'}`}>
+                  <p className={`text-xs font-black ${days <= 7 ? 'text-emerald-400' : days <= 30 ? 'text-blue-400' : days <= 60 ? 'text-amber-400' : 'text-red-400'}`}>
                     {days === 0 ? 'Today' : `${days}d ago`}
                   </p>
-                  <p className="text-gray-400 text-[9px]">₹{(c.totalSpend??0).toLocaleString('en-IN',{maximumFractionDigits:0})}</p>
+                  <p className="text-gray-400 text-[11px]">₹{(c.totalSpend??0).toLocaleString('en-IN',{maximumFractionDigits:0})}</p>
                 </div>
               </div>
             );
@@ -354,14 +354,14 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
       {/* ── Full customer list (filtered) ── */}
       <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
         <div className="px-5 py-3 border-b border-white/12 flex items-center justify-between flex-wrap gap-2">
-          <p className="text-[10px] uppercase tracking-widest font-black text-gray-500">
+          <p className="text-xs uppercase tracking-widest font-black text-gray-500">
             {filtered.length} customer{filtered.length !== 1 ? 's' : ''} {search || segment !== 'all' ? '(filtered)' : ''}
           </p>
           <div className="flex items-center gap-2">
-            <span className="text-[9px] text-gray-400 font-bold uppercase">Sort:</span>
+            <span className="text-[11px] text-gray-400 font-bold uppercase">Sort:</span>
             {([['spend','Spend'],['visits','Visits'],['recent','Recent']] as [SortKey,string][]).map(([k,l]) => (
               <button key={k} onClick={() => setSortBy(k)}
-                className={`px-2 py-0.5 rounded text-[9px] font-black uppercase transition-all ${sortBy === k ? 'text-gold bg-gold/10' : 'text-gray-400 hover:text-white'}`}>
+                className={`px-2 py-0.5 rounded text-[11px] font-black uppercase transition-all ${sortBy === k ? 'text-gold bg-gold/10' : 'text-gray-400 hover:text-white'}`}>
                 {l}
               </button>
             ))}
@@ -393,11 +393,11 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
                         {tier.tier}
                       </span>
                     </div>
-                    <p className="text-gray-400 text-[10px]">{c.phone}</p>
+                    <p className="text-gray-400 text-xs">{c.phone}</p>
                   </div>
                   <div className="text-right shrink-0">
                     <p className="text-gold font-black text-sm">₹{(c.totalSpend??0).toLocaleString('en-IN',{maximumFractionDigits:0})}</p>
-                    <p className="text-gray-400 text-[9px]">{c.visitCount} visits</p>
+                    <p className="text-gray-400 text-[11px]">{c.visitCount} visits</p>
                   </div>
                   {isOpen ? <ChevronUp size={13} className="text-gray-400 shrink-0"/> : <ChevronDown size={13} className="text-gray-400 shrink-0"/>}
                 </button>
@@ -432,7 +432,7 @@ export default function CustomerAnalytics({ customers: rawCustomers }: Props) {
           )}
         </div>
         {filtered.length > 50 && (
-          <div className="px-5 py-2.5 border-t border-white/10 text-[10px] text-gray-400 font-bold uppercase tracking-widest text-center">
+          <div className="px-5 py-2.5 border-t border-white/10 text-xs text-gray-400 font-bold uppercase tracking-widest text-center">
             Showing top 50 of {filtered.length} — refine search to see more
           </div>
         )}

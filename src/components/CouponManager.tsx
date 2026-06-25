@@ -183,11 +183,11 @@ export default function CouponManager() {
             initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className="bg-zinc-900 border border-gold/20 rounded-2xl p-6 space-y-5"
           >
-            <p className="text-[10px] uppercase font-black tracking-widest text-gold">Create New Coupon</p>
+            <p className="text-xs uppercase font-black tracking-widest text-gold">Create New Coupon</p>
 
             {/* Code + generate */}
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">
+              <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">
                 Coupon Code <span className="text-red-400">*</span>
               </label>
               <div className="flex gap-2">
@@ -212,7 +212,7 @@ export default function CouponManager() {
             {/* Type + Value */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">Discount Type</label>
+                <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">Discount Type</label>
                 <div className="flex gap-2">
                   {([['percent', 'Percent %', Percent], ['flat', 'Flat ₹', IndianRupee]] as const).map(([v, l, Icon]) => (
                     <button
@@ -230,7 +230,7 @@ export default function CouponManager() {
                 </div>
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">
+                <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">
                   Discount Value {form.type === 'percent' ? '(%)' : '(₹)'}
                 </label>
                 <input
@@ -245,30 +245,30 @@ export default function CouponManager() {
             {/* Min order + Max uses */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">Min Order (₹)</label>
+                <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">Min Order (₹)</label>
                 <input
                   type="number" min={0}
                   value={form.minOrder}
                   onChange={e => setForm(f => ({ ...f, minOrder: Number(e.target.value) }))}
                   className="w-full bg-white/8 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
                 />
-                <p className="text-[9px] text-gray-700 mt-1">Set 0 for no minimum</p>
+                <p className="text-[11px] text-gray-700 mt-1">Set 0 for no minimum</p>
               </div>
               <div>
-                <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">Max Uses</label>
+                <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">Max Uses</label>
                 <input
                   type="number" min={0}
                   value={form.maxUses}
                   onChange={e => setForm(f => ({ ...f, maxUses: Number(e.target.value) }))}
                   className="w-full bg-white/8 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
                 />
-                <p className="text-[9px] text-gray-700 mt-1">Set 0 for unlimited</p>
+                <p className="text-[11px] text-gray-700 mt-1">Set 0 for unlimited</p>
               </div>
             </div>
 
             {/* Expiry */}
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">Expiry Date (optional)</label>
+              <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">Expiry Date (optional)</label>
               <input
                 type="date"
                 value={form.expiresAt ?? ''}
@@ -381,7 +381,7 @@ export default function CouponManager() {
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-white font-black text-sm tracking-wider font-mono">{c.code}</span>
-                      <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border ${color}`}>
+                      <span className={`px-2 py-0.5 rounded-full text-[11px] font-black uppercase tracking-wider border ${color}`}>
                         {label}
                       </span>
                     </div>

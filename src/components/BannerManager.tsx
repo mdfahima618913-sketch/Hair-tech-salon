@@ -11,12 +11,16 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
+const OCCASION_OPTIONS = ['', 'VIP Visit', 'Birthday', 'Customer Story', 'Event', 'Festival', 'Before & After', 'Promo'] as const;
+type Occasion = typeof OCCASION_OPTIONS[number];
+
 interface BannerImage {
-  id:     string;
-  url:    string;
-  title:  string;
-  order:  number;
-  active: boolean;
+  id:       string;
+  url:      string;
+  title:    string;
+  occasion: Occasion;
+  order:    number;
+  active:   boolean;
 }
 
 export default function BannerManager() {
@@ -25,9 +29,11 @@ export default function BannerManager() {
   const [showForm, setShowForm] = useState(false);
 
   // Add-image form state
-  const [formUrl,     setFormUrl]     = useState('');
-  const [formTitle,   setFormTitle]   = useState('');
-  const [previewOk,   setPreviewOk]   = useState<boolean | null>(null);
+  const [formUrl,      setFormUrl]      = useState('');
+  const [formTitle,    setFormTitle]    = useState('');
+  const [formName,     setFormName]     = useState('');
+  const [formOccasion, setFormOccasion] = useState<Occasion>('');
+  const [previewOk,    setPreviewOk]    = useState<boolean | null>(null);
   const [saving,      setSaving]      = useState(false);
   const [saveMsg,     setSaveMsg]     = useState<{ ok: boolean; text: string } | null>(null);
 
@@ -37,11 +43,12 @@ export default function BannerManager() {
     try {
       const snap = await getDocs(query(collection(db, 'banner_images')));
       const data: BannerImage[] = snap.docs.map(d => ({
-        id:     d.id,
-        url:    (d.data().url    as string) ?? '',
-        title:  (d.data().title  as string) ?? '',
-        order:  (d.data().order  as number) ?? 0,
-        active: (d.data().active as boolean) ?? true,
+        id:       d.id,
+        url:      (d.data().url      as string) ?? '',
+        title:    (d.data().title    as string) ?? '',
+        occasion: (d.data().occasion as Occasion) ?? '',
+        order:    (d.data().order    as number) ?? 0,
+        active:   (d.data().active   as boolean) ?? true,
       }));
       data.sort((a, b) => a.order - b.order);
       setImages(data);
@@ -62,15 +69,17 @@ export default function BannerManager() {
       const ref = await addDoc(collection(db, 'banner_images'), {
         url:       formUrl.trim(),
         title:     formTitle.trim(),
+        name:      formName.trim(),
+        occasion:  formOccasion,
         order:     images.length,
         active:    true,
         createdAt: serverTimestamp(),
       });
       setImages(prev => [...prev, {
         id: ref.id, url: formUrl.trim(), title: formTitle.trim(),
-        order: images.length, active: true,
+        occasion: formOccasion, order: images.length, active: true,
       }]);
-      setFormUrl(''); setFormTitle(''); setPreviewOk(null);
+      setFormUrl(''); setFormTitle(''); setFormName(''); setFormOccasion(''); setPreviewOk(null);
       setShowForm(false);
       setSaveMsg({ ok: true, text: 'Image added to banner.' });
     } catch {
@@ -160,11 +169,11 @@ export default function BannerManager() {
             initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
             className="bg-zinc-900 border border-gold/20 rounded-2xl p-6 space-y-4"
           >
-            <p className="text-[10px] uppercase font-black tracking-widest text-gold">Add New Banner Image</p>
+            <p className="text-xs uppercase font-black tracking-widest text-gold">Add New Banner Image</p>
 
             {/* URL input */}
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">
+              <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">
                 Image URL <span className="text-red-400">*</span>
               </label>
               <div className="flex gap-2">
@@ -186,7 +195,7 @@ export default function BannerManager() {
                   Preview
                 </button>
               </div>
-              <p className="text-[10px] text-gray-700 mt-1.5 flex items-center gap-1">
+              <p className="text-xs text-gray-700 mt-1.5 flex items-center gap-1">
                 <AlertCircle size={9} />
                 Paste any public image URL. For Google Drive: share with "Anyone with link" → copy the direct image URL.
               </p>
@@ -206,7 +215,7 @@ export default function BannerManager() {
                   <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-900/90">
                     <AlertCircle size={24} className="text-red-400" />
                     <p className="text-red-400 text-xs font-bold">Cannot load this URL</p>
-                    <p className="text-gray-400 text-[10px] text-center px-4">
+                    <p className="text-gray-400 text-xs text-center px-4">
                       Make sure the image is publicly accessible and the URL ends with an image extension.
                     </p>
                   </div>
@@ -221,7 +230,7 @@ export default function BannerManager() {
 
             {/* Title */}
             <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-gray-500 block mb-2">
+              <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">
                 Title / Label <span className="text-gray-700">(optional)</span>
               </label>
               <input
@@ -233,10 +242,39 @@ export default function BannerManager() {
               />
             </div>
 
+            {/* Name / Signature */}
+            <div>
+              <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">
+                Name / Signature <span className="text-gray-700">(optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Priya Sharma, VIP Client…"
+                value={formName}
+                onChange={e => setFormName(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all placeholder:text-gray-500"
+              />
+            </div>
+
+            {/* Occasion tag */}
+            <div>
+              <label className="text-xs font-black uppercase tracking-widest text-gray-500 block mb-2">
+                Occasion Tag <span className="text-gray-700">(optional)</span>
+              </label>
+              <select
+                value={formOccasion}
+                onChange={e => setFormOccasion(e.target.value as Occasion)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl py-3 px-4 text-white text-sm focus:outline-none focus:border-gold/50 transition-all"
+              >
+                <option value="">— No tag —</option>
+                {OCCASION_OPTIONS.filter(o => o).map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+
             {/* Actions */}
             <div className="flex gap-3 pt-2">
               <button
-                onClick={() => { setShowForm(false); setFormUrl(''); setFormTitle(''); setPreviewOk(null); }}
+                onClick={() => { setShowForm(false); setFormUrl(''); setFormTitle(''); setFormName(''); setFormOccasion(''); setPreviewOk(null); }}
                 className="px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-xs font-bold text-gray-400 hover:bg-white/10 transition-all"
               >
                 Cancel
@@ -275,7 +313,7 @@ export default function BannerManager() {
         </div>
       ) : (
         <div>
-          <p className="text-gray-400 text-[10px] uppercase tracking-wider font-bold mb-4">
+          <p className="text-gray-400 text-xs uppercase tracking-wider font-bold mb-4">
             {images.filter(i => i.active).length} active · {images.length} total
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -300,7 +338,7 @@ export default function BannerManager() {
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
                   {/* Order badge */}
-                  <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center text-[9px] font-black text-white">
+                  <span className="absolute top-2 left-2 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm border border-white/15 flex items-center justify-center text-[11px] font-black text-white">
                     {idx + 1}
                   </span>
 
@@ -313,12 +351,13 @@ export default function BannerManager() {
                     {img.active ? 'Live' : 'Hidden'}
                   </span>
 
-                  {/* Title overlay */}
-                  {img.title && (
-                    <p className="absolute bottom-2 left-3 text-white text-xs font-bold truncate pr-3">
-                      {img.title}
-                    </p>
-                  )}
+                  {/* Title + occasion overlay */}
+                  <div className="absolute bottom-2 left-3 right-3 flex items-end justify-between gap-2">
+                    {img.title && <p className="text-white text-xs font-bold truncate">{img.title}</p>}
+                    {img.occasion && (
+                      <span className="shrink-0 text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-gold/80 text-black">{img.occasion}</span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Controls */}
@@ -346,7 +385,7 @@ export default function BannerManager() {
                   {/* Toggle visibility */}
                   <button
                     onClick={() => handleToggle(img)}
-                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                       img.active
                         ? 'text-emerald-400 hover:bg-emerald-500/10'
                         : 'text-gray-500 hover:bg-white/10 hover:text-white'
@@ -370,7 +409,7 @@ export default function BannerManager() {
             ))}
           </div>
 
-          <p className="text-gray-700 text-[10px] uppercase tracking-wider font-bold mt-6 text-center">
+          <p className="text-gray-700 text-xs uppercase tracking-wider font-bold mt-6 text-center">
             Changes go live on the homepage immediately — no rebuild needed.
           </p>
         </div>

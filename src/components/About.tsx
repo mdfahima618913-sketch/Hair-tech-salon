@@ -1,5 +1,8 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ShieldCheck, Star, Users, Award, Zap } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 const pillars = [
   { icon: ShieldCheck, title: 'Sterilized Tools',      desc: 'Medical-grade hygiene protocols after every client' },
@@ -8,7 +11,20 @@ const pillars = [
   { icon: Zap,         title: 'Precision Artistry',    desc: 'Every cut tailored to your unique style'            },
 ];
 
+const DEFAULT_LEGACY_IMAGE = 'https://lh3.googleusercontent.com/d/1EAePBkWfWeEdHBw-ZgclxF-Hbo2zWABP=w1000';
+
 export default function About() {
+  const [legacyImage, setLegacyImage] = useState(DEFAULT_LEGACY_IMAGE);
+
+  useEffect(() => {
+    getDoc(doc(db, 'settings', 'salon')).then(snap => {
+      if (snap.exists()) {
+        const url = snap.data().legacyImageUrl;
+        if (url) setLegacyImage(url);
+      }
+    }).catch(() => {});
+  }, []);
+
   return (
     <section id="about" className="py-14 sm:py-20 bg-black relative overflow-hidden">
       <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gold/3 rounded-full blur-[160px] pointer-events-none" />
@@ -26,7 +42,7 @@ export default function About() {
           >
             <div className="rounded-3xl overflow-hidden border border-white/8 shadow-2xl aspect-square">
               <img
-                src="https://lh3.googleusercontent.com/d/1EAePBkWfWeEdHBw-ZgclxF-Hbo2zWABP=w1000"
+                src={legacyImage}
                 alt="Hair Tech Salon"
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
@@ -46,7 +62,7 @@ export default function About() {
                 <Star size={18} className="text-gold fill-gold" />
                 <span className="text-2xl font-black text-white">4.9</span>
               </div>
-              <p className="text-[9px] uppercase tracking-[0.25em] text-gray-500 font-bold">500+ Reviews</p>
+              <p className="text-[11px] uppercase tracking-[0.25em] text-gray-500 font-bold">500+ Reviews</p>
             </motion.div>
           </motion.div>
 
@@ -57,7 +73,7 @@ export default function About() {
             viewport={{ once: true, margin: '-80px' }}
             transition={{ duration: 1, ease: [0.22, 1, 0.36, 1] }}
           >
-            <span className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-gold mb-4">
+            <span className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.3em] text-gold mb-4">
               <span className="w-6 h-px bg-gold" /> Our Legacy
             </span>
 

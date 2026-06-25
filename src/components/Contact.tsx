@@ -47,7 +47,7 @@ export default function Contact() {
         {/* Header */}
         <div className="text-center mb-14">
           <motion.span initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.3em] text-gold mb-4">
+            className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.3em] text-gold mb-4">
             <span className="w-5 h-px bg-gold" /> Get In Touch
           </motion.span>
           <motion.h2 initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
@@ -90,11 +90,11 @@ export default function Contact() {
               <div className="w-12 h-12 rounded-2xl bg-gold/8 border border-gold/15 flex items-center justify-center text-gold mb-4 group-hover:bg-gold/15 transition-all">
                 <Icon size={20} />
               </div>
-              <p className="text-[10px] uppercase tracking-[0.2em] text-gray-600 font-bold mb-2">{title}</p>
+              <p className="text-xs uppercase tracking-[0.2em] text-gray-600 font-bold mb-2">{title}</p>
               <p className="text-white text-sm font-medium leading-relaxed">{content}</p>
               {sub && <p className="text-gray-500 text-xs mt-1">{sub}</p>}
               {title === 'Hours' && (
-                <span className={`mt-3 px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border ${
+                <span className={`mt-3 px-2.5 py-1 rounded-full text-[11px] font-black uppercase tracking-wider border ${
                   isOpenNow
                     ? 'bg-emerald-500/15 border-emerald-500/20 text-emerald-400'
                     : 'bg-red-500/15 border-red-500/20 text-red-400'

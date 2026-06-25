@@ -227,7 +227,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
           <p className="text-xs font-black text-gray-700 uppercase tracking-wider">Invoice</p>
           <div className="flex items-center gap-2">
             {data && (
-              <button onClick={handlePrint} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-[10px] font-bold text-gray-500 hover:bg-gray-100 transition-all">
+              <button onClick={handlePrint} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-bold text-gray-500 hover:bg-gray-100 transition-all">
                 <Download size={11} /> Print / Download
               </button>
             )}
@@ -257,13 +257,13 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
               <div className="text-center mb-4">
                 <p className="font-black text-xl uppercase tracking-tight">Hair Tech</p>
                 <p className="font-bold text-sm">Unisex Salon, Araria</p>
-                <p className="text-gray-500 text-[10px]">+91 87896 03343</p>
+                <p className="text-gray-500 text-xs">+91 87896 03343</p>
                 <div className="flex justify-center gap-1 mt-2">
-                  <span className={`text-[9px] px-2 py-0.5 rounded border ${data.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
+                  <span className={`text-[11px] px-2 py-0.5 rounded border ${data.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
                     {data.source === 'online' ? 'Online Booking' : 'Walk-in'}
                   </span>
                 </div>
-                <div className="mt-2 text-[9px] text-gray-400 space-y-0.5">
+                <div className="mt-2 text-[11px] text-gray-400 space-y-0.5">
                   <p>Invoice: <span className="font-black text-black">{data.invoiceNumber}</span></p>
                   {dateStr && <p>{dateStr}</p>}
                 </div>
@@ -277,7 +277,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
 
               {/* Services */}
               <div className="border-t border-dashed border-gray-300 pt-3 pb-3 space-y-2.5">
-                <p className="text-[9px] font-black uppercase tracking-wider text-gray-500 mb-2">Services</p>
+                <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 mb-2">Services</p>
                 {items.map((it: any, i: number) => (
                   <div key={i} className="space-y-0.5">
                     <div className="flex justify-between items-start gap-2">
@@ -285,13 +285,13 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
                       <span className="font-bold shrink-0 text-xs">₹{it.price?.toLocaleString('en-IN')}</span>
                     </div>
                     {(it.quantity ?? 1) > 1 && (
-                      <p className="text-[9px] text-gray-400 pl-1">₹{it.unitPrice?.toLocaleString('en-IN')} × {it.quantity}</p>
+                      <p className="text-[11px] text-gray-400 pl-1">₹{it.unitPrice?.toLocaleString('en-IN')} × {it.quantity}</p>
                     )}
                     {(it.lineDiscount ?? 0) > 0 && (
-                      <p className="text-[9px] text-red-500 pl-1">Line discount: {it.lineDiscount}%</p>
+                      <p className="text-[11px] text-red-500 pl-1">Line discount: {it.lineDiscount}%</p>
                     )}
                     {it.staffName && (
-                      <p className="text-[9px] text-gray-400 pl-1">Staff: {it.staffName}</p>
+                      <p className="text-[11px] text-gray-400 pl-1">Staff: {it.staffName}</p>
                     )}
                   </div>
                 ))}
@@ -325,7 +325,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
 
                 {/* Payment splits */}
                 <div className="pt-2 space-y-1.5">
-                  <p className="text-[9px] text-gray-500 uppercase tracking-wider font-black">Payment</p>
+                  <p className="text-[11px] text-gray-500 uppercase tracking-wider font-black">Payment</p>
                   {splits.length > 0 ? (
                     <>
                       {splits.map((s: any, i: number) => (
@@ -355,7 +355,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
                     <span>
                       {hasDue ? 'Balance Due' : '✓ Fully Paid'}
                       {hasDue && (
-                        <span className="font-normal text-[9px] text-gray-400 ml-1">
+                        <span className="font-normal text-[11px] text-gray-400 ml-1">
                           (₹{data.total?.toLocaleString('en-IN')} − ₹{effectivePaid.toLocaleString('en-IN')})
                         </span>
                       )}
@@ -375,7 +375,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
                     </div>
                   )}
                   {data.paymentId && (
-                    <div className="flex justify-between text-[9px] text-gray-400">
+                    <div className="flex justify-between text-[11px] text-gray-400">
                       <span>Ref ID</span><span className="font-mono">{data.paymentId}</span>
                     </div>
                   )}
@@ -384,7 +384,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
 
               {(data.promoCoupons?.length ?? 0) > 0 && (
                 <div className="border-t border-dashed border-gray-300 pt-3 mt-3">
-                  <p className="text-[9px] text-purple-500 font-black uppercase tracking-wider mb-2">🎟️ Your Promo Coupons</p>
+                  <p className="text-[11px] text-purple-500 font-black uppercase tracking-wider mb-2">🎟️ Your Promo Coupons</p>
                   <div className="space-y-1.5">
                     {data.promoCoupons.map((c: string, i: number) => (
                       <div key={i} className="flex items-center justify-between bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
@@ -396,7 +396,7 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
                 </div>
               )}
 
-              <div className="border-t border-dashed border-gray-300 mt-4 pt-3 text-center text-[9px] text-gray-400">
+              <div className="border-t border-dashed border-gray-300 mt-4 pt-3 text-center text-[11px] text-gray-400">
                 Thank you for visiting Hair Tech Salon!<br />Follow us @hairtech111
               </div>
             </div>
@@ -632,7 +632,7 @@ export default function MyAppointments() {
             </div>
             <div>
               <p className="text-white font-black text-sm leading-none">My Appointments</p>
-              <p className="text-gray-400 text-[10px] mt-0.5">Hair Tech Salon, Araria</p>
+              <p className="text-gray-400 text-xs mt-0.5">Hair Tech Salon, Araria</p>
             </div>
           </div>
         </div>
@@ -642,7 +642,7 @@ export default function MyAppointments() {
 
         {/* Phone search */}
         <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-wider text-gray-500">Your Mobile Number</label>
+          <label className="text-xs font-black uppercase tracking-wider text-gray-500">Your Mobile Number</label>
           <div className="relative">
             <Phone size={15} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
             <input
@@ -694,7 +694,7 @@ export default function MyAppointments() {
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all ${activeTab === tab.id ? tab.cls : 'text-gray-500 hover:text-white'}`}
                     >
                       {tab.label}
-                      <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-black ${activeTab === tab.id ? 'bg-white/20' : 'bg-white/8'}`}>{tab.count}</span>
+                      <span className={`px-1.5 py-0.5 rounded-full text-[11px] font-black ${activeTab === tab.id ? 'bg-white/20' : 'bg-white/8'}`}>{tab.count}</span>
                     </button>
                   ))}
                 </div>
@@ -738,12 +738,12 @@ export default function MyAppointments() {
                                 {/* Date box */}
                                 {bDate && (
                                   <div className="text-center w-12 shrink-0">
-                                    <div className={`text-[10px] font-black uppercase tracking-wider rounded-t-lg px-1 py-0.5 ${activeTab === 'upcoming' ? 'bg-gold/20 text-gold' : activeTab === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-purple-500/20 text-purple-400'}`}>
+                                    <div className={`text-xs font-black uppercase tracking-wider rounded-t-lg px-1 py-0.5 ${activeTab === 'upcoming' ? 'bg-gold/20 text-gold' : activeTab === 'pending' ? 'bg-amber-500/20 text-amber-400' : 'bg-purple-500/20 text-purple-400'}`}>
                                       {format(bDate, 'MMM')}
                                     </div>
                                     <div className="bg-white/8 rounded-b-lg pb-1.5 pt-1">
                                       <p className="text-2xl font-black text-white leading-none">{format(bDate, 'd')}</p>
-                                      <p className="text-[9px] text-gray-500 font-bold">{format(bDate, 'EEE')}</p>
+                                      <p className="text-[11px] text-gray-500 font-bold">{format(bDate, 'EEE')}</p>
                                     </div>
                                   </div>
                                 )}
@@ -759,7 +759,7 @@ export default function MyAppointments() {
                                   </div>
                                 </div>
                               </div>
-                              <span className={`shrink-0 px-2.5 py-1 rounded-full text-[9px] font-black uppercase border ${sm.cls}`}>
+                              <span className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-black uppercase border ${sm.cls}`}>
                                 {sm.label}
                               </span>
                             </div>
@@ -769,7 +769,7 @@ export default function MyAppointments() {
                               <div className="flex items-start gap-2">
                                 <Scissors size={12} className="text-gray-500 shrink-0 mt-0.5" />
                                 <div>
-                                  <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-0.5">Services</p>
+                                  <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mb-0.5">Services</p>
                                   {b.invoiceBreakdown && b.invoiceBreakdown.length > 0 ? (
                                     <div className="space-y-0.5">
                                       {b.invoiceBreakdown.map((it, i) => (
@@ -792,11 +792,11 @@ export default function MyAppointments() {
                                 <IndianRupee size={14} className="text-gold" />
                                 <span className="text-gold font-black text-base">{(b.finalAmount ?? b.totalAmount ?? 0).toLocaleString('en-IN')}</span>
                                 {b.paymentMethod && (
-                                  <span className="text-gray-400 text-[10px] ml-1 uppercase">{b.paymentMethod}</span>
+                                  <span className="text-gray-400 text-xs ml-1 uppercase">{b.paymentMethod}</span>
                                 )}
                               </div>
                               {(b.status === 'paid' || b.status === 'confirmed' || b.status === 'completed') && (
-                                <span className="flex items-center gap-1 text-emerald-400 text-[10px] font-bold">
+                                <span className="flex items-center gap-1 text-emerald-400 text-xs font-bold">
                                   <CheckCircle2 size={11}/> Paid
                                 </span>
                               )}
@@ -804,7 +804,7 @@ export default function MyAppointments() {
 
                             {/* Booking ref */}
                             {b.paymentId && (
-                              <p className="text-[9px] text-gray-700 font-mono">Ref: {b.paymentId.slice(-12)}</p>
+                              <p className="text-[11px] text-gray-700 font-mono">Ref: {b.paymentId.slice(-12)}</p>
                             )}
 
                             {/* ── Actions ── */}
@@ -827,11 +827,11 @@ export default function MyAppointments() {
                                 {payError && payingId === null && (
                                   <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20">
                                     <AlertCircle size={13} className="text-red-400 shrink-0 mt-0.5"/>
-                                    <p className="text-red-400 text-[10px] leading-relaxed">{payError}</p>
+                                    <p className="text-red-400 text-xs leading-relaxed">{payError}</p>
                                   </div>
                                 )}
 
-                                <p className="text-[10px] text-gray-400 text-center">
+                                <p className="text-xs text-gray-400 text-center">
                                   If payment was already deducted, your booking is being verified.{' '}
                                   <a href="tel:+918789603343" className="text-gold underline">Contact salon</a>
                                 </p>
@@ -857,7 +857,7 @@ export default function MyAppointments() {
                                       <Edit2 size={12}/> {isEditing ? 'Cancel' : 'Reschedule'}
                                     </button>
                                   ) : (
-                                    <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-500/20 bg-red-500/8 text-red-400 text-[10px] font-bold">
+                                    <div className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-red-500/20 bg-red-500/8 text-red-400 text-xs font-bold">
                                       Reschedule limit reached (3/3) — please contact salon
                                     </div>
                                   )}
@@ -879,7 +879,7 @@ export default function MyAppointments() {
                                           </div>
                                         ) : (
                                           <>
-                                            <p className="text-[10px] font-black uppercase tracking-wider text-gold flex items-center gap-1.5"><CalendarCheck size={12}/>Pick new date & time</p>
+                                            <p className="text-xs font-black uppercase tracking-wider text-gold flex items-center gap-1.5"><CalendarCheck size={12}/>Pick new date & time</p>
                                             {/* Date strip */}
                                             <div className="flex gap-2 overflow-x-auto pb-0.5 scrollbar-hide">
                                               {dateStrip.map(d => {
@@ -887,7 +887,7 @@ export default function MyAppointments() {
                                                 return (
                                                   <button key={d.toString()} onClick={() => { setEditDate(d); loadSlots(d, b.serviceDurationMins ?? 60, b.id); }}
                                                     className={`shrink-0 w-11 h-13 rounded-xl flex flex-col items-center justify-center transition-all border py-2 ${active ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.04] text-gray-400 hover:border-gold/40'}`}>
-                                                    <span className={`text-[9px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{isToday(d) ? 'Today' : format(d,'EEE')}</span>
+                                                    <span className={`text-[11px] font-bold ${active ? 'text-black/70' : 'text-gray-500'}`}>{isToday(d) ? 'Today' : format(d,'EEE')}</span>
                                                     <span className="text-sm font-black">{format(d,'d')}</span>
                                                   </button>
                                                 );
@@ -906,11 +906,11 @@ export default function MyAppointments() {
                                                   const Icon = sess === 'morning' ? Sun : sess === 'afternoon' ? CloudSun : Moon;
                                                   return (
                                                     <div key={sess}>
-                                                      <div className="flex items-center gap-1.5 mb-1"><Icon size={10} className="text-gray-500"/><span className="text-[9px] text-gray-500 font-bold capitalize">{sess}</span></div>
+                                                      <div className="flex items-center gap-1.5 mb-1"><Icon size={10} className="text-gray-500"/><span className="text-[11px] text-gray-500 font-bold capitalize">{sess}</span></div>
                                                       <div className="grid grid-cols-3 gap-1.5">
                                                         {editSlots.filter(s => s.session === sess).slice(0,6).map(slot => (
                                                           <button key={slot.startISO} onClick={() => setEditSelSlot(slot)}
-                                                            className={`py-2 text-[10px] font-bold rounded-xl border transition-all ${editSelSlot?.startISO === slot.startISO ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.03] text-gray-400 hover:border-gold/30 hover:text-white'}`}>
+                                                            className={`py-2 text-xs font-bold rounded-xl border transition-all ${editSelSlot?.startISO === slot.startISO ? 'bg-gold border-gold text-black' : 'border-white/10 bg-white/[0.03] text-gray-400 hover:border-gold/30 hover:text-white'}`}>
                                                             {slot.label.split('–')[0].trim()}
                                                           </button>
                                                         ))}
@@ -988,7 +988,7 @@ export default function MyAppointments() {
                                                 {b.bookingTime && <div className="flex justify-between text-xs"><span className="text-gray-500">Time</span><span>{b.bookingTime}</span></div>}
                                               </div>
                                               <div className="border-t border-dashed border-gray-300 pt-3">
-                                                <p className="text-[9px] text-gray-400 font-black uppercase tracking-wider mb-2">Services</p>
+                                                <p className="text-[11px] text-gray-400 font-black uppercase tracking-wider mb-2">Services</p>
                                                 <p className="text-gray-700 text-xs">{b.serviceNames}</p>
                                               </div>
                                               <div className="border-t border-dashed border-gray-300 pt-3 space-y-1">
@@ -996,9 +996,9 @@ export default function MyAppointments() {
                                                   <span>Amount Paid</span>
                                                   <span style={{ color: '#B8941F' }}>₹{(b.finalAmount ?? b.totalAmount ?? 0).toLocaleString('en-IN')}</span>
                                                 </div>
-                                                {b.paymentId && <p className="text-[9px] text-gray-400 font-mono">Payment ID: {b.paymentId}</p>}
+                                                {b.paymentId && <p className="text-[11px] text-gray-400 font-mono">Payment ID: {b.paymentId}</p>}
                                               </div>
-                                              <div className="border-t border-dashed border-gray-300 mt-3 pt-2 text-center text-[9px] text-gray-400">
+                                              <div className="border-t border-dashed border-gray-300 mt-3 pt-2 text-center text-[11px] text-gray-400">
                                                 Thank you for visiting Hair Tech Salon!
                                               </div>
                                             </div>

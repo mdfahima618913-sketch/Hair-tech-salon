@@ -91,7 +91,7 @@ export default function Services() {
         <div className="text-center mb-12">
           <motion.span
             initial={{ opacity: 0, y: 12 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}
-            className="text-gold uppercase tracking-[0.4em] text-[10px] font-black mb-3 block"
+            className="text-gold uppercase tracking-[0.4em] text-xs font-black mb-3 block"
           >
             Menu of Beauty
           </motion.span>
@@ -179,7 +179,7 @@ export default function Services() {
                       </div>
                       <div>
                         <p className="text-white font-bold text-sm leading-tight">{cat.name}</p>
-                        <p className="text-[9px] text-gold/80 font-bold uppercase tracking-wider">{cat.services.length} services</p>
+                        <p className="text-[11px] text-gold/80 font-bold uppercase tracking-wider">{cat.services.length} services</p>
                       </div>
                     </div>
                   </div>
@@ -200,7 +200,7 @@ export default function Services() {
                         {cat.hasPremium && (
                           <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-900/15 border border-amber-500/15">
                             <Coffee size={11} className="text-amber-400 shrink-0" />
-                            <p className="text-[10px] text-amber-300/70 leading-tight">
+                            <p className="text-xs text-amber-300/70 leading-tight">
                               Services marked with <Coffee size={8} className="inline text-amber-400 mx-0.5" /> include a complimentary beverage.
                             </p>
                           </div>
@@ -223,7 +223,7 @@ export default function Services() {
                                   )}
                                 </div>
                                 <div className="flex items-center gap-2 mt-0.5">
-                                  <span className="flex items-center gap-1 text-[10px] text-gray-600">
+                                  <span className="flex items-center gap-1 text-xs text-gray-600">
                                     <Clock size={8} />{svc.time}
                                   </span>
                                 </div>
@@ -232,7 +232,7 @@ export default function Services() {
                                 <span className="text-gold font-bold text-sm">{svc.price}</span>
                                 <Link
                                   to="/booking"
-                                  className="px-2.5 py-1 rounded-lg bg-gold/10 border border-gold/20 text-gold text-[9px] font-black uppercase tracking-wider hover:bg-gold hover:text-black transition-all"
+                                  className="px-2.5 py-1 rounded-lg bg-gold/10 border border-gold/20 text-gold text-[11px] font-black uppercase tracking-wider hover:bg-gold hover:text-black transition-all"
                                 >
                                   Book
                                 </Link>
@@ -271,7 +271,7 @@ export default function Services() {
               {showAll ? 'Show less' : `Show all ${categories.length} categories`}
             </button>
             {!showAll && (
-              <p className="text-gray-700 text-[10px] uppercase tracking-wider font-bold">
+              <p className="text-gray-700 text-xs uppercase tracking-wider font-bold">
                 +{hiddenCount} more categories
               </p>
             )}
