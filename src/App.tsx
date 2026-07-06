@@ -40,7 +40,7 @@ function LandingPage({ scaleX }: { scaleX: any }) {
         <PromoSlider />
       </div>
 
-      <main>
+      <main className="pb-32 sm:pb-0">
         <Hero />
         <FounderStory />
         <LaunchingSoon />

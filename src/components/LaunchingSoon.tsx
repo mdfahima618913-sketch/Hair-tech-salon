@@ -12,7 +12,7 @@ const STYLES = `
   --bg:#060606; --card:#0C0C0C; --border:rgba(201,160,85,0.22);
   font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   background:var(--bg); color:#fff; -webkit-font-smoothing:antialiased;
-  padding:clamp(32px,6vw,80px) clamp(16px,4vw,48px);
+  padding:clamp(24px,6vw,80px) clamp(0px,4vw,48px);
   display:flex; justify-content:center;
 }
 
@@ -223,9 +223,22 @@ const STYLES = `
 .nz-card.is-in .nz-img-anim { opacity:1; transform:scale(1); transition:opacity 1.2s ease, transform 1.2s cubic-bezier(.2,.7,.2,1); transition-delay:.15s; }
 
 @media (max-width:760px) {
-  .nz-card { grid-template-columns:1fr; }
-  .nz-img-side { min-height:400px; }
-  .nz-body { text-align:center; align-items:center; }
+  .nz-scope { padding: 20px 0; }
+  .nz-card { grid-template-columns:1fr; border-radius:0; border-left:0; border-right:0; }
+  .nz-img-side { min-height:240px; }
+  .nz-img-frame { width:clamp(120px,40%,160px) !important; }
+  .nz-corner { display:none; }
+  .nz-body { text-align:center; align-items:center; padding:24px 20px 32px; }
+  .nz-badge { margin-bottom:16px; padding:6px 14px; font-size:0.62rem; }
+  .nz-brand { font-size:2rem; margin-bottom:2px; }
+  .nz-sub { font-size:0.9rem; margin-bottom:16px; }
+  .nz-divider-wrap { margin-bottom:16px; }
+  .nz-tagline { font-size:0.88rem; line-height:1.65; margin-bottom:20px; }
+  .nz-highlight { gap:8px; margin-bottom:20px; }
+  .nz-hi-chip { font-size:0.65rem; padding:6px 12px; }
+  .nz-coming-wrap { margin-bottom:20px; }
+  .nz-coming { padding:12px 20px; gap:10px; font-size:1rem; letter-spacing:0.12em; }
+  .nz-powered { padding:8px 16px; }
   .nz-badge, .nz-powered { align-self:center; }
   .nz-highlight { justify-content:center; }
 }

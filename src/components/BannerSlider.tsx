@@ -65,17 +65,17 @@ export default function BannerSlider({ children }: { children?: React.ReactNode 
   const occ = slide.occasion ? OCCASION_STYLE[slide.occasion] : null;
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="max-w-6xl mx-auto sm:px-6 lg:px-8">
       <div
-        className="relative rounded-2xl sm:rounded-3xl overflow-hidden border border-gold/20 shadow-[0_8px_60px_-12px_rgba(212,175,55,0.15)]"
+        className="relative sm:rounded-2xl lg:rounded-3xl overflow-hidden border-0 sm:border border-gold/20 shadow-[0_8px_60px_-12px_rgba(212,175,55,0.15)]"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
       >
-        {/* Gold accent corners */}
-        <span className="absolute top-0 left-0 w-12 h-12 border-t-2 border-l-2 border-gold/40 rounded-tl-2xl sm:rounded-tl-3xl z-20 pointer-events-none" />
-        <span className="absolute top-0 right-0 w-12 h-12 border-t-2 border-r-2 border-gold/40 rounded-tr-2xl sm:rounded-tr-3xl z-20 pointer-events-none" />
-        <span className="absolute bottom-0 left-0 w-12 h-12 border-b-2 border-l-2 border-gold/40 rounded-bl-2xl sm:rounded-bl-3xl z-20 pointer-events-none" />
-        <span className="absolute bottom-0 right-0 w-12 h-12 border-b-2 border-r-2 border-gold/40 rounded-br-2xl sm:rounded-br-3xl z-20 pointer-events-none" />
+        {/* Gold accent corners — desktop only */}
+        <span className="hidden sm:block absolute top-0 left-0 w-12 h-12 border-t-2 border-l-2 border-gold/40 rounded-tl-2xl lg:rounded-tl-3xl z-20 pointer-events-none" />
+        <span className="hidden sm:block absolute top-0 right-0 w-12 h-12 border-t-2 border-r-2 border-gold/40 rounded-tr-2xl lg:rounded-tr-3xl z-20 pointer-events-none" />
+        <span className="hidden sm:block absolute bottom-0 left-0 w-12 h-12 border-b-2 border-l-2 border-gold/40 rounded-bl-2xl lg:rounded-bl-3xl z-20 pointer-events-none" />
+        <span className="hidden sm:block absolute bottom-0 right-0 w-12 h-12 border-b-2 border-r-2 border-gold/40 rounded-br-2xl lg:rounded-br-3xl z-20 pointer-events-none" />
 
         {/* Occasion tag — top center */}
         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
@@ -95,8 +95,8 @@ export default function BannerSlider({ children }: { children?: React.ReactNode 
           </AnimatePresence>
         </div>
 
-        {/* Image — 16:9 aspect */}
-        <div className="relative w-full" style={{ aspectRatio: '16/9' }}>
+        {/* Image — 3:2 on mobile, 16:9 on desktop */}
+        <div className="relative w-full aspect-[3/2] sm:aspect-[16/9]">
           <AnimatePresence mode="sync" custom={dir}>
             <motion.img
               key={slide.url + current}
@@ -112,7 +112,7 @@ export default function BannerSlider({ children }: { children?: React.ReactNode 
           </AnimatePresence>
 
           {/* Bottom gradient for footer readability */}
-          <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/70 to-transparent pointer-events-none z-10" />
+          <div className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/80 to-transparent pointer-events-none z-10" />
 
           {/* Arrows */}
           {slides.length > 1 && (

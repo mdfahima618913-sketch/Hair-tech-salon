@@ -118,6 +118,25 @@ function fmtTs(ts?: Timestamp | string) {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+function fmtPeriodLabel(period: string, from: string, to: string): string {
+  const now = new Date();
+  if (from && to) {
+    const f = new Date(from).toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+    const t = new Date(to).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+    return `${f} – ${t}`;
+  }
+  switch (period) {
+    case 'today':     return `Today · ${now.toLocaleDateString('en-IN', { day:'numeric', month:'short' })}`;
+    case 'week':      return 'Last 7 days';
+    case 'month':
+    case 'thisMonth': return now.toLocaleDateString('en-IN', { month:'long', year:'numeric' });
+    case 'lastMonth': return new Date(now.getFullYear(), now.getMonth()-1, 1).toLocaleDateString('en-IN', { month:'long', year:'numeric' });
+    case 'year':      return now.getFullYear().toString();
+    case 'all':       return 'All time';
+    default:          return period;
+  }
+}
+
 // ─── Reschedule slot helpers (mirrors MyAppointments) ─────────────────────────
 
 const STAFF_COUNT = 3; const SALON_OPEN_H = 10; const SALON_CLOSE_H = 22;
@@ -1592,6 +1611,9 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [staffSaving,   setStaffSaving]   = useState(false);
   const [staffInvoices, setStaffInvoices] = useState<any[]>([]);
   const [staffSubView,  setStaffSubView]  = useState<'list' | 'analytics'>('list');
+  const [commPeriod,    setCommPeriod]    = useState<'thisMonth' | 'lastMonth' | 'all'>('thisMonth');
+  const [commFrom,      setCommFrom]      = useState('');
+  const [commTo,        setCommTo]        = useState('');
   const [toolsTab,      setToolsTab]      = useState<'services' | 'banners' | 'gallery' | 'coupons' | 'data' | 'settings' | 'expenses' | 'trending'>('services');
   // Staff can't see admin-only tools tabs — fall back to banners
   useEffect(() => {
@@ -1923,10 +1945,37 @@ Your uid is: ${user.uid}
       .finally(() => setStaffLoading(false));
   }, [view]);
 
-  // Per-staff commission stats derived from invoices
+  // Date window for commission stats
+  const commDateWindow = useMemo(() => {
+    if (commFrom && commTo) {
+      const f = new Date(commFrom); f.setHours(0,0,0,0);
+      const t = new Date(commTo);   t.setHours(23,59,59,999);
+      return { start: f, end: t };
+    }
+    const now = new Date();
+    if (commPeriod === 'thisMonth') {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      return { start: s, end: e };
+    }
+    if (commPeriod === 'lastMonth') {
+      const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const e = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+      return { start: s, end: e };
+    }
+    return null; // all time
+  }, [commPeriod, commFrom, commTo]);
+
+  // Per-staff commission stats derived from invoices (filtered by date window)
   const staffStats = useMemo(() => {
     const map: Record<string, { services: number; commission: number }> = {};
     staffInvoices.forEach(inv => {
+      if (commDateWindow) {
+        const createdAt = inv.createdAt;
+        if (!createdAt) return;
+        const d = typeof createdAt.toDate === 'function' ? createdAt.toDate() : new Date(createdAt);
+        if (d < commDateWindow.start || d > commDateWindow.end) return;
+      }
       (inv.items ?? []).forEach((item: any) => {
         if (!item.staffId) return;
         if (!map[item.staffId]) map[item.staffId] = { services: 0, commission: 0 };
@@ -1935,7 +1984,7 @@ Your uid is: ${user.uid}
       });
     });
     return map;
-  }, [staffInvoices]);
+  }, [staffInvoices, commDateWindow]);
 
   // Load invoices when billing or insights view opens
   useEffect(() => {
@@ -2210,6 +2259,8 @@ Your uid is: ${user.uid}
   // ── Service drill-down ────────────────────────────────────────────────────
   const [expandedService,    setExpandedService]    = useState<string | null>(null);
   const [serviceDrillPeriod, setServiceDrillPeriod] = useState<'today'|'week'|'month'|'year'|'all'>('month');
+  const [serviceDrillFrom,   setServiceDrillFrom]   = useState('');
+  const [serviceDrillTo,     setServiceDrillTo]     = useState('');
 
   // ── Derived stats — invoice-primary, bookings for operational metrics ───────
   const stats = useMemo(() => {
@@ -2506,15 +2557,21 @@ Your uid is: ${user.uid}
   const serviceDrillStats = useMemo(() => {
     if (!expandedService) return null;
     const now = new Date();
-    const start = new Date();
-    if      (serviceDrillPeriod === 'today') { start.setHours(0,0,0,0); }
+    let start = new Date();
+    let end: Date | null = null;
+
+    if (serviceDrillFrom && serviceDrillTo) {
+      start = new Date(serviceDrillFrom); start.setHours(0,0,0,0);
+      end   = new Date(serviceDrillTo);   end.setHours(23,59,59,999);
+    } else if (serviceDrillPeriod === 'today') { start.setHours(0,0,0,0); }
     else if (serviceDrillPeriod === 'week')  { start.setDate(now.getDate()-7); start.setHours(0,0,0,0); }
     else if (serviceDrillPeriod === 'month') { start.setDate(1); start.setHours(0,0,0,0); }
     else if (serviceDrillPeriod === 'year')  { start.setMonth(0,1); start.setHours(0,0,0,0); }
     else { start.setFullYear(2000); }
 
     const relevant = billingInvoices.filter(inv => {
-      const inPeriod = !inv.createdAt || inv.createdAt.toDate() >= start;
+      const d = inv.createdAt?.toDate?.();
+      const inPeriod = !d || (d >= start && (end ? d <= end : true));
       return inPeriod && inv.items?.some((it: BillItem) => it.serviceName?.trim() === expandedService);
     });
 
@@ -2540,7 +2597,7 @@ Your uid is: ${user.uid}
       revenue:   Math.round(serviceRevenue),
       chartData: Object.entries(groups).map(([label, count]) => ({ label, count })),
     };
-  }, [expandedService, serviceDrillPeriod, billingInvoices]);
+  }, [expandedService, serviceDrillPeriod, serviceDrillFrom, serviceDrillTo, billingInvoices]);
 
   // ── Split bookings into tabs ─────────────────────────────────────────────────
 
@@ -2855,11 +2912,9 @@ Your uid is: ${user.uid}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-6 gap-3">
           <div>
             <h2 className="text-white font-black text-lg uppercase tracking-tight">Overview</h2>
-            <p className="text-gray-400 text-xs">
-              {insightsFrom && insightsTo
-                ? `Custom range: ${new Date(insightsFrom).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} – ${new Date(insightsTo).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}`
-                : 'All metrics computed for the selected period'}
-            </p>
+            <span className="inline-flex items-center gap-1.5 text-xs text-gold font-bold bg-gold/8 border border-gold/20 rounded-lg px-2.5 py-1 mt-1">
+              <Calendar size={10} /> {fmtPeriodLabel(period, insightsFrom, insightsTo)}
+            </span>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             {/* Preset period pills */}
@@ -3584,7 +3639,7 @@ Your uid is: ${user.uid}
                     <div key={name}>
                       {/* Service row — clickable */}
                       <button
-                        onClick={() => setExpandedService(isOpen ? null : name)}
+                        onClick={() => { setExpandedService(isOpen ? null : name); setServiceDrillFrom(''); setServiceDrillTo(''); }}
                         className={`w-full text-left group transition-all rounded-xl px-2 py-2 ${isOpen ? 'bg-gold/8' : 'hover:bg-zinc-800/40'}`}
                       >
                         <div className="flex items-center justify-between mb-1">
@@ -3615,18 +3670,44 @@ Your uid is: ${user.uid}
                             className="overflow-hidden"
                           >
                             <div className="mx-2 mb-2 p-3 bg-gold/5 border border-gold/15 rounded-xl space-y-3">
-                              {/* Period tabs */}
-                              <div className="flex items-center gap-1 flex-wrap">
+                              {/* Period tabs + custom date range */}
+                              <div className="flex flex-wrap items-center gap-1.5">
                                 {(['today','week','month','year','all'] as const).map(p => (
                                   <button key={p}
-                                    onClick={e => { e.stopPropagation(); setServiceDrillPeriod(p); }}
-                                    className={`px-2.5 py-0.5 rounded-md text-[11px] font-black uppercase tracking-wider transition-all ${
-                                      serviceDrillPeriod === p ? 'bg-gold/25 text-gold' : 'text-gray-400 hover:text-white'
+                                    onClick={e => { e.stopPropagation(); setServiceDrillPeriod(p); setServiceDrillFrom(''); setServiceDrillTo(''); }}
+                                    className={`px-2.5 py-1 rounded-md text-[11px] font-black uppercase tracking-wider transition-all ${
+                                      serviceDrillPeriod === p && !serviceDrillFrom ? 'bg-gold/25 text-gold' : 'text-gray-400 hover:text-white'
                                     }`}>
                                     {p === 'today' ? 'Today' : p === 'week' ? 'Week' : p === 'month' ? 'Month' : p === 'year' ? 'Year' : 'All'}
                                   </button>
                                 ))}
+                                {/* Custom date range */}
+                                <div className="flex items-center gap-1 bg-black/30 border border-white/10 rounded-lg px-2 py-1 ml-auto" onClick={e => e.stopPropagation()}>
+                                  <CalendarDays size={10} className={serviceDrillFrom ? 'text-gold' : 'text-gray-500'} />
+                                  <input
+                                    type="date" value={serviceDrillFrom}
+                                    onChange={e => setServiceDrillFrom(e.target.value)}
+                                    className="bg-transparent text-[10px] text-white focus:outline-none w-20 [color-scheme:dark]"
+                                  />
+                                  <span className="text-gray-600 text-[10px]">–</span>
+                                  <input
+                                    type="date" value={serviceDrillTo} min={serviceDrillFrom}
+                                    onChange={e => setServiceDrillTo(e.target.value)}
+                                    className="bg-transparent text-[10px] text-white focus:outline-none w-20 [color-scheme:dark]"
+                                  />
+                                  {serviceDrillFrom && (
+                                    <button onClick={e => { e.stopPropagation(); setServiceDrillFrom(''); setServiceDrillTo(''); }}
+                                      className="text-gray-500 hover:text-white transition-colors">
+                                      <X size={9} />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
+
+                              {/* Period label */}
+                              <span className="inline-flex items-center gap-1.5 text-[10px] text-gold font-bold bg-gold/8 border border-gold/20 rounded-md px-2 py-0.5">
+                                <Calendar size={9} /> {fmtPeriodLabel(serviceDrillPeriod, serviceDrillFrom, serviceDrillTo)}
+                              </span>
 
                               {/* Stats row */}
                               {serviceDrillStats ? (
@@ -4153,11 +4234,9 @@ Your uid is: ${user.uid}
                   </button>
                 )}
               </div>
-              {billingFrom && billingTo && (
-                <span className="text-xs text-gold font-bold">
-                  {new Date(billingFrom).toLocaleDateString('en-IN',{day:'numeric',month:'short'})} – {new Date(billingTo).toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'})}
-                </span>
-              )}
+              <span className="inline-flex items-center gap-1.5 text-xs text-gold font-bold bg-gold/8 border border-gold/20 rounded-lg px-2.5 py-1">
+                <Calendar size={10} /> {fmtPeriodLabel(billingPeriod, billingFrom, billingTo)}
+              </span>
             </div>
           <div className="flex sm:flex-row sm:items-center gap-3 justify-between flex-wrap">
             <div className="flex items-center gap-2">
@@ -4957,6 +5036,65 @@ Your uid is: ${user.uid}
 
           {/* Admin only: add staff + manage all staff */}
           {!isStaffMode && (<>
+
+          {/* Commission date range filter */}
+          <div className="bg-zinc-900 border border-white/10 rounded-2xl p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs uppercase font-black tracking-widest text-gold flex items-center gap-2">
+                <IndianRupee size={12} /> Commission Period
+              </p>
+              {(commFrom || commTo) && (
+                <button
+                  onClick={() => { setCommFrom(''); setCommTo(''); setCommPeriod('thisMonth'); }}
+                  className="text-[11px] text-gray-400 hover:text-white transition-colors flex items-center gap-1"
+                >
+                  <X size={10} /> Clear custom
+                </button>
+              )}
+            </div>
+            {/* Quick-select chips */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {([
+                { id: 'thisMonth', label: 'This Month' },
+                { id: 'lastMonth', label: 'Last Month' },
+                { id: 'all',       label: 'All Time'   },
+              ] as const).map(opt => (
+                <button
+                  key={opt.id}
+                  onClick={() => { setCommPeriod(opt.id); setCommFrom(''); setCommTo(''); }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                    commPeriod === opt.id && !commFrom && !commTo
+                      ? 'bg-gold/15 border border-gold/30 text-gold'
+                      : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {/* Custom date range */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[11px] text-gray-500 uppercase tracking-wider">Custom:</span>
+              <input
+                type="date"
+                value={commFrom}
+                onChange={e => setCommFrom(e.target.value)}
+                className="bg-white/8 border border-white/10 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-gold/50 transition-all"
+              />
+              <span className="text-gray-500 text-xs">to</span>
+              <input
+                type="date"
+                value={commTo}
+                onChange={e => setCommTo(e.target.value)}
+                className="bg-white/8 border border-white/10 rounded-lg py-1.5 px-3 text-xs text-white focus:outline-none focus:border-gold/50 transition-all"
+              />
+            </div>
+            {/* Period label */}
+            <span className="inline-flex items-center gap-1.5 text-xs text-gold font-bold bg-gold/8 border border-gold/20 rounded-lg px-2.5 py-1">
+              <Calendar size={10} /> {fmtPeriodLabel(commPeriod, commFrom, commTo)}
+            </span>
+          </div>
+
           <div className="flex flex-col sm:flex-row sm:items-center gap-3">
             {/* Search */}
             <div className="relative flex-1 max-w-xs">
