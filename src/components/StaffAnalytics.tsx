@@ -25,7 +25,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import {
   TrendingUp, TrendingDown, Award, Scissors,
   IndianRupee, ChevronDown, ChevronUp, Crown, Flame,
-  BarChart3, Percent, Users,
+  BarChart3, Percent, Users, Calendar, X,
 } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -104,10 +104,10 @@ function getPeriodStart(p: Period): Date {
  */
 function aggregateStats(
   invoices: Invoice[],
-  period: Period,
+  start: Date,
+  end: Date | null,
   staffList: StaffMember[],
 ): StaffStat[] {
-  const start = getPeriodStart(period);
   const map: Record<string, StaffStat> = {};
 
   // Seed all active staff so no one is hidden
@@ -126,7 +126,8 @@ function aggregateStats(
     });
 
   invoices.forEach(inv => {
-    if (toDate(inv.createdAt) < start) return;
+    const d = toDate(inv.createdAt);
+    if (d < start || (end && d > end)) return;
     (inv.items ?? []).forEach((it: BillItem) => {
       if (!it.staffId) return;
       if (!map[it.staffId]) {
@@ -161,6 +162,24 @@ const PERIOD_LABELS: Record<Period, string> = {
   year:  'This Year',
   all:   'All Time',
 };
+
+function localDate(s: string, endOfDay = false): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return endOfDay ? new Date(y, m - 1, d, 23, 59, 59, 999) : new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
+function getPeriodLabel(period: Period, from: string, to: string): string {
+  const now = new Date();
+  if (from && to) {
+    const f = localDate(from).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+    const t = localDate(to).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+    return `${f} – ${t}`;
+  }
+  if (period === 'week')  return 'Last 7 days';
+  if (period === 'month') return now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+  if (period === 'year')  return now.getFullYear().toString();
+  return 'All time';
+}
 
 // ─── Micro-components ──────────────────────────────────────────────────────────
 
@@ -240,12 +259,22 @@ interface StaffAnalyticsProps {
 
 export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsProps) {
   const [period,      setPeriod]      = useState<Period>('month');
+  const [dateFrom,    setDateFrom]    = useState('');
+  const [dateTo,      setDateTo]      = useState('');
   const [openService, setOpenService] = useState<string | null>(null);
+
+  // ── Effective date window ─────────────────────────────────────────────────
+  const dateWindow = useMemo(() => {
+    if (dateFrom && dateTo) {
+      return { start: localDate(dateFrom), end: localDate(dateTo, true) };
+    }
+    return { start: getPeriodStart(period), end: null };
+  }, [period, dateFrom, dateTo]);
 
   // ── Core stats for selected period ────────────────────────────────────────
   const stats = useMemo(
-    () => aggregateStats(staffInvoices, period, staff),
-    [staffInvoices, period, staff],
+    () => aggregateStats(staffInvoices, dateWindow.start, dateWindow.end, staff),
+    [staffInvoices, dateWindow, staff],
   );
 
   // ── Summary totals ─────────────────────────────────────────────────────────
@@ -259,7 +288,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
   // Always uses the current calendar month, regardless of the period selector.
   // Scoring: services*1 + revenue/1000 + commission/100  (per spec)
   const employeeOfMonth = useMemo(() => {
-    const monthStats = aggregateStats(staffInvoices, 'month', staff).filter(
+    const monthStats = aggregateStats(staffInvoices, getPeriodStart('month'), null, staff).filter(
       s => s.services > 0,
     );
     if (!monthStats.length) return null;
@@ -317,14 +346,15 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
 
   // ── Service leaderboard ───────────────────────────────────────────────────
   const serviceLeaderboard = useMemo(() => {
-    const start = getPeriodStart(period);
+    const { start, end } = dateWindow;
     const svcMap: Record<
       string,
       Record<string, { name: string; count: number; revenue: number }>
     > = {};
 
     staffInvoices.forEach(inv => {
-      if (toDate(inv.createdAt) < start) return;
+      const d = toDate(inv.createdAt);
+      if (d < start || (end && d > end)) return;
       (inv.items ?? []).forEach((it: BillItem) => {
         if (!it.staffId || !it.serviceName) return;
         if (!svcMap[it.serviceName]) svcMap[it.serviceName] = {};
@@ -350,7 +380,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
       }))
       .sort((a, b) => b.totalCount - a.totalCount)
       .slice(0, 12);
-  }, [staffInvoices, period]);
+  }, [staffInvoices, dateWindow]);
 
   // ── Revenue trend: last 4 weeks per staff ─────────────────────────────────
   // weekBuckets[0] = oldest (4 weeks ago to 3 weeks ago), [3] = most recent.
@@ -420,30 +450,58 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
     <div className="space-y-6">
 
       {/* ── Period selector ─────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h2 className="text-white font-black text-lg uppercase tracking-tight flex items-center gap-2">
-            <BarChart3 size={18} className="text-purple-400" />
-            Staff Analytics
-          </h2>
-          <p className="text-gray-500 text-xs mt-0.5">
-            Performance insights · {PERIOD_LABELS[period]}
-          </p>
-        </div>
-        <div className="flex items-center gap-1 bg-zinc-800 border border-white/12 rounded-xl p-1">
-          {(['week', 'month', 'year', 'all'] as Period[]).map(p => (
-            <button
-              key={p}
-              onClick={() => setPeriod(p)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
-                period === p
-                  ? 'bg-purple-500/20 border border-purple-500/30 text-purple-400'
-                  : 'text-gray-500 hover:text-white'
-              }`}
-            >
-              {p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : p === 'year' ? 'This Year' : 'All Time'}
-            </button>
-          ))}
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-white font-black text-lg uppercase tracking-tight flex items-center gap-2">
+              <BarChart3 size={18} className="text-purple-400" />
+              Staff Analytics
+            </h2>
+            <span className="inline-flex items-center gap-1.5 text-xs text-gold font-bold bg-gold/8 border border-gold/20 rounded-lg px-2.5 py-1 mt-1">
+              <Calendar size={10} /> {getPeriodLabel(period, dateFrom, dateTo)}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Quick chips */}
+            <div className="flex items-center gap-1 bg-zinc-800 border border-white/12 rounded-xl p-1">
+              {(['week', 'month', 'year', 'all'] as Period[]).map(p => (
+                <button
+                  key={p}
+                  onClick={() => { setPeriod(p); setDateFrom(''); setDateTo(''); }}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                    period === p && !dateFrom
+                      ? 'bg-purple-500/20 border border-purple-500/30 text-purple-400'
+                      : 'text-gray-500 hover:text-white'
+                  }`}
+                >
+                  {p === 'week' ? 'This Week' : p === 'month' ? 'This Month' : p === 'year' ? 'This Year' : 'All Time'}
+                </button>
+              ))}
+            </div>
+            {/* Custom date range */}
+            <div className="flex items-center gap-1.5 bg-zinc-800 border border-white/12 rounded-xl px-3 py-1.5">
+              <Calendar size={11} className={dateFrom ? 'text-gold' : 'text-gray-400'} />
+              <input
+                type="date" value={dateFrom}
+                onChange={e => setDateFrom(e.target.value)}
+                className="bg-transparent text-xs text-white focus:outline-none w-24 [color-scheme:dark]"
+              />
+              <span className="text-gray-400 text-xs">–</span>
+              <input
+                type="date" value={dateTo} min={dateFrom}
+                onChange={e => setDateTo(e.target.value)}
+                className="bg-transparent text-xs text-white focus:outline-none w-24 [color-scheme:dark]"
+              />
+              {dateFrom && (
+                <button
+                  onClick={() => { setDateFrom(''); setDateTo(''); }}
+                  className="text-gray-400 hover:text-white transition-colors ml-1"
+                >
+                  <X size={11} />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 

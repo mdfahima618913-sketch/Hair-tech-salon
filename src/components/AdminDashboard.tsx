@@ -118,11 +118,17 @@ function fmtTs(ts?: Timestamp | string) {
   return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
+/** Parse YYYY-MM-DD from <input type="date"> as LOCAL midnight (avoids UTC-offset label shift). */
+function localDate(s: string, endOfDay = false): Date {
+  const [y, m, d] = s.split('-').map(Number);
+  return endOfDay ? new Date(y, m - 1, d, 23, 59, 59, 999) : new Date(y, m - 1, d, 0, 0, 0, 0);
+}
+
 function fmtPeriodLabel(period: string, from: string, to: string): string {
   const now = new Date();
   if (from && to) {
-    const f = new Date(from).toLocaleDateString('en-IN', { day:'numeric', month:'short' });
-    const t = new Date(to).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+    const f = localDate(from).toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+    const t = localDate(to).toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
     return `${f} – ${t}`;
   }
   switch (period) {
@@ -1948,8 +1954,8 @@ Your uid is: ${user.uid}
   // Date window for commission stats
   const commDateWindow = useMemo(() => {
     if (commFrom && commTo) {
-      const f = new Date(commFrom); f.setHours(0,0,0,0);
-      const t = new Date(commTo);   t.setHours(23,59,59,999);
+      const f = localDate(commFrom);
+      const t = localDate(commTo, true);
       return { start: f, end: t };
     }
     const now = new Date();
@@ -2014,8 +2020,8 @@ Your uid is: ${user.uid}
     let endDate: Date | null = null;
 
     if (billingFrom && billingTo) {
-      const f = new Date(billingFrom); f.setHours(0,0,0,0);
-      const t = new Date(billingTo);   t.setHours(23,59,59,999);
+      const f = localDate(billingFrom);
+      const t = localDate(billingTo, true);
       start.setTime(f.getTime()); endDate = t;
     } else if (billingPeriod === 'today') { start.setHours(0, 0, 0, 0); }
     else if (billingPeriod === 'week')  { start.setDate(now.getDate() - 7); start.setHours(0,0,0,0); }
@@ -2268,8 +2274,8 @@ Your uid is: ${user.uid}
     const start = new Date();
     let end: Date | null = null;
     if (insightsFrom && insightsTo) {
-      const fromD = new Date(insightsFrom); fromD.setHours(0,0,0,0);
-      const toD   = new Date(insightsTo);   toD.setHours(23,59,59,999);
+      const fromD = localDate(insightsFrom);
+      const toD   = localDate(insightsTo, true);
       start.setTime(fromD.getTime());
       end = toD;
     } else if (period === 'today') {
@@ -2561,8 +2567,8 @@ Your uid is: ${user.uid}
     let end: Date | null = null;
 
     if (serviceDrillFrom && serviceDrillTo) {
-      start = new Date(serviceDrillFrom); start.setHours(0,0,0,0);
-      end   = new Date(serviceDrillTo);   end.setHours(23,59,59,999);
+      start = localDate(serviceDrillFrom);
+      end   = localDate(serviceDrillTo, true);
     } else if (serviceDrillPeriod === 'today') { start.setHours(0,0,0,0); }
     else if (serviceDrillPeriod === 'week')  { start.setDate(now.getDate()-7); start.setHours(0,0,0,0); }
     else if (serviceDrillPeriod === 'month') { start.setDate(1); start.setHours(0,0,0,0); }
