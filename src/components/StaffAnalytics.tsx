@@ -20,13 +20,13 @@
  * Dark theme matching AdminDashboard (bg-zinc-900, gold accents, white text).
  */
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import {
   TrendingUp, TrendingDown, Award, Scissors,
   IndianRupee, ChevronDown, ChevronUp, Crown, Flame,
   BarChart3, Percent, Users, Calendar, X,
-  ArrowLeft, Receipt, ChevronRight,
+  ArrowLeft, Receipt, ChevronRight, ChevronLeft,
 } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -350,6 +350,62 @@ function StaffProfileView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staffInvoices, profileFrom, profileTo, staff, staffId]);
 
+  // ── Days present: unique calendar days with a service item ──────────────
+  const daysPresent = useMemo(() => {
+    const days = new Set(filteredInvoices.map(inv => {
+      const d = toDate(inv.createdAt);
+      return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+    }));
+    return days.size;
+  }, [filteredInvoices]);
+
+  // ── Daily revenue map: YYYY-MM-DD → { revenue, commission, services } ──
+  const dailyRevMap = useMemo(() => {
+    const map: Record<string, { revenue: number; commission: number; services: number }> = {};
+    filteredInvoices.forEach(inv => {
+      const d = toDate(inv.createdAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      if (!map[key]) map[key] = { revenue: 0, commission: 0, services: 0 };
+      (inv.items ?? []).filter((it: BillItem) => it.staffId === staffId).forEach(it => {
+        map[key].revenue    += it.price ?? 0;
+        map[key].commission += it.commissionAmount ?? 0;
+        map[key].services   += 1;
+      });
+    });
+    return map;
+  }, [filteredInvoices, staffId]);
+
+  // ── Payout: pro-rated salary (monthlySalary/30 × daysPresent) + commission
+  const payout = useMemo(() => {
+    const monthlySalary = (member as any)?.salary ?? 0;
+    const comm = summary.commission;
+    const dailySalary   = monthlySalary > 0 ? Math.round(monthlySalary / 30) : 0;
+    const proratedSalary = dailySalary * daysPresent;
+    return { proratedSalary, commission: comm, total: proratedSalary + comm, dailySalary, monthlySalary };
+  }, [member, summary.commission, daysPresent]);
+
+  // ── Salon profit from this staff ────────────────────────────────────────
+  const profitInfo = useMemo(() => {
+    if (summary.revenue === 0) return { profit: 0, margin: 0 };
+    const profit = summary.revenue - payout.total;
+    const margin = payout.total > 0 ? Math.round((profit / summary.revenue) * 100) : 100;
+    return { profit, margin };
+  }, [summary.revenue, payout.total]);
+
+  // ── Calendar month navigator ─────────────────────────────────────────────
+  const [calendarMonth, setCalendarMonth] = useState(() => {
+    if (isFiltered && profileFrom) return profileFrom.slice(0, 7);
+    const n = new Date();
+    return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`;
+  });
+  useEffect(() => {
+    setCalendarMonth(
+      isFiltered && profileFrom
+        ? profileFrom.slice(0, 7)
+        : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`
+    );
+  }, [profileFrom, isFiltered]);
+
   const maxSvcRev     = serviceBreakdown[0]?.revenue || 1;
   const maxMonthlyRev = Math.max(...monthlyRevenue.map(m => m.revenue), 1);
 
@@ -425,17 +481,19 @@ function StaffProfileView({
           </span>
         </div>
 
-        {/* KPI strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+        {/* KPI strip — 3 col on mobile, 6 col on sm+ */}
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mt-4">
           {[
-            { label: 'Revenue',       value: `₹${summary.revenue.toLocaleString('en-IN')}`,   color: 'text-gold'       },
-            { label: 'Services Done', value: summary.services.toString(),                       color: 'text-white'      },
-            { label: 'Commission',    value: `₹${summary.commission.toLocaleString('en-IN')}`, color: 'text-purple-400' },
-            { label: 'Avg / Service', value: `₹${summary.avg.toLocaleString('en-IN')}`,        color: 'text-emerald-400'},
+            { label: 'Revenue',       value: `₹${summary.revenue.toLocaleString('en-IN')}`,        color: 'text-gold'       },
+            { label: 'Services',      value: summary.services.toString(),                            color: 'text-white'      },
+            { label: 'Days Present',  value: daysPresent.toString(),                                 color: 'text-sky-400'    },
+            { label: 'Commission',    value: `₹${summary.commission.toLocaleString('en-IN')}`,      color: 'text-purple-400' },
+            { label: 'Avg / Service', value: `₹${summary.avg.toLocaleString('en-IN')}`,             color: 'text-emerald-400'},
+            { label: 'Total Payout',  value: `₹${payout.total.toLocaleString('en-IN')}`,            color: 'text-orange-400' },
           ].map(({ label, value, color }) => (
-            <div key={label} className="text-center p-3 bg-white/5 rounded-xl">
-              <p className={`font-black text-lg ${color}`}>{value}</p>
-              <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">{label}</p>
+            <div key={label} className="text-center p-2.5 bg-white/5 rounded-xl">
+              <p className={`font-black text-base ${color}`}>{value}</p>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mt-0.5 leading-tight">{label}</p>
             </div>
           ))}
         </div>
@@ -456,6 +514,178 @@ function StaffProfileView({
           </div>
         )}
       </div>
+
+      {/* ── Payout Breakdown + Profit Margin ─────────────────────────────── */}
+      {(payout.monthlySalary > 0 || payout.commission > 0) && (
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-white/10">
+            <p className="text-xs uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
+              <Percent size={12} /> Payout Breakdown · Profit Analysis
+            </p>
+          </div>
+          <div className="p-5 grid sm:grid-cols-2 gap-5">
+            {/* Left: payout */}
+            <div className="space-y-2.5">
+              {payout.monthlySalary > 0 && (
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-gray-400">
+                    Salary <span className="text-[11px] text-gray-600">({daysPresent} days × ₹{payout.dailySalary.toLocaleString('en-IN')}/day)</span>
+                  </span>
+                  <span className="text-orange-400 font-black">₹{payout.proratedSalary.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Commission earned</span>
+                <span className="text-purple-400 font-black">₹{payout.commission.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-white/10 pt-2">
+                <span className="text-white font-black text-sm">Total Payout</span>
+                <span className="text-orange-400 font-black text-base">₹{payout.total.toLocaleString('en-IN')}</span>
+              </div>
+            </div>
+
+            {/* Right: profit margin */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Revenue brought</span>
+                <span className="text-gold font-black">₹{summary.revenue.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">Total payout</span>
+                <span className="text-orange-400 font-black">−₹{payout.total.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex items-center justify-between border-t border-white/10 pt-2">
+                <span className="text-white font-black text-sm">Salon Profit</span>
+                <span className={`font-black text-base ${profitInfo.profit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                  ₹{Math.abs(profitInfo.profit).toLocaleString('en-IN')} {profitInfo.profit < 0 ? '(loss)' : ''}
+                </span>
+              </div>
+              {/* Margin bar */}
+              {summary.revenue > 0 && (
+                <div className="space-y-1 pt-1">
+                  <div className="flex justify-between text-[11px]">
+                    <span className="text-gray-600">Profit margin</span>
+                    <span className={`font-black ${profitInfo.margin >= 50 ? 'text-emerald-400' : profitInfo.margin >= 20 ? 'text-gold' : 'text-red-400'}`}>
+                      {profitInfo.margin}%
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/8 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.max(0, Math.min(100, profitInfo.margin))}%` }}
+                      transition={{ duration: 0.6, ease: 'easeOut' }}
+                      className={`h-full rounded-full ${profitInfo.margin >= 50 ? 'bg-emerald-500' : profitInfo.margin >= 20 ? 'bg-gold' : 'bg-red-500'}`}
+                    />
+                  </div>
+                  <p className="text-[10px] text-gray-600">
+                    {profitInfo.margin >= 60 ? 'Excellent contribution' : profitInfo.margin >= 40 ? 'Good contribution' : profitInfo.margin >= 20 ? 'Average — review performance' : 'Below break-even — attention needed'}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Daily Attendance Calendar ──────────────────────────────────────── */}
+      {Object.keys(dailyRevMap).length > 0 && (() => {
+        const [calY, calM] = calendarMonth.split('-').map(Number);
+        const firstDow = (new Date(calY, calM - 1, 1).getDay() + 6) % 7; // Mon=0
+        const daysInMon = new Date(calY, calM, 0).getDate();
+        const calLabel  = new Date(calY, calM - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+        const today     = new Date();
+        const prevMon = (() => { const d = new Date(calY, calM - 2, 1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })();
+        const nextMon = (() => { const d = new Date(calY, calM,     1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; })();
+
+        type CalCell = { day: number; dateKey: string; data?: { revenue: number; commission: number; services: number }; inPeriod: boolean; isToday: boolean } | null;
+        const cells: CalCell[] = [];
+        for (let p = 0; p < firstDow; p++) cells.push(null);
+        for (let d = 1; d <= daysInMon; d++) {
+          const dateKey = `${calY}-${String(calM).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+          const dateObj = new Date(calY, calM - 1, d);
+          cells.push({
+            day: d, dateKey,
+            data: dailyRevMap[dateKey],
+            inPeriod: dateObj >= profileStart && (!profileEnd || dateObj <= profileEnd),
+            isToday: dateObj.toDateString() === today.toDateString(),
+          });
+        }
+        while (cells.length % 7 !== 0) cells.push(null);
+
+        const calRevenue  = Object.entries(dailyRevMap).filter(([k]) => k.startsWith(calendarMonth)).reduce((a, [, v]) => a + v.revenue, 0);
+        const calDaysWkd  = Object.keys(dailyRevMap).filter(k => k.startsWith(calendarMonth)).length;
+
+        return (
+          <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
+            <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
+              <p className="text-xs uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
+                <Calendar size={12} /> Daily Attendance
+              </p>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setCalendarMonth(prevMon)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-gray-500 hover:text-white transition-colors">
+                  <ChevronLeft size={14} />
+                </button>
+                <span className="text-xs text-white font-bold w-28 text-center">{calLabel}</span>
+                <button onClick={() => setCalendarMonth(nextMon)}
+                  className="p-1.5 rounded-lg hover:bg-white/10 text-gray-500 hover:text-white transition-colors">
+                  <ChevronRight size={14} />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4">
+              {/* Day-of-week headers */}
+              <div className="grid grid-cols-7 gap-1 mb-1">
+                {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
+                  <div key={d} className="text-center text-[10px] text-gray-600 font-bold py-0.5">{d}</div>
+                ))}
+              </div>
+              {/* Day cells */}
+              <div className="grid grid-cols-7 gap-1">
+                {cells.map((cell, i) => {
+                  if (!cell) return <div key={`p-${i}`} className="min-h-[48px]" />;
+                  const { day, dateKey, data, inPeriod, isToday } = cell;
+                  const worked = !!(data && data.services > 0);
+                  return (
+                    <div key={dateKey}
+                      title={worked ? `${data!.services} service${data!.services !== 1 ? 's' : ''} · ₹${data!.revenue.toLocaleString('en-IN')}` : undefined}
+                      className={`relative min-h-[48px] rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all
+                        ${worked ? 'bg-gold/15 border border-gold/35 hover:bg-gold/22' : inPeriod ? 'bg-white/[0.03] border border-white/5' : 'opacity-15'}
+                        ${isToday ? 'ring-1 ring-offset-0 ring-gold/60' : ''}`}>
+                      <span className={`text-[11px] font-bold leading-none ${worked ? 'text-gold' : 'text-gray-600'}`}>{day}</span>
+                      {worked && (
+                        <span className="text-[9px] text-gold/70 leading-none font-bold">
+                          {data!.revenue >= 1000 ? `₹${Math.round(data!.revenue / 1000)}k` : `₹${data!.revenue}`}
+                        </span>
+                      )}
+                      {worked && data!.services > 1 && (
+                        <span className="text-[8px] text-gold/40 leading-none">{data!.services} svc</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Legend + month summary */}
+            <div className="px-5 py-2.5 border-t border-white/8 bg-white/[0.01] flex items-center justify-between flex-wrap gap-2">
+              <div className="flex items-center gap-3">
+                <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                  <span className="w-3 h-3 rounded bg-gold/25 border border-gold/35 shrink-0" /> Worked
+                </span>
+                <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                  <span className="w-3 h-3 rounded bg-white/8 border border-white/8 shrink-0" /> Off
+                </span>
+              </div>
+              <div className="flex gap-3 text-[11px]">
+                <span className="text-gray-500">Days: <span className="text-white font-black">{calDaysWkd}</span></span>
+                {calRevenue > 0 && <span className="text-gray-500">Revenue: <span className="text-gold font-black">₹{calRevenue.toLocaleString('en-IN')}</span></span>}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Monthly Revenue Trend — all months worked (dynamic) */}
       {monthlyRevenue.length > 0 && (
