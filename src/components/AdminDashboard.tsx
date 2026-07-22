@@ -1372,6 +1372,73 @@ function InvoiceModal({ invoiceId, onClose }: { invoiceId: string; onClose: () =
   );
 }
 
+// ─── VVIP Customer Drawer Card ────────────────────────────────────────────────
+
+function VvipCustomerCard({
+  customer,
+  onViewInvoice,
+}: {
+  customer: { name: string; phone: string; totalSpend: number; visits: number; avgBill: number; lastVisit: string; invoices: (Invoice & { id: string })[] };
+  onViewInvoice: (id: string) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="bg-zinc-900 border border-gold/20 rounded-2xl overflow-hidden">
+      <button
+        className="w-full text-left flex items-center justify-between px-4 py-3 bg-gold/[0.04] border-b border-white/8 hover:bg-gold/[0.08] transition-colors"
+        onClick={() => setExpanded(e => !e)}
+      >
+        <div>
+          <p className="text-white font-bold text-sm">{customer.name}</p>
+          <p className="text-gray-400 text-[11px]">{customer.phone}</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-right">
+            <p className="text-gold font-black text-base">₹{customer.totalSpend.toLocaleString('en-IN', { maximumFractionDigits: 0 })}</p>
+            <p className="text-[11px] text-gray-500">{customer.visits} visit{customer.visits !== 1 ? 's' : ''} · avg ₹{Math.round(customer.avgBill).toLocaleString('en-IN')}</p>
+          </div>
+          {expanded ? <ChevronUp size={14} className="text-gold/60 shrink-0" /> : <ChevronDown size={14} className="text-gold/60 shrink-0" />}
+        </div>
+      </button>
+      {customer.lastVisit && (
+        <div className="px-4 pt-2 pb-1 text-[11px] text-gray-500">Last visit: {customer.lastVisit}</div>
+      )}
+      {expanded && (
+        <div className="divide-y divide-white/6">
+          {[...customer.invoices].sort((a, b) => {
+            const da = (a as any).createdAt?.toDate?.() ?? 0;
+            const db2 = (b as any).createdAt?.toDate?.() ?? 0;
+            return db2 - da;
+          }).map(inv => {
+            const invDate = (inv as any).createdAt
+              ? (inv as any).createdAt.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+              : '—';
+            const services = inv.items?.map((it: BillItem) => it.serviceName).join(', ') ?? '—';
+            return (
+              <div key={(inv as any).id} className="px-4 py-3 flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-gold text-xs font-black font-mono">{inv.invoiceNumber}</span>
+                    <span className="text-[11px] text-gray-500">{invDate}</span>
+                  </div>
+                  <p className="text-gray-300 text-[11px] truncate mb-1">{services}</p>
+                  <span className="text-white text-xs font-bold">₹{inv.total.toLocaleString('en-IN')}</span>
+                </div>
+                <button
+                  onClick={() => onViewInvoice((inv as any).id)}
+                  className="shrink-0 px-2.5 py-1.5 rounded-lg bg-gold/10 border border-gold/20 text-gold text-xs font-black uppercase tracking-wider hover:bg-gold/20 transition-colors"
+                >
+                  View
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Dashboard ────────────────────────────────────────────────────────────────
 
 function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: StaffMember & { id: string } }) {
@@ -1440,6 +1507,7 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [deleteConfirmId, setDeleteConfirmId]    = useState<string | null>(null);
   const [deleting,        setDeleting]           = useState(false);
   const [showDuesDrawer,  setShowDuesDrawer]     = useState(false);
+  const [showVvipDrawer,  setShowVvipDrawer]     = useState(false);
 
   // Billing tab — invoice editing
   const [editingInvId, setEditingInvId] = useState<string | null>(null);
@@ -2124,7 +2192,7 @@ Your uid is: ${user.uid}
     const vvipAvgBill   = vvipBillCount > 0 ? vvipRevenue / vvipBillCount : 0;
 
     return { totalRevenue, count, avgBill, onlineCount, walkinCount, pmRevenue, displayed, totalDue, dueCount,
-      vvipRevenue, vvipBillCount, vvipCustomerCount, vvipAvgBill };
+      vvipRevenue, vvipBillCount, vvipCustomerCount, vvipAvgBill, vvipInvoices };
   }, [billingInvoices, billingPeriod, billingFrom, billingTo, billingSearch]);
 
   // Group all due invoices by customer for the dues drawer
@@ -2142,6 +2210,29 @@ Your uid is: ${user.uid}
       });
     return Array.from(map.values()).sort((a, b) => b.totalDue - a.totalDue);
   }, [billingInvoices]);
+
+  // Group VVIP invoices by customer for the VVIP drawer
+  const vvipCustomerDetails = useMemo(() => {
+    type VvipEntry = {
+      name: string; phone: string;
+      totalSpend: number; visits: number; avgBill: number; lastVisit: string;
+      invoices: (Invoice & { id: string })[];
+    };
+    const map = new Map<string, VvipEntry>();
+    billingStats.vvipInvoices.forEach(inv => {
+      const key = (inv.customerPhone ?? '').replace(/\D/g, '').slice(-10) || inv.customerPhone;
+      if (!map.has(key)) map.set(key, { name: inv.customerName, phone: inv.customerPhone, totalSpend: 0, visits: 0, avgBill: 0, lastVisit: '', invoices: [] });
+      const e = map.get(key)!;
+      e.totalSpend += inv.total ?? 0;
+      e.visits += 1;
+      const d = (inv as any).createdAt ? (inv as any).createdAt.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+      if (!e.lastVisit || (d && d > e.lastVisit)) e.lastVisit = d;
+      e.invoices.push(inv);
+    });
+    return Array.from(map.values())
+      .map(e => ({ ...e, avgBill: e.visits > 0 ? e.totalSpend / e.visits : 0 }))
+      .sort((a, b) => b.totalSpend - a.totalSpend);
+  }, [billingStats.vvipInvoices]);
 
   // Load customers — stats derived purely from invoices (each invoice = one completed visit)
   useEffect(() => {
@@ -4372,13 +4463,23 @@ Your uid is: ${user.uid}
           </div>
 
           {/* ── VVIP customer trends ── */}
-          <div className="bg-gradient-to-br from-gold/10 to-zinc-900 border border-gold/25 rounded-2xl p-5 relative overflow-hidden">
+          <button
+            onClick={() => billingStats.vvipBillCount > 0 && setShowVvipDrawer(true)}
+            className={`w-full text-left bg-gradient-to-br from-gold/10 to-zinc-900 border border-gold/25 rounded-2xl p-5 relative overflow-hidden transition-all ${billingStats.vvipBillCount > 0 ? 'hover:border-gold/50 hover:from-gold/15 cursor-pointer group' : 'cursor-default'}`}
+          >
             <div className="absolute top-0 left-0 right-0 h-[2px] bg-gold/60 rounded-t-2xl" />
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-gold/15 border border-gold/30 flex items-center justify-center shrink-0">
-                <Crown size={14} className="text-gold" />
+            <div className="flex items-center justify-between gap-2 mb-4">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gold/15 border border-gold/30 flex items-center justify-center shrink-0">
+                  <Crown size={14} className="text-gold" />
+                </div>
+                <p className="text-xs uppercase tracking-widest font-black text-gold/80">VVIP Customer Trends</p>
               </div>
-              <p className="text-xs uppercase tracking-widest font-black text-gold/80">VVIP Customer Trends</p>
+              {billingStats.vvipBillCount > 0 && (
+                <div className="flex items-center gap-1 text-xs font-black text-gold/50 uppercase tracking-wider group-hover:text-gold/80 transition-colors shrink-0">
+                  View Details <ChevronRightIcon size={13} />
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
@@ -4397,7 +4498,7 @@ Your uid is: ${user.uid}
             {billingStats.vvipBillCount === 0 && (
               <p className="text-[11px] text-gray-500 mt-3">No VVIP bills in this period.</p>
             )}
-          </div>
+          </button>
 
           {/* ── Outstanding dues card — always visible ── */}
           {billingStats.totalDue > 0 ? (
@@ -5028,6 +5129,51 @@ Your uid is: ${user.uid}
                     })}
                   </div>
                 </div>
+              ))}
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* ── VVIP Customer Drawer ── */}
+      {showVvipDrawer && (
+        <div className="fixed inset-0 z-[300] flex justify-end">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowVvipDrawer(false)} />
+          <motion.div
+            initial={{ x: '100%' }} animate={{ x: 0 }}
+            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+            className="relative z-10 w-full max-w-lg bg-zinc-950 border-l border-white/10 flex flex-col overflow-hidden"
+          >
+            {/* Header */}
+            <div className="shrink-0 bg-zinc-950 border-b border-white/10 px-5 py-4 flex items-center justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <Crown size={13} className="text-gold" />
+                  <p className="text-xs uppercase tracking-widest font-black text-gold/70">VVIP Customers</p>
+                </div>
+                <p className="text-white font-black text-xl leading-none">
+                  ₹{billingStats.vvipRevenue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </p>
+                <p className="text-[11px] text-gray-400 mt-1">
+                  {vvipCustomerDetails.length} customer{vvipCustomerDetails.length !== 1 ? 's' : ''} · {billingStats.vvipBillCount} bill{billingStats.vvipBillCount !== 1 ? 's' : ''}
+                </p>
+              </div>
+              <button onClick={() => setShowVvipDrawer(false)}
+                className="p-2 rounded-xl bg-white/8 border border-white/10 text-gray-400 hover:text-white transition-colors">
+                <X size={16} />
+              </button>
+            </div>
+
+            {/* Customer list */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {vvipCustomerDetails.length === 0 ? (
+                <p className="text-gray-500 text-sm text-center py-12">No VVIP customers in this period.</p>
+              ) : vvipCustomerDetails.map(customer => (
+                <VvipCustomerCard
+                  key={customer.phone}
+                  customer={customer}
+                  onViewInvoice={(id) => setInvoiceModalId(id)}
+                />
               ))}
             </div>
           </motion.div>
