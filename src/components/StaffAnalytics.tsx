@@ -26,6 +26,7 @@ import {
   TrendingUp, TrendingDown, Award, Scissors,
   IndianRupee, ChevronDown, ChevronUp, Crown, Flame,
   BarChart3, Percent, Users, Calendar, X,
+  ArrowLeft, Receipt, ChevronRight,
 } from 'lucide-react';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
@@ -250,6 +251,359 @@ function WeekBars({ weekValues }: { weekValues: number[] }) {
   );
 }
 
+// ─── Staff Profile Drill-down ──────────────────────────────────────────────────
+
+function StaffProfileView({
+  staffId, staff, staffInvoices, onBack,
+}: {
+  staffId: string;
+  staff: StaffMember[];
+  staffInvoices: Invoice[];
+  onBack: () => void;
+}) {
+  const member = staff.find(s => s.id === staffId);
+
+  // Own date filter — defaults to all-time so full history is shown
+  const [profileFrom, setProfileFrom] = useState('');
+  const [profileTo,   setProfileTo]   = useState('');
+
+  // Derive start/end directly from primitive strings — avoids object reference equality issues
+  const isFiltered  = !!(profileFrom && profileTo);
+  const profileStart = isFiltered ? localDate(profileFrom)        : new Date(2000, 0, 1);
+  const profileEnd   = isFiltered ? localDate(profileTo, true)    : null;
+  const profileLabel = isFiltered
+    ? `${localDate(profileFrom).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })} – ${localDate(profileTo).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`
+    : 'All Time';
+
+  // Invoices for this staff within the selected range
+  const filteredInvoices = useMemo(() =>
+    staffInvoices.filter(inv => {
+      const d = toDate(inv.createdAt);
+      return d >= profileStart && (profileEnd ? d <= profileEnd : true)
+        && inv.items?.some(it => it.staffId === staffId);
+    }),
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  [staffInvoices, staffId, profileFrom, profileTo]);
+
+  // Flat items for this staff in range
+  const periodItems = useMemo(() =>
+    filteredInvoices.flatMap(inv => (inv.items ?? []).filter(it => it.staffId === staffId)),
+  [filteredInvoices, staffId]);
+
+  // Summary KPIs
+  const summary = useMemo(() => {
+    const revenue    = periodItems.reduce((a, it) => a + (it.price ?? 0), 0);
+    const services   = periodItems.length;
+    const commission = periodItems.reduce((a, it) => a + (it.commissionAmount ?? 0), 0);
+    return { revenue, services, commission, avg: services > 0 ? Math.round(revenue / services) : 0 };
+  }, [periodItems]);
+
+  // Service breakdown sorted by revenue
+  const serviceBreakdown = useMemo(() => {
+    const map: Record<string, { count: number; revenue: number; commission: number }> = {};
+    periodItems.forEach(it => {
+      const k = it.serviceName || 'Unknown';
+      if (!map[k]) map[k] = { count: 0, revenue: 0, commission: 0 };
+      map[k].count++; map[k].revenue += it.price ?? 0; map[k].commission += it.commissionAmount ?? 0;
+    });
+    return Object.entries(map)
+      .map(([name, d]) => ({ name, ...d, avg: d.count > 0 ? Math.round(d.revenue / d.count) : 0 }))
+      .sort((a, b) => b.revenue - a.revenue);
+  }, [periodItems]);
+
+  // Monthly revenue — every month worked within the range (dynamic buckets)
+  const monthlyRevenue = useMemo(() => {
+    const bucketMap: Record<string, { label: string; sortKey: string; revenue: number; commission: number }> = {};
+    const start = isFiltered ? localDate(profileFrom) : new Date(2000, 0, 1);
+    const end   = isFiltered ? localDate(profileTo, true) : null;
+    staffInvoices.forEach(inv => {
+      const d = toDate(inv.createdAt);
+      if (d < start || (end && d > end)) return;
+      const myItems = (inv.items ?? []).filter(it => it.staffId === staffId);
+      if (myItems.length === 0) return;
+      const sortKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const label   = d.toLocaleDateString('en-IN', { month: 'short', year: '2-digit' });
+      if (!bucketMap[sortKey]) bucketMap[sortKey] = { label, sortKey, revenue: 0, commission: 0 };
+      myItems.forEach(it => {
+        bucketMap[sortKey].revenue    += it.price ?? 0;
+        bucketMap[sortKey].commission += it.commissionAmount ?? 0;
+      });
+    });
+    return Object.values(bucketMap).sort((a, b) => a.sortKey.localeCompare(b.sortKey));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staffInvoices, staffId, profileFrom, profileTo]);
+
+  // Bills within range — non-mutating sort
+  const filteredBills = useMemo(() =>
+    [...filteredInvoices].sort((a, b) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime()),
+  [filteredInvoices]);
+
+  // Team comparison within the range
+  const teamComparison = useMemo(() => {
+    const start = isFiltered ? localDate(profileFrom) : new Date(2000, 0, 1);
+    const end   = isFiltered ? localDate(profileTo, true) : null;
+    const allStats = aggregateStats(staffInvoices, start, end, staff);
+    const active   = allStats.filter(s => s.services > 0);
+    const teamAvg  = active.length > 0 ? Math.round(active.reduce((a, s) => a + s.revenue, 0) / active.length) : 0;
+    const rank     = active.findIndex(s => s.id === staffId) + 1;
+    return { teamAvg, rank, total: active.length };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [staffInvoices, profileFrom, profileTo, staff, staffId]);
+
+  const maxSvcRev     = serviceBreakdown[0]?.revenue || 1;
+  const maxMonthlyRev = Math.max(...monthlyRevenue.map(m => m.revenue), 1);
+
+  return (
+    <div className="space-y-5">
+
+      {/* Back */}
+      <button onClick={onBack}
+        className="flex items-center gap-2 text-gray-400 hover:text-white text-sm font-bold transition-colors group">
+        <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform" />
+        Back to Analytics
+      </button>
+
+      {/* Hero card */}
+      <div className="bg-zinc-900 border border-gold/25 rounded-2xl p-5 relative overflow-hidden">
+        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          {/* Avatar */}
+          <div className="w-16 h-16 rounded-full bg-gold/15 border-2 border-gold/30 flex items-center justify-center text-gold font-black text-2xl shrink-0">
+            {(member?.name ?? 'S').charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-white font-black text-xl">{member?.name ?? 'Staff Member'}</p>
+            {member?.role && <p className="text-gray-400 text-sm mt-0.5">{member.role}</p>}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {member?.commissionRate != null && (
+                <span className="text-xs text-gold font-bold bg-gold/10 border border-gold/20 rounded-full px-2.5 py-0.5">
+                  {member.commissionRate}% commission
+                </span>
+              )}
+              {(member as any)?.salary > 0 && (
+                <span className="text-xs text-gray-400 font-bold bg-white/5 rounded-full px-2.5 py-0.5">
+                  ₹{((member as any).salary).toLocaleString('en-IN')}/mo salary
+                </span>
+              )}
+            </div>
+          </div>
+          {/* Rank badge */}
+          {teamComparison.rank > 0 && (
+            <div className="text-center shrink-0 bg-white/5 rounded-xl px-4 py-3">
+              <p className="text-2xl leading-none">{teamComparison.rank === 1 ? '🥇' : teamComparison.rank === 2 ? '🥈' : teamComparison.rank === 3 ? '🥉' : `#${teamComparison.rank}`}</p>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-1">of {teamComparison.total} staff</p>
+            </div>
+          )}
+        </div>
+
+        {/* ── Date range filter ─────────────────────────────────────────── */}
+        <div className="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2 flex-1 bg-zinc-800 border border-white/12 rounded-xl px-3 py-2">
+            <Calendar size={12} className={isFiltered ? 'text-gold shrink-0' : 'text-gray-500 shrink-0'} />
+            <input
+              type="date" value={profileFrom}
+              onChange={e => setProfileFrom(e.target.value)}
+              className="bg-transparent text-xs text-white focus:outline-none w-28 [color-scheme:dark]"
+              placeholder="From"
+            />
+            <span className="text-gray-600 text-xs">–</span>
+            <input
+              type="date" value={profileTo} min={profileFrom}
+              onChange={e => setProfileTo(e.target.value)}
+              className="bg-transparent text-xs text-white focus:outline-none w-28 [color-scheme:dark]"
+              placeholder="To"
+            />
+            {isFiltered && (
+              <button onClick={() => { setProfileFrom(''); setProfileTo(''); }}
+                className="text-gray-500 hover:text-white transition-colors ml-auto shrink-0">
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          <span className="inline-flex items-center gap-1.5 text-xs text-gold font-bold bg-gold/8 border border-gold/20 rounded-lg px-2.5 py-1.5 whitespace-nowrap">
+            <Calendar size={10} /> {profileLabel}
+          </span>
+        </div>
+
+        {/* KPI strip */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-4">
+          {[
+            { label: 'Revenue',       value: `₹${summary.revenue.toLocaleString('en-IN')}`,   color: 'text-gold'       },
+            { label: 'Services Done', value: summary.services.toString(),                       color: 'text-white'      },
+            { label: 'Commission',    value: `₹${summary.commission.toLocaleString('en-IN')}`, color: 'text-purple-400' },
+            { label: 'Avg / Service', value: `₹${summary.avg.toLocaleString('en-IN')}`,        color: 'text-emerald-400'},
+          ].map(({ label, value, color }) => (
+            <div key={label} className="text-center p-3 bg-white/5 rounded-xl">
+              <p className={`font-black text-lg ${color}`}>{value}</p>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider mt-0.5">{label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* vs team */}
+        {teamComparison.teamAvg > 0 && (
+          <div className="mt-3 flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] text-gray-600">Team avg ₹{teamComparison.teamAvg.toLocaleString('en-IN')} ·</span>
+            {summary.revenue >= teamComparison.teamAvg ? (
+              <span className="text-[11px] text-emerald-400 font-bold flex items-center gap-1">
+                <TrendingUp size={10} /> ₹{(summary.revenue - teamComparison.teamAvg).toLocaleString('en-IN')} above avg
+              </span>
+            ) : (
+              <span className="text-[11px] text-red-400 font-bold flex items-center gap-1">
+                <TrendingDown size={10} /> ₹{(teamComparison.teamAvg - summary.revenue).toLocaleString('en-IN')} below avg
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Monthly Revenue Trend — all months worked (dynamic) */}
+      {monthlyRevenue.length > 0 && (
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-xs uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
+              <BarChart3 size={12} /> Monthly Revenue Trend
+            </p>
+            <span className="text-[11px] text-gray-600">
+              {monthlyRevenue.length} month{monthlyRevenue.length !== 1 ? 's' : ''} · {profileLabel}
+            </span>
+          </div>
+          <div className="overflow-x-auto">
+            <div className="flex items-end gap-2 min-w-0" style={{ height: 100, minWidth: monthlyRevenue.length > 8 ? monthlyRevenue.length * 44 : undefined }}>
+              {monthlyRevenue.map(({ label, revenue, commission }) => {
+                const pct = Math.max(revenue > 0 ? 5 : 0, (revenue / maxMonthlyRev) * 100);
+                return (
+                  <div key={label} className="flex-1 min-w-[36px] flex flex-col items-center gap-1">
+                    <span className="text-[9px] text-gold font-bold leading-none text-center">
+                      {revenue > 0 ? `₹${revenue >= 1000 ? `${Math.round(revenue / 1000)}k` : revenue}` : ''}
+                    </span>
+                    <div className="w-full rounded-t-sm bg-white/8 overflow-hidden flex flex-col-reverse" style={{ height: 64 }}>
+                      <motion.div
+                        key={label + revenue}
+                        initial={{ height: 0 }}
+                        animate={{ height: `${pct}%` }}
+                        transition={{ duration: 0.5, ease: 'easeOut' }}
+                        className="w-full bg-gold/55 rounded-t-sm relative group"
+                        title={`₹${revenue.toLocaleString('en-IN')} revenue · ₹${commission.toLocaleString('en-IN')} commission`}
+                      />
+                    </div>
+                    <span className="text-[9px] text-gray-600 font-bold whitespace-nowrap">{label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {/* Totals row */}
+          <div className="mt-3 pt-3 border-t border-white/8 flex gap-4 text-xs">
+            <span className="text-gray-500">Total: <span className="text-gold font-black">₹{monthlyRevenue.reduce((a,m)=>a+m.revenue,0).toLocaleString('en-IN')}</span></span>
+            <span className="text-gray-500">Commission: <span className="text-purple-400 font-black">₹{monthlyRevenue.reduce((a,m)=>a+m.commission,0).toLocaleString('en-IN')}</span></span>
+          </div>
+        </div>
+      )}
+
+      {/* Service Breakdown */}
+      <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
+          <p className="text-xs uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
+            <Scissors size={12} /> Service Breakdown
+          </p>
+          <span className="text-[11px] text-gray-500">{serviceBreakdown.length} service types · {summary.services} total</span>
+        </div>
+        {serviceBreakdown.length === 0 ? (
+          <div className="p-8 text-center">
+            <Scissors size={28} className="text-gray-700 mx-auto mb-2" />
+            <p className="text-gray-500 text-sm">No services in selected period</p>
+          </div>
+        ) : (
+          <>
+            <div className="divide-y divide-white/5">
+              {serviceBreakdown.map((svc, i) => (
+                <div key={svc.name} className="px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-center gap-3 mb-2">
+                    <span className="text-sm shrink-0 w-5">{MEDAL[i] ?? ''}</span>
+                    <span className="text-white text-sm font-bold flex-1 truncate">{svc.name}</span>
+                    <span className="text-[11px] text-gray-500 shrink-0">{svc.count}×</span>
+                    <span className="text-gold font-black text-sm shrink-0 w-20 text-right">
+                      ₹{svc.revenue.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 pl-8">
+                    <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${(svc.revenue / maxSvcRev) * 100}%` }}
+                        transition={{ duration: 0.55, ease: 'easeOut' }}
+                        className="h-full bg-gold/55 rounded-full"
+                      />
+                    </div>
+                    <span className="text-[10px] text-gray-600 shrink-0">
+                      avg ₹{svc.avg.toLocaleString('en-IN')} · comm ₹{svc.commission.toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="px-5 py-2.5 border-t border-white/10 bg-white/[0.01] flex justify-between text-xs font-bold">
+              <span className="text-gray-500">{summary.services} total services</span>
+              <span className="text-gold">₹{summary.revenue.toLocaleString('en-IN')} · <span className="text-purple-400">₹{summary.commission.toLocaleString('en-IN')} comm</span></span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Bills in period */}
+      {filteredBills.length > 0 && (
+        <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
+          <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
+            <p className="text-xs uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
+              <Receipt size={12} /> Bills
+            </p>
+            <span className="text-[11px] text-gray-500">{filteredBills.length} invoice{filteredBills.length !== 1 ? 's' : ''} · {profileLabel}</span>
+          </div>
+          <div className="divide-y divide-white/5">
+            {filteredBills.map((inv, i) => {
+              const myItems   = (inv.items ?? []).filter(it => it.staffId === staffId);
+              const myRevenue = myItems.reduce((a, it) => a + (it.price ?? 0), 0);
+              const myComm    = myItems.reduce((a, it) => a + (it.commissionAmount ?? 0), 0);
+              return (
+                <div key={(inv as any).id ?? i} className="px-5 py-3 hover:bg-white/[0.02] transition-colors">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-0.5">
+                        <span className="text-[11px] text-gray-500">
+                          {toDate(inv.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </span>
+                        {(inv as any).invoiceNumber && (
+                          <span className="text-[10px] text-gray-700">· #{(inv as any).invoiceNumber}</span>
+                        )}
+                      </div>
+                      <p className="text-white text-xs font-medium truncate">
+                        {myItems.map(it => it.serviceName).join(', ')}
+                      </p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-gold text-sm font-black">₹{myRevenue.toLocaleString('en-IN')}</p>
+                      <p className="text-[11px] text-purple-400">comm ₹{myComm.toLocaleString('en-IN')}</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Empty state */}
+      {summary.services === 0 && filteredBills.length === 0 && (
+        <div className="text-center py-12">
+          <Award size={36} className="text-gray-700 mx-auto mb-3" />
+          <p className="text-gray-500">No billing activity {isFiltered ? 'in selected date range' : 'for this staff member yet'}.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 interface StaffAnalyticsProps {
@@ -258,10 +612,11 @@ interface StaffAnalyticsProps {
 }
 
 export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsProps) {
-  const [period,      setPeriod]      = useState<Period>('month');
-  const [dateFrom,    setDateFrom]    = useState('');
-  const [dateTo,      setDateTo]      = useState('');
-  const [openService, setOpenService] = useState<string | null>(null);
+  const [period,         setPeriod]         = useState<Period>('month');
+  const [dateFrom,       setDateFrom]       = useState('');
+  const [dateTo,         setDateTo]         = useState('');
+  const [openService,    setOpenService]    = useState<string | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
 
   // ── Effective date window ─────────────────────────────────────────────────
   const dateWindow = useMemo(() => {
@@ -446,6 +801,18 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
   const maxCommission = Math.max(...stats.map(s => s.commission), 1);
 
   // ─────────────────────────────────────────────────────────────────────────
+
+  if (selectedStaffId) {
+    return (
+      <StaffProfileView
+        staffId={selectedStaffId}
+        staff={staff}
+        staffInvoices={staffInvoices}
+        onBack={() => setSelectedStaffId(null)}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
 
@@ -768,9 +1135,10 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {revenueTrend.map(s => (
-              <div
+              <button
                 key={s.id}
-                className="flex items-center gap-3 bg-white/[0.02] rounded-xl px-3 py-2.5"
+                onClick={() => setSelectedStaffId(s.id)}
+                className="flex items-center gap-3 bg-white/[0.02] hover:bg-white/[0.05] rounded-xl px-3 py-2.5 w-full text-left transition-colors group cursor-pointer"
               >
                 {/* Avatar */}
                 <div className="w-7 h-7 rounded-full bg-purple-500/15 border border-purple-500/20 flex items-center justify-center text-purple-400 font-black text-xs shrink-0">
@@ -793,7 +1161,8 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                 <div className="shrink-0">
                   <WeekBars weekValues={s.weekValues} />
                 </div>
-              </div>
+                <ChevronRight size={13} className="text-gray-700 group-hover:text-gold shrink-0 transition-colors" />
+              </button>
             ))}
           </div>
         </div>
@@ -817,7 +1186,7 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/10 bg-white/[0.02]">
-                  {['Staff', 'Services', 'Revenue', 'Avg / Service', 'Commission', 'Rev Share'].map(
+                  {['Staff', 'Services', 'Revenue', 'Avg / Service', 'Commission', 'Rev Share', ''].map(
                     h => (
                       <th
                         key={h}
@@ -840,7 +1209,8 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                     return (
                       <tr
                         key={s.id}
-                        className="border-b border-white/10 hover:bg-white/[0.02] transition-colors"
+                        onClick={() => setSelectedStaffId(s.id)}
+                        className="border-b border-white/10 hover:bg-white/[0.04] transition-colors cursor-pointer group"
                       >
                         <td className="py-3 px-4">
                           <div className="flex items-center gap-2.5">
@@ -886,6 +1256,9 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
                               {share}%
                             </span>
                           </div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <ChevronRight size={13} className="text-gray-700 group-hover:text-gold transition-colors" />
                         </td>
                       </tr>
                     );

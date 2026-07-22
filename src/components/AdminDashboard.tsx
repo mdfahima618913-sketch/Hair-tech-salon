@@ -1616,6 +1616,8 @@ function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: St
   const [staffForm, setStaffForm]         = useState<Partial<StaffMember> | null>(null);
   const [staffSaving,   setStaffSaving]   = useState(false);
   const [staffInvoices, setStaffInvoices] = useState<any[]>([]);
+  const [commInvoices,  setCommInvoices]  = useState<any[]>([]);
+  const [commLoading,   setCommLoading]   = useState(false);
   const [staffSubView,  setStaffSubView]  = useState<'list' | 'analytics'>('list');
   const [commPeriod,    setCommPeriod]    = useState<'thisMonth' | 'lastMonth' | 'all'>('thisMonth');
   const [commFrom,      setCommFrom]      = useState('');
@@ -1937,13 +1939,13 @@ Your uid is: ${user.uid}
     await Promise.all(unconfirmed.map(b => handleStatusChange(b.id, 'confirmed')));
   }, [bookings]);
 
-  // Load staff + invoices (for commission calculation)
+  // Load staff list + broad invoice dataset for StaffAnalytics (runs once on view enter)
   useEffect(() => {
     if (view !== 'staff') return;
     setStaffLoading(true);
     Promise.all([
       getDocs(query(collection(db, 'staff'), orderBy('name'))),
-      getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(500))),
+      getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(2000))),
     ]).then(([staffSnap, invSnap]) => {
       setStaff(staffSnap.docs.map(d => ({ id: d.id, ...d.data() } as StaffMember)));
       setStaffInvoices(invSnap.docs.map(d => d.data()));
@@ -1951,37 +1953,57 @@ Your uid is: ${user.uid}
       .finally(() => setStaffLoading(false));
   }, [view]);
 
-  // Date window for commission stats
-  const commDateWindow = useMemo(() => {
-    if (commFrom && commTo) {
-      const f = localDate(commFrom);
-      const t = localDate(commTo, true);
-      return { start: f, end: t };
-    }
+  // Commission invoices — refetch from Firestore with exact date constraints whenever period changes.
+  // This ensures past months always return complete data regardless of total invoice count.
+  useEffect(() => {
+    if (view !== 'staff') return;
+    // Wait until both custom dates are filled before fetching
+    if ((commFrom && !commTo) || (!commFrom && commTo)) return;
+
+    setCommLoading(true);
     const now = new Date();
-    if (commPeriod === 'thisMonth') {
-      const s = new Date(now.getFullYear(), now.getMonth(), 1);
-      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-      return { start: s, end: e };
-    }
-    if (commPeriod === 'lastMonth') {
+
+    let invQuery;
+    if (commFrom && commTo) {
+      invQuery = query(
+        collection(db, 'invoices'),
+        where('createdAt', '>=', Timestamp.fromDate(localDate(commFrom))),
+        where('createdAt', '<=', Timestamp.fromDate(localDate(commTo, true))),
+        orderBy('createdAt', 'desc'),
+      );
+    } else if (commPeriod === 'lastMonth') {
       const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const e = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-      return { start: s, end: e };
+      invQuery = query(
+        collection(db, 'invoices'),
+        where('createdAt', '>=', Timestamp.fromDate(s)),
+        where('createdAt', '<=', Timestamp.fromDate(e)),
+        orderBy('createdAt', 'desc'),
+      );
+    } else if (commPeriod === 'thisMonth') {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      const e = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      invQuery = query(
+        collection(db, 'invoices'),
+        where('createdAt', '>=', Timestamp.fromDate(s)),
+        where('createdAt', '<=', Timestamp.fromDate(e)),
+        orderBy('createdAt', 'desc'),
+      );
+    } else {
+      // 'all' — broad fetch
+      invQuery = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(2000));
     }
-    return null; // all time
-  }, [commPeriod, commFrom, commTo]);
 
-  // Per-staff commission stats derived from invoices (filtered by date window)
+    getDocs(invQuery)
+      .then(snap => setCommInvoices(snap.docs.map(d => d.data())))
+      .catch(console.error)
+      .finally(() => setCommLoading(false));
+  }, [view, commPeriod, commFrom, commTo]);
+
+  // Per-staff commission stats — uses commInvoices which is already date-filtered at the Firestore level
   const staffStats = useMemo(() => {
     const map: Record<string, { services: number; commission: number }> = {};
-    staffInvoices.forEach(inv => {
-      if (commDateWindow) {
-        const createdAt = inv.createdAt;
-        if (!createdAt) return;
-        const d = typeof createdAt.toDate === 'function' ? createdAt.toDate() : new Date(createdAt);
-        if (d < commDateWindow.start || d > commDateWindow.end) return;
-      }
+    commInvoices.forEach(inv => {
       (inv.items ?? []).forEach((item: any) => {
         if (!item.staffId) return;
         if (!map[item.staffId]) map[item.staffId] = { services: 0, commission: 0 };
@@ -1990,19 +2012,41 @@ Your uid is: ${user.uid}
       });
     });
     return map;
-  }, [staffInvoices, commDateWindow]);
+  }, [commInvoices]);
 
-  // Load invoices when billing or insights view opens
+  // Load invoices for billing — date-aware Firestore queries (no limit truncation)
   useEffect(() => {
-    if (view !== 'billing' && view !== 'insights') return;
+    if (view !== 'billing') return;
+    if ((billingFrom && !billingTo) || (!billingFrom && billingTo)) return; // incomplete custom range
+
     setBillingLoading(true);
-    getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(500)))
-      .then(snap => {
-        setBillingInvoices(snap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice & { id: string })));
-      })
+    const now = new Date();
+
+    let invQuery;
+    if (billingFrom && billingTo) {
+      invQuery = query(collection(db, 'invoices'),
+        where('createdAt', '>=', Timestamp.fromDate(localDate(billingFrom))),
+        where('createdAt', '<=', Timestamp.fromDate(localDate(billingTo, true))),
+        orderBy('createdAt', 'desc'));
+    } else if (billingPeriod === 'today') {
+      const s = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      invQuery = query(collection(db, 'invoices'), where('createdAt', '>=', Timestamp.fromDate(s)), orderBy('createdAt', 'desc'));
+    } else if (billingPeriod === 'week') {
+      const s = new Date(now); s.setDate(now.getDate() - 7); s.setHours(0, 0, 0, 0);
+      invQuery = query(collection(db, 'invoices'), where('createdAt', '>=', Timestamp.fromDate(s)), orderBy('createdAt', 'desc'));
+    } else if (billingPeriod === 'month') {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      invQuery = query(collection(db, 'invoices'), where('createdAt', '>=', Timestamp.fromDate(s)), orderBy('createdAt', 'desc'));
+    } else {
+      // 'all'
+      invQuery = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(10000));
+    }
+
+    getDocs(invQuery)
+      .then(snap => setBillingInvoices(snap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as Invoice & { id: string }))))
       .catch(console.error)
       .finally(() => setBillingLoading(false));
-  }, [view]);
+  }, [view, billingPeriod, billingFrom, billingTo]);
 
   // Load staff list for the invoice-edit staff dropdown and the default-staff setting
   useEffect(() => {
@@ -2261,6 +2305,40 @@ Your uid is: ${user.uid}
   const [period,        setPeriod]       = useState<Period>('month');
   const [insightsFrom,  setInsightsFrom] = useState('');
   const [insightsTo,    setInsightsTo]   = useState('');
+
+  // Load invoices for insights — date-aware, placed after state declarations
+  useEffect(() => {
+    if (view !== 'insights') return;
+    if ((insightsFrom && !insightsTo) || (!insightsFrom && insightsTo)) return;
+
+    setBillingLoading(true);
+    const now = new Date();
+
+    let invQuery;
+    if (insightsFrom && insightsTo) {
+      invQuery = query(collection(db, 'invoices'),
+        where('createdAt', '>=', Timestamp.fromDate(localDate(insightsFrom))),
+        where('createdAt', '<=', Timestamp.fromDate(localDate(insightsTo, true))),
+        orderBy('createdAt', 'desc'));
+    } else if (period === 'today') {
+      const s = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      invQuery = query(collection(db, 'invoices'), where('createdAt', '>=', Timestamp.fromDate(s)), orderBy('createdAt', 'desc'));
+    } else if (period === 'week') {
+      const s = new Date(now); s.setDate(now.getDate() - 7); s.setHours(0, 0, 0, 0);
+      invQuery = query(collection(db, 'invoices'), where('createdAt', '>=', Timestamp.fromDate(s)), orderBy('createdAt', 'desc'));
+    } else if (period === 'month') {
+      const s = new Date(now.getFullYear(), now.getMonth(), 1);
+      invQuery = query(collection(db, 'invoices'), where('createdAt', '>=', Timestamp.fromDate(s)), orderBy('createdAt', 'desc'));
+    } else {
+      // 'all'
+      invQuery = query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(10000));
+    }
+
+    getDocs(invQuery)
+      .then(snap => setBillingInvoices(snap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as Invoice & { id: string }))))
+      .catch(console.error)
+      .finally(() => setBillingLoading(false));
+  }, [view, period, insightsFrom, insightsTo]);
 
   // ── Service drill-down ────────────────────────────────────────────────────
   const [expandedService,    setExpandedService]    = useState<string | null>(null);
@@ -4259,7 +4337,7 @@ Your uid is: ${user.uid}
               <button onClick={() => {
                 setBillingLoading(true);
                 getDocs(query(collection(db,'invoices'), orderBy('createdAt','desc')))
-                  .then(snap => setBillingInvoices(snap.docs.map(d => ({ id: d.id, ...d.data() } as Invoice & { id: string }))))
+                  .then(snap => setBillingInvoices(snap.docs.map(d => ({ id: d.id, ...(d.data() as object) } as Invoice & { id: string }))))
                   .catch(console.error)
                   .finally(() => setBillingLoading(false));
               }} className="p-2 rounded-xl bg-white/8 border border-white/10 text-gray-500 hover:text-white transition-all">
@@ -5260,7 +5338,11 @@ Your uid is: ${user.uid}
                     )}
                   </div>
                   {/* Commission breakdown from invoices */}
-                  {(() => {
+                  {commLoading ? (
+                    <div className="mt-3 flex items-center justify-center py-3 gap-2 text-gray-500 text-xs">
+                      <Loader2 size={12} className="animate-spin text-gold" /> Fetching…
+                    </div>
+                  ) : (() => {
                     const stat = staffStats[s.id] ?? { services: 0, commission: 0 };
                     const salary = (s as any).salary ?? 0;
                     const totalPayable = salary + stat.commission;
