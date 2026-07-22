@@ -647,20 +647,37 @@ function StaffProfileView({
                   if (!cell) return <div key={`p-${i}`} className="min-h-[48px]" />;
                   const { day, dateKey, data, inPeriod, isToday } = cell;
                   const worked = !!(data && data.services > 0);
+                  const rev = data?.revenue ?? 0;
+                  // Revenue tiers: <1k red, 1k–5k gold, >5k green
+                  const tier = !worked ? 'off'
+                    : rev < 1000  ? 'low'
+                    : rev >= 5000 ? 'high'
+                    : 'mid';
+                  const cellCls = tier === 'low'  ? 'bg-red-500/15 border border-red-500/35 hover:bg-red-500/22'
+                    : tier === 'high' ? 'bg-emerald-500/15 border border-emerald-500/35 hover:bg-emerald-500/22'
+                    : tier === 'mid'  ? 'bg-gold/15 border border-gold/35 hover:bg-gold/22'
+                    : inPeriod        ? 'bg-white/[0.03] border border-white/5'
+                    : 'opacity-15';
+                  const textCls = tier === 'low'  ? 'text-red-400'
+                    : tier === 'high' ? 'text-emerald-400'
+                    : tier === 'mid'  ? 'text-gold'
+                    : 'text-gray-600';
+                  const subCls  = tier === 'low'  ? 'text-red-400/70'
+                    : tier === 'high' ? 'text-emerald-400/70'
+                    : 'text-gold/70';
                   return (
                     <div key={dateKey}
                       title={worked ? `${data!.services} service${data!.services !== 1 ? 's' : ''} · ₹${data!.revenue.toLocaleString('en-IN')}` : undefined}
-                      className={`relative min-h-[48px] rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all
-                        ${worked ? 'bg-gold/15 border border-gold/35 hover:bg-gold/22' : inPeriod ? 'bg-white/[0.03] border border-white/5' : 'opacity-15'}
-                        ${isToday ? 'ring-1 ring-offset-0 ring-gold/60' : ''}`}>
-                      <span className={`text-[11px] font-bold leading-none ${worked ? 'text-gold' : 'text-gray-600'}`}>{day}</span>
+                      className={`relative min-h-[48px] rounded-lg flex flex-col items-center justify-center gap-0.5 transition-all ${cellCls}
+                        ${isToday ? 'ring-1 ring-offset-0 ring-white/30' : ''}`}>
+                      <span className={`text-[11px] font-bold leading-none ${textCls}`}>{day}</span>
                       {worked && (
-                        <span className="text-[9px] text-gold/70 leading-none font-bold">
-                          {data!.revenue >= 1000 ? `₹${Math.round(data!.revenue / 1000)}k` : `₹${data!.revenue}`}
+                        <span className={`text-[9px] leading-none font-bold ${subCls}`}>
+                          {rev >= 1000 ? `₹${Math.round(rev / 1000)}k` : `₹${rev}`}
                         </span>
                       )}
                       {worked && data!.services > 1 && (
-                        <span className="text-[8px] text-gold/40 leading-none">{data!.services} svc</span>
+                        <span className={`text-[8px] leading-none opacity-60 ${textCls}`}>{data!.services} svc</span>
                       )}
                     </div>
                   );
@@ -670,12 +687,18 @@ function StaffProfileView({
 
             {/* Legend + month summary */}
             <div className="px-5 py-2.5 border-t border-white/8 bg-white/[0.01] flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-3">
-                <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                  <span className="w-3 h-3 rounded bg-gold/25 border border-gold/35 shrink-0" /> Worked
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <span className="w-2.5 h-2.5 rounded bg-emerald-500/30 border border-emerald-500/40 shrink-0" /> &gt;₹5k
                 </span>
-                <span className="flex items-center gap-1.5 text-[11px] text-gray-500">
-                  <span className="w-3 h-3 rounded bg-white/8 border border-white/8 shrink-0" /> Off
+                <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <span className="w-2.5 h-2.5 rounded bg-gold/30 border border-gold/40 shrink-0" /> ₹1k–5k
+                </span>
+                <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <span className="w-2.5 h-2.5 rounded bg-red-500/30 border border-red-500/40 shrink-0" /> &lt;₹1k
+                </span>
+                <span className="flex items-center gap-1 text-[10px] text-gray-500">
+                  <span className="w-2.5 h-2.5 rounded bg-white/8 border border-white/8 shrink-0" /> Off
                 </span>
               </div>
               <div className="flex gap-3 text-[11px]">
