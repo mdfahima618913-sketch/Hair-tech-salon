@@ -1,4 +1,3 @@
-import { motion } from 'motion/react';
 import { Heart, Youtube, Facebook } from 'lucide-react';
 import Logo from './Logo';
 
@@ -10,24 +9,29 @@ export default function Footer() {
           <Logo />
 
           <div className="flex gap-8 text-xs uppercase tracking-widest font-medium text-gray-500">
-            <a href="#" className="hover:text-gold transition-colors">Privacy Policy</a>
-            <a href="#" className="hover:text-gold transition-colors">Terms of Service</a>
+            <a href="#" className="hover:text-gold transition-colors">
+              Privacy Policy
+            </a>
+            <a href="#" className="hover:text-gold transition-colors">
+              Terms of Service
+            </a>
           </div>
 
           <div className="flex items-center gap-6">
-            <a 
-              href="https://youtube.com/@hairtechsalon?si=b2we6WbB03Pl4RH0" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+            <a
+              href="https://youtube.com/@hairtechsalon?si=b2we6WbB03Pl4RH0"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-gray-500 hover:text-gold transition-colors"
               aria-label="YouTube"
             >
               <Youtube size={20} />
             </a>
-            <a 
-              href="https://www.facebook.com/share/14hj1AS2YUJ/" 
-              target="_blank" 
-              rel="noopener noreferrer" 
+
+            <a
+              href="https://www.facebook.com/share/14hj1AS2YUJ/"
+              target="_blank"
+              rel="noopener noreferrer"
               className="text-gray-500 hover:text-gold transition-colors"
               aria-label="Facebook"
             >
@@ -35,9 +39,18 @@ export default function Footer() {
             </a>
           </div>
 
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-2">
             <p className="text-gray-500 text-sm flex items-center gap-1 font-light">
-              © 2026 Hair Tech Unisex Salon. Made with <Heart size={14} className="text-red-500 fill-red-500" /> in Araria.
+              © 2026 Hair Tech Unisex Salon. Made with{" "}
+              <Heart
+                size={14}
+                className="text-red-500 fill-red-500"
+              />{" "}
+              in Araria.
+            </p>
+
+            <p className="text-gray-500 text-xs font-light">
+              Designed & developed by Faheem.
             </p>
           </div>
         </div>
@@ -45,17 +58,3 @@ export default function Footer() {
     </footer>
   );
 }
-
-<p className="text-gray-500 text-sm flex items-center gap-1 font-light flex-wrap justify-center">
-  © 2026 Hair Tech Unisex Salon. Made with{" "}
-  <Heart size={14} className="text-red-500 fill-red-500" />{" "}
-  in Araria • Designed & developed by{" "}
-  <a
-    href="https://github.com/YOUR_GITHUB_USERNAME"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="text-gold hover:underline"
-  >
-    Faheem
-  </a>
-</p>
