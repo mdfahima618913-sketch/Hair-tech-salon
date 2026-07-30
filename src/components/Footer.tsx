@@ -45,3 +45,17 @@ export default function Footer() {
     </footer>
   );
 }
+
+<p className="text-gray-500 text-sm flex items-center gap-1 font-light flex-wrap justify-center">
+  © 2026 Hair Tech Unisex Salon. Made with{" "}
+  <Heart size={14} className="text-red-500 fill-red-500" />{" "}
+  in Araria • Designed & developed by{" "}
+  <a
+    href="https://github.com/YOUR_GITHUB_USERNAME"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="text-gold hover:underline"
+  >
+    Faheem
+  </a>
+</p>
