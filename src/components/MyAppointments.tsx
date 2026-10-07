@@ -258,10 +258,15 @@ function InvoiceViewer({ invoiceId, onClose }: { invoiceId: string; onClose: () 
                 <p className="font-black text-xl uppercase tracking-tight">Hair Tech</p>
                 <p className="font-bold text-sm">Unisex Salon, Araria</p>
                 <p className="text-gray-500 text-xs">+91 87896 03343</p>
-                <div className="flex justify-center gap-1 mt-2">
+                <div className="flex justify-center gap-1 mt-2 flex-wrap">
                   <span className={`text-[11px] px-2 py-0.5 rounded border ${data.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
                     {data.source === 'online' ? 'Online Booking' : 'Walk-in'}
                   </span>
+                  {data.location && (
+                    <span className="text-[11px] px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800 font-bold">
+                      📍 {data.location}
+                    </span>
+                  )}
                 </div>
                 <div className="mt-2 text-[11px] text-gray-400 space-y-0.5">
                   <p>Invoice: <span className="font-black text-black">{data.invoiceNumber}</span></p>

@@ -2178,7 +2178,14 @@ Your uid is: ${user.uid}
     else if (billingPeriod === 'month') { start.setDate(1); start.setHours(0,0,0,0); }
     else { start.setFullYear(2000); }
 
-    const periodInvoices = billingInvoices.filter(inv => {
+    const scopedInvoices = selectedLocation === 'all'
+      ? billingInvoices
+      : billingInvoices.filter(inv => {
+          const loc = inv.location ? getBookingBranch({ location: inv.location }) : 'Bus Stand';
+          return loc === selectedLocation;
+        });
+
+    const periodInvoices = scopedInvoices.filter(inv => {
       if (!(inv as any).createdAt) return billingPeriod === 'all' && !billingFrom;
       const d = (inv as any).createdAt.toDate();
       return d >= start && (endDate ? d <= endDate : true);
@@ -2189,11 +2196,11 @@ Your uid is: ${user.uid}
     const avgBill      = count > 0 ? totalRevenue / count : 0;
     const onlineCount  = periodInvoices.filter(i => i.source === 'online').length;
     const walkinCount  = count - onlineCount;
-    // Outstanding dues across ALL invoices (not just the selected period)
-    const totalDue  = billingInvoices
+    // Outstanding dues across ALL invoices (for this location scope)
+    const totalDue  = scopedInvoices
       .filter(i => (i as any).status === 'due' && ((i as any).amountDue ?? 0) > 0)
       .reduce((a, i) => a + ((i as any).amountDue ?? 0), 0);
-    const dueCount  = billingInvoices.filter(i => (i as any).status === 'due').length;
+    const dueCount  = scopedInvoices.filter(i => (i as any).status === 'due').length;
 
     // Revenue by payment method — distribute across splits for accurate breakdown
     const pmRevenue: Record<string, number> = {};
@@ -2231,7 +2238,7 @@ Your uid is: ${user.uid}
 
     return { totalRevenue, count, avgBill, onlineCount, walkinCount, pmRevenue, displayed, totalDue, dueCount,
       vvipRevenue, vvipBillCount, vvipCustomerCount, vvipAvgBill, vvipInvoices };
-  }, [billingInvoices, billingPeriod, billingFrom, billingTo, billingSearch]);
+  }, [billingInvoices, billingPeriod, billingFrom, billingTo, billingSearch, selectedLocation]);
 
   // Group all due invoices by customer for the dues drawer
   const dueCustomers = useMemo(() => {
@@ -2404,6 +2411,7 @@ Your uid is: ${user.uid}
       advanceAmount:         booking.advanceAmount,
       advancePaymentMethod:  booking.advancePaymentMethod,
       bookingSource:         booking.bookingSource,
+      location:              booking.location,
     });
     setBillingOpen(true);
   }, []);
@@ -2498,12 +2506,16 @@ Your uid is: ${user.uid}
     }
 
     // ── Invoice-based financial metrics (primary) ───────────────────────────
+    const scopedInvs = selectedLocation === 'all'
+      ? billingInvoices
+      : billingInvoices.filter(inv => (inv.location ? getBookingBranch({ location: inv.location }) : 'Bus Stand') === selectedLocation);
+
     const inPeriodInv = (inv: Invoice) => {
       if (!inv.createdAt) return period === 'all' && !insightsFrom;
       const d = inv.createdAt.toDate();
       return d >= start && (end ? d <= end : true);
     };
-    const periodInvoices  = billingInvoices.filter(inPeriodInv);
+    const periodInvoices  = scopedInvs.filter(inPeriodInv);
     const totalRevenue    = periodInvoices.reduce((a, inv) => a + (inv.total ?? 0), 0);
     const invoiceCount    = periodInvoices.length;
     const avgBill         = invoiceCount > 0 ? totalRevenue / invoiceCount : 0;
@@ -2764,7 +2776,7 @@ Your uid is: ${user.uid}
       statusBreakdown, peakHours, maxHourCount,
       todaySchedule,
     };
-  }, [bookings, billingInvoices, period, insightsFrom, insightsTo, sSettings]);
+  }, [bookings, billingInvoices, period, insightsFrom, insightsTo, sSettings, selectedLocation]);
 
   // ── Service drill-down stats (from invoice items) ────────────────────────
   const serviceDrillStats = useMemo(() => {
@@ -2927,6 +2939,7 @@ Your uid is: ${user.uid}
       <div className="h-screen bg-[#0d0d0d] text-white flex flex-col overflow-hidden">
         <BillingModule
           prefill={billingPrefill}
+          defaultLocation={billingPrefill?.location || (selectedLocation === 'all' ? 'Bus Stand' : selectedLocation)}
           onClose={() => { setBillingOpen(false); setBillingPrefill(null); }}
           onInvoiceCreated={() => { setBillingOpen(false); setBillingPrefill(null); }}
         />
@@ -4778,6 +4791,9 @@ Your uid is: ${user.uid}
                                       <Crown size={9} /> VVIP
                                     </span>
                                   )}
+                                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border border-gold/30 bg-gold/10 text-gold">
+                                    <MapPin size={9} /> {inv.location || 'Bus Stand'}
+                                  </span>
                                 </div>
                               </td>
                               <td className="py-3 px-4">
@@ -6222,3 +6238,8 @@ export default function AdminDashboard() {
   // Admin → full dashboard
   return <Dashboard user={user} staffMember={undefined} />;
 }
+
+
+
+
+

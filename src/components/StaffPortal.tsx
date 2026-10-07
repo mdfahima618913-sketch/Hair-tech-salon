@@ -12,6 +12,7 @@ import {
   Sun, Coffee, Moon, CloudSun, CalendarPlus, Home, Scissors,
   Phone, RefreshCw, Edit2, X, Check, CalendarCheck, CheckSquare, Clock, MessageSquare, Send,
   Bell, AlertCircle, PhoneOff, Receipt,
+  MapPin, ChevronDown, CheckCircle2,
 } from 'lucide-react';
 import { collection, query, where, orderBy, getDocs, getDoc, onSnapshot, doc, updateDoc, limit, arrayUnion, Timestamp } from 'firebase/firestore';
 import { db, auth } from '../lib/firebase';
@@ -21,6 +22,7 @@ import { useLanguage } from '../lib/LanguageContext';
 import LanguageToggle from './LanguageToggle';
 import { format, addDays, isSameDay, isToday, startOfDay } from 'date-fns';
 import { startRinging, stopRinging, fireDesktopNotification, requestNotificationPermission, warmUpAudio } from '../lib/notificationSound';
+import { BRANCHES, BranchName, DEFAULT_BRANCH_NAME, getBookingBranch, getBranchDetails } from '../lib/branches';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -43,6 +45,7 @@ interface Booking {
   advancePaymentMethod?: string;
   assignedStaffId?: string;
   assignedStaffName?: string;
+  location?: string;
   lastCalledAt?: string;
   originalBookingDate?: string;
   originalBookingTime?: string;
@@ -302,6 +305,9 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
       const existing: ExistingBooking[] = snap.docs.flatMap(d => {
         if (d.id === booking.id) return [];
         const x = d.data();
+        const branch = getBookingBranch(x);
+        const thisBranch = getBookingBranch(booking);
+        if (branch !== thisBranch) return [];
         return x.startTime && x.endTime ? [{ startTime: x.startTime, endTime: x.endTime }] : [];
       });
       setEditSlots(computeSlots(date, mins || 60, existing));
@@ -380,6 +386,11 @@ function AppointmentCard({ booking, staffList, me, t, showDate, highlight, onCre
             {booking.lastCalledAt && (
               <span className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-bold bg-white/5 border border-white/10 text-gray-400">
                 <Phone size={10} /> {t('called')} {timeAgo(booking.lastCalledAt)}
+              </span>
+            )}
+            {booking.location && (
+              <span className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/20 text-amber-300">
+                <MapPin size={10} className="text-gold" /> {booking.location}
               </span>
             )}
           </div>
@@ -963,11 +974,18 @@ function NewAppointmentBanner({ booking, offset, onDismiss }: { booking: Booking
               {booking.customerName ?? booking.customerPhone ?? t('customer')}
             </p>
             <p className="text-gray-400 text-xs mt-0.5 truncate">{booking.serviceNames ?? booking.serviceName ?? '—'}</p>
-            {booking.bookingTime && (
-              <span className="flex items-center gap-1 text-xs text-gray-500 font-bold mt-2">
-                <Clock size={10} /> {booking.bookingTime}
-              </span>
-            )}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              {booking.bookingTime && (
+                <span className="flex items-center gap-1 text-xs text-gray-500 font-bold">
+                  <Clock size={10} /> {booking.bookingTime}
+                </span>
+              )}
+              {booking.location && (
+                <span className="flex items-center gap-1 text-xs text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                  <MapPin size={10} /> {booking.location}
+                </span>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1003,6 +1021,26 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
   const [loading,    setLoading]    = useState(true);
   const [staffList,  setStaffList]  = useState<StaffOption[]>([]);
   const [newBookingQueue, setNewBookingQueue] = useState<Booking[]>([]);
+
+  // Store branch location in Staff Portal (defaults to Bus Stand, can switch or view all)
+  const [selectedLocation, setSelectedLocation] = useState<'Bus Stand' | 'Chandani Chowk' | 'all'>('Bus Stand');
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const branchDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (branchDropdownRef.current && !branchDropdownRef.current.contains(event.target as Node)) {
+        setBranchDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const scopedBookings = useMemo(() => {
+    if (selectedLocation === 'all') return bookings;
+    return bookings.filter(b => getBookingBranch(b) === selectedLocation);
+  }, [bookings, selectedLocation]);
 
   const firebaseUser = auth.currentUser;
   const initialIdsRef = useRef<Set<string> | null>(null);
@@ -1133,6 +1171,7 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
       paymentMethod:        b.paymentMethod,
       advanceAmount:        b.advanceAmount,
       advancePaymentMethod: b.advancePaymentMethod,
+      location:             b.location,
     });
     setBillingOpen(true);
   };
@@ -1185,8 +1224,14 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
           </button>
         </div>
         <div className="flex-1 overflow-y-auto">
-          <WalkInBooking user={firebaseUser} staffMember={staffMember} createdBy="staff"
-            onClose={() => setWalkInOpen(false)} onCreated={() => setWalkInOpen(false)} />
+          <WalkInBooking
+            user={firebaseUser}
+            staffMember={staffMember}
+            createdBy="staff"
+            defaultLocation={selectedLocation === 'all' ? 'Bus Stand' : selectedLocation}
+            onClose={() => setWalkInOpen(false)}
+            onCreated={() => setWalkInOpen(false)}
+          />
         </div>
       </div>
     );
@@ -1210,6 +1255,7 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
       <div className="h-screen bg-[#0d0d0d] text-white flex flex-col overflow-hidden">
         <BillingModule
           prefill={billingPrefill}
+          defaultLocation={billingPrefill?.location || (selectedLocation === 'all' ? 'Bus Stand' : selectedLocation)}
           onClose={() => { setBillingOpen(false); setBillingPrefill(null); }}
           onInvoiceCreated={() => { setBillingOpen(false); setBillingPrefill(null); }}
         />
@@ -1235,9 +1281,45 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
             <span className="text-white font-black uppercase tracking-widest text-sm">Hair Tech</span>
           </div>
           <div className="flex items-center gap-2">
+            {/* Store / Location Dropdown in Staff Portal */}
+            <div className="relative shrink-0" ref={branchDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setBranchDropdownOpen(v => !v)}
+                className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-900 hover:bg-zinc-800 border border-gold/30 hover:border-gold/60 rounded-xl text-xs font-bold text-white transition-all shadow-sm active:scale-95 cursor-pointer"
+                title="Switch store branch"
+              >
+                <MapPin size={11} className="text-gold shrink-0" />
+                <span className="font-black text-gold max-w-[85px] truncate">{selectedLocation === 'all' ? 'All Stores' : selectedLocation}</span>
+                <ChevronDown size={10} className={`text-gray-400 transition-transform ${branchDropdownOpen ? 'rotate-180 text-gold' : ''}`} />
+              </button>
+              {branchDropdownOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-44 bg-zinc-900 border border-white/15 rounded-xl shadow-2xl py-1 z-50 overflow-hidden">
+                  <div className="px-3 py-1.5 border-b border-white/10 text-[10px] font-black uppercase tracking-wider text-gray-500">
+                    Select Store
+                  </div>
+                  {(['Bus Stand', 'Chandani Chowk', 'all'] as const).map(loc => (
+                    <button
+                      key={loc}
+                      type="button"
+                      onClick={() => { setSelectedLocation(loc); setBranchDropdownOpen(false); }}
+                      className={`w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-left transition-colors cursor-pointer ${
+                        selectedLocation === loc
+                          ? 'bg-gold/15 text-gold'
+                          : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                      }`}
+                    >
+                      <span>{loc === 'all' ? 'All Stores' : loc}</span>
+                      {selectedLocation === loc && <CheckCircle2 size={13} className="text-gold shrink-0" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
             <LanguageToggle />
-            <span className="px-2.5 py-1 bg-blue-500/15 border border-blue-500/25 rounded-full text-blue-400 text-xs font-black uppercase">Staff</span>
-            <span className="text-gray-300 text-sm font-black">{staffMember.name.split(' ')[0]}</span>
+            <span className="px-2 py-0.5 bg-blue-500/15 border border-blue-500/25 rounded-full text-blue-400 text-xs font-black uppercase">Staff</span>
+            <span className="text-gray-300 text-xs sm:text-sm font-black truncate max-w-[70px] sm:max-w-[100px]">{staffMember.name.split(' ')[0]}</span>
           </div>
         </div>
       </header>
@@ -1247,13 +1329,13 @@ export default function StaffPortal({ staffMember, onSignOut }: StaffPortalProps
         <AnimatePresence mode="wait">
           {tab === 'home' && (
             <motion.div key="home" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col overflow-hidden">
-              <HomeScreen staffMember={staffMember} bookings={bookings} loading={loading} staffList={staffList}
+              <HomeScreen staffMember={staffMember} bookings={scopedBookings} loading={loading} staffList={staffList}
                 onOpenAppointment={() => setWalkInOpen(true)} onCreateBill={openBillingFromBooking} onExpressBill={openExpressBill} />
             </motion.div>
           )}
           {tab === 'appointments' && (
             <motion.div key="appointments" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="flex-1 flex flex-col overflow-hidden">
-              <AppointmentsScreen staffMember={staffMember} bookings={bookings} loading={loading} staffList={staffList} onCreateBill={openBillingFromBooking} />
+              <AppointmentsScreen staffMember={staffMember} bookings={scopedBookings} loading={loading} staffList={staffList} onCreateBill={openBillingFromBooking} />
             </motion.div>
           )}
           {tab === 'profile' && (

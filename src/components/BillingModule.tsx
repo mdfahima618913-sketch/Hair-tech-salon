@@ -19,6 +19,7 @@ import {
   Receipt, CreditCard, Banknote, Smartphone, CheckCircle2,
   Loader2, AlertCircle, User, Phone, Users,
   ArrowLeft, Printer, Star, Wallet, Tag, Crown, Calendar, Edit2,
+  MapPin,
 } from 'lucide-react';
 import {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
@@ -30,6 +31,7 @@ import { db } from '../lib/firebase';
 import { servicesData, Service } from '../constants/services';
 import { useLanguage } from '../lib/LanguageContext';
 import { getServiceImage } from '../lib/serviceImages';
+import { BRANCHES, BranchName, DEFAULT_BRANCH_NAME, getBookingBranch, getBranchDetails } from '../lib/branches';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -124,6 +126,8 @@ export interface Invoice {
   advanceSettlementAmount?: number;
   status: 'paid' | 'due';
   source: 'walkin' | 'online';
+  /** Store branch location where the service/bill was conducted */
+  location?: string;
   /** VIP tier — defaults to 'standard' when absent */
   billingType?: 'standard' | 'vvip';
   /** Promo lottery coupon codes — 1 per ₹1000 spent */
@@ -136,6 +140,7 @@ export interface OnlineBookingPrefill {
   bookingId: string;
   customerName: string;
   customerPhone: string;
+  location?: string;
   serviceNames: string;        // comma-separated (display only; use serviceItems for billing when available)
   serviceItems?: Array<{ id: string; name: string; qty: number; priceValue: number }>;
   totalAmount: number;
@@ -149,6 +154,7 @@ export interface OnlineBookingPrefill {
 
 interface BillingModuleProps {
   prefill?: OnlineBookingPrefill | null;
+  defaultLocation?: string;
   onClose?: () => void;
   onInvoiceCreated?: (invoice: Invoice) => void;
 }
@@ -1912,10 +1918,13 @@ function InvoicePreview({ invoice, customer, onClose }: {
       <div class="center" style="margin-bottom:8px">
         <div class="xl">Hair Tech</div>
         <div class="bold">Unisex Salon, Araria</div>
+        <div class="bold sm" style="color:#222; margin-top:2px;">📍 ${getBranchDetails(invoice.location || 'Bus Stand').fullName}</div>
+        <div class="sm">${getBranchDetails(invoice.location || 'Bus Stand').address}</div>
         <div class="sm">+91 87896 03343</div>
         <div class="sm" style="margin-top:4px">
           <span class="badge">${invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}</span>
           ${invoice.billingType === 'vvip' ? '<span class="badge" style="background:#f5d56b;color:#000;font-weight:700;margin-left:4px">&#9813; VVIP</span>' : ''}
+          ${invoice.location ? `<span class="badge" style="background:#fef3c7;color:#92400e;font-weight:700;margin-left:4px">${invoice.location}</span>` : ''}
         </div>
       </div>
       <div class="dash"></div>
@@ -1995,13 +2004,18 @@ function InvoicePreview({ invoice, customer, onClose }: {
           <p className="font-black text-xl uppercase tracking-tight">Hair Tech</p>
           <p className="font-bold text-sm">Unisex Salon, Araria</p>
           <p className="text-gray-500 text-xs">+91 87896 03343</p>
-          <div className="flex justify-center gap-1 mt-2">
+          <div className="flex justify-center gap-1 mt-2 flex-wrap">
             <span className={`text-[11px] px-2 py-0.5 rounded border ${invoice.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-700'}`}>
               {invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}
             </span>
             {invoice.billingType === 'vvip' && (
               <span className="text-[11px] px-2 py-0.5 rounded border bg-gold/15 border-gold/40 text-gold font-black flex items-center gap-1">
                 <Crown size={9} /> VVIP
+              </span>
+            )}
+            {invoice.location && (
+              <span className="text-[11px] px-2 py-0.5 rounded border bg-amber-50 border-amber-200 text-amber-800 font-bold flex items-center gap-1">
+                📍 {invoice.location}
               </span>
             )}
           </div>
@@ -2203,11 +2217,22 @@ function InvoicePreview({ invoice, customer, onClose }: {
 
 // ─── Main BillingModule ───────────────────────────────────────────────────────
 
-export default function BillingModule({ prefill: propPrefill, onClose, onInvoiceCreated }: BillingModuleProps) {
+export default function BillingModule({ prefill: propPrefill, defaultLocation, onClose, onInvoiceCreated }: BillingModuleProps) {
   const [discoveredPrefill, setDiscoveredPrefill] = useState<OnlineBookingPrefill | null>(null);
   const prefill = propPrefill ?? discoveredPrefill;
   const isOnlineFlow = !!prefill;
   const { t } = useLanguage();
+
+  // Active branch location for the bill
+  const [selectedBranch, setSelectedBranch] = useState<BranchName>(() => {
+    if (prefill?.location) {
+      return getBookingBranch({ location: prefill.location });
+    }
+    if (defaultLocation) {
+      return getBookingBranch({ location: defaultLocation });
+    }
+    return DEFAULT_BRANCH_NAME;
+  });
 
   // Wizard step: 0=customer, 1=services, 2=payment, 3=invoice
   const [step, setStep]         = useState(isOnlineFlow ? 1 : 0);
@@ -2587,6 +2612,7 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
         invoiceNumber:  generateInvoiceNumber(),
         customerPhone:  customer.phone,
         customerName:   customer.name,
+        location:       selectedBranch,
         ...(prefill?.bookingId && { bookingId: prefill.bookingId }),
         items: cleanItems,
         subtotal,
@@ -2730,28 +2756,50 @@ export default function BillingModule({ prefill: propPrefill, onClose, onInvoice
           </div>
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             {!invoice && (
-              <div className="hidden sm:flex items-center bg-white/[0.04] border border-white/10 rounded-xl p-1 gap-1">
-                <button
-                  onClick={() => setBillingType('standard')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${
-                    billingType === 'standard'
-                      ? 'bg-white/10 text-white'
-                      : 'text-gray-500 hover:text-gray-300'
-                  }`}
-                >
-                  Standard
-                </button>
-                <button
-                  onClick={() => setBillingType('vvip')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${
-                    billingType === 'vvip'
-                      ? 'bg-gold/20 border border-gold/40 text-gold'
-                      : 'text-gray-500 hover:text-gray-300'
-                  }`}
-                >
-                  <Crown size={12} /> VVIP
-                </button>
-              </div>
+              <>
+                {/* Store Branch Selector */}
+                <div className="flex items-center bg-white/[0.04] border border-gold/30 rounded-xl p-1 gap-1">
+                  {BRANCHES.map(b => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setSelectedBranch(b.name as BranchName)}
+                      className={`flex items-center gap-1 sm:gap-1.5 px-2 sm:px-2.5 py-1.5 rounded-lg text-xs font-black transition-all ${
+                        selectedBranch === b.name
+                          ? 'bg-gold text-black shadow-sm'
+                          : 'text-gray-400 hover:text-white'
+                      }`}
+                      title={b.fullName}
+                    >
+                      <MapPin size={11} className={selectedBranch === b.name ? 'text-black' : 'text-gold'} />
+                      <span className="truncate">{b.shortName}</span>
+                    </button>
+                  ))}
+                </div>
+
+                <div className="hidden md:flex items-center bg-white/[0.04] border border-white/10 rounded-xl p-1 gap-1">
+                  <button
+                    onClick={() => setBillingType('standard')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${
+                      billingType === 'standard'
+                        ? 'bg-white/10 text-white'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    Standard
+                  </button>
+                  <button
+                    onClick={() => setBillingType('vvip')}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-black uppercase tracking-wide transition-all ${
+                      billingType === 'vvip'
+                        ? 'bg-gold/20 border border-gold/40 text-gold'
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    <Crown size={12} /> VVIP
+                  </button>
+                </div>
+              </>
             )}
             <div className="hidden sm:block"><Steps current={displayStep} steps={STEPS} /></div>
             {onClose && (

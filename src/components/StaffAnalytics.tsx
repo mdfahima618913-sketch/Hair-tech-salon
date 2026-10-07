@@ -50,6 +50,7 @@ interface Invoice {
   total?: number;
   createdAt?: any;
   source?: string;
+  location?: string;
 }
 
 interface StaffMember {
@@ -1937,3 +1938,5 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
     </div>
   );
 }
+
+
