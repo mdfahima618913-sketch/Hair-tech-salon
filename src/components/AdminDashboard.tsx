@@ -2995,6 +2995,7 @@ Your uid is: ${user.uid}
               { id: 'tools',      label: 'Tools',     icon: <Wrench       size={13} /> },
             ]).map(tab => (
               <button key={tab.id} onClick={() => handleViewSwitch(tab.id as DashView)}
+                title={tab.label}
                 className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all shrink-0 ${
                   view === tab.id
                     ? 'bg-gold text-black shadow-sm'
@@ -3002,7 +3003,7 @@ Your uid is: ${user.uid}
                 }`}
               >
                 {tab.icon}
-                <span className="hidden md:inline">{tab.label}</span>
+                <span className="hidden lg:inline">{tab.label}</span>
                 {adminPin && (tab.id === 'billing' || tab.id === 'insights' || tab.id === 'staff') && (
                   <Lock size={8} className="text-current opacity-60" />
                 )}
@@ -3046,41 +3047,7 @@ Your uid is: ${user.uid}
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-            {/* User profile avatar & chip — resolves horizontal header stretch */}
-            <div className="relative shrink-0" ref={userMenuRef}>
-              <button
-                type="button"
-                onClick={() => setUserMenuOpen(v => !v)}
-                title={`Logged in as ${user.email || 'Admin'}`}
-                className="flex items-center gap-1.5 py-1 px-1.5 sm:px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-300 transition-all active:scale-95"
-              >
-                <div className="w-6 h-6 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center font-black text-[11px] shrink-0">
-                  {user.email ? user.email.charAt(0).toUpperCase() : 'A'}
-                </div>
-                <span className="hidden xl:inline text-[11px] font-medium text-gray-300 max-w-[110px] truncate">
-                  {user.email}
-                </span>
-                <ChevronDown size={10} className={`text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180 text-gold' : ''}`} />
-              </button>
-              {userMenuOpen && (
-                <div className="absolute right-0 top-full mt-1.5 w-60 bg-zinc-900 border border-white/15 rounded-2xl shadow-2xl py-2.5 px-3.5 z-50 animate-in fade-in duration-150">
-                  <div className="border-b border-white/10 pb-2 mb-2">
-                    <p className="text-[10px] uppercase font-black text-gray-500 tracking-wider">Signed in as</p>
-                    <p className="text-xs font-bold text-white break-all">{user.email}</p>
-                    <p className="text-[10px] text-gold font-bold mt-0.5">{isStaffMode ? staffMember?.name : 'Salon Administrator'}</p>
-                  </div>
-                  <button
-                    onClick={() => { setUserMenuOpen(false); handleSignOut(); }}
-                    disabled={signOutLoading}
-                    className="w-full flex items-center gap-2 py-1.5 text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
-                  >
-                    <LogOut size={12} /> Sign Out
-                  </button>
-                </div>
-              )}
-            </div>
-
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {/* Notification permission toggle */}
             {notifPermission !== 'denied' && (
               <button
@@ -3099,15 +3066,55 @@ Your uid is: ${user.uid}
               </button>
             )}
 
-            <button
-              onClick={handleSignOut}
-              disabled={signOutLoading}
-              title="Sign Out"
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-white/8 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all shrink-0"
-            >
-              {signOutLoading ? <Loader2 size={13} className="animate-spin" /> : <LogOut size={13} />}
-              <span className="hidden lg:inline">Sign Out</span>
-            </button>
+            {/* User profile avatar & menu — eliminates horizontal header stretch */}
+            <div className="relative shrink-0" ref={userMenuRef}>
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen(v => !v)}
+                title={`Account: ${user.email || 'Admin'} (Click to view)`}
+                aria-label="User profile and account settings"
+                className="flex items-center gap-1.5 py-1 px-1.5 sm:px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 hover:border-gold/30 text-xs text-gray-300 transition-all active:scale-95 cursor-pointer"
+              >
+                <div className="relative">
+                  <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400/20 to-amber-600/30 border border-gold/40 text-gold flex items-center justify-center font-black text-xs shadow-sm">
+                    {user.email ? user.email.charAt(0).toUpperCase() : 'A'}
+                  </div>
+                  <span className="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-black" />
+                </div>
+                <ChevronDown size={10} className={`text-gray-400 transition-transform duration-200 ${userMenuOpen ? 'rotate-180 text-gold' : ''}`} />
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-2 w-64 bg-zinc-900 border border-white/15 rounded-2xl shadow-2xl py-3 px-3.5 z-50">
+                  <div className="border-b border-white/10 pb-3 mb-2.5">
+                    <div className="flex items-center gap-2.5 mb-2">
+                      <div className="w-8 h-8 rounded-xl bg-gold/20 border border-gold/40 text-gold flex items-center justify-center font-black text-xs shrink-0">
+                        {user.email ? user.email.charAt(0).toUpperCase() : 'A'}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[10px] uppercase font-black text-gray-400 tracking-wider">Signed In As</p>
+                        <p className="text-xs font-bold text-white truncate" title={user.email || undefined}>{user.email || 'Administrator'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between pt-1 text-[11px]">
+                      <span className="text-gray-400">Role</span>
+                      <span className="px-2 py-0.5 bg-gold/15 border border-gold/30 rounded-full text-[10px] text-gold font-bold">
+                        {isStaffMode ? (staffMember?.name || 'Staff Member') : 'Salon Administrator'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => { setUserMenuOpen(false); handleSignOut(); }}
+                    disabled={signOutLoading}
+                    className="w-full flex items-center gap-2 py-2 px-2.5 rounded-xl text-xs font-bold text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors cursor-pointer"
+                  >
+                    {signOutLoading ? <Loader2 size={13} className="animate-spin" /> : <LogOut size={13} />}
+                    <span>Sign Out</span>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </header>

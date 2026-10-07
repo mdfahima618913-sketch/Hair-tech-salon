@@ -1937,5 +1937,3 @@ export default function StaffAnalytics({ staffInvoices, staff }: StaffAnalyticsP
     </div>
   );
 }
-
-
