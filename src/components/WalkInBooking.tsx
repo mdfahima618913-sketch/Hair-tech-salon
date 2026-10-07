@@ -11,7 +11,7 @@ import {
   X, User, Phone, ChevronLeft, Search, Plus, Minus,
   Calendar, Sun, CloudSun, Moon, CheckCircle2,
   Loader2, CalendarCheck, ShoppingBag, AlertCircle,
-  ChevronDown, ChevronUp, Wallet,
+  ChevronDown, ChevronUp, Wallet, MapPin,
 } from 'lucide-react';
 import {
   collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc,
@@ -22,6 +22,7 @@ import { db } from '../lib/firebase';
 import { servicesData, Service } from '../constants/services';
 import { format, addDays, isSameDay, startOfDay } from 'date-fns';
 import { useLanguage } from '../lib/LanguageContext';
+import { BRANCHES, BranchName, DEFAULT_BRANCH_NAME, getBookingBranch, getBranchDetails } from '../lib/branches';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ function parseMins(t: string): number {
   return 60;
 }
 
-async function fetchSlots(date: Date, totalMins: number): Promise<SlotOption[]> {
+async function fetchSlots(date: Date, totalMins: number, location: BranchName): Promise<SlotOption[]> {
   if (totalMins <= 0) return [];
   const s = startOfDay(date).toISOString();
   const e = startOfDay(addDays(date, 1)).toISOString();
@@ -78,6 +79,8 @@ async function fetchSlots(date: Date, totalMins: number): Promise<SlotOption[]> 
   ));
   const existing = snap.docs.flatMap(d => {
     const x = d.data();
+    const branch = getBookingBranch(x);
+    if (branch !== location) return [];
     return x.startTime && x.endTime ? [{ startTime: x.startTime, endTime: x.endTime }] : [];
   });
 
@@ -151,10 +154,18 @@ interface Props {
   staffName?: string;
   /** 'modal' = floating dialog with backdrop; 'page' = full-width inline, no backdrop */
   variant?: 'modal' | 'page';
+  /** Default store location for the branch */
+  defaultLocation?: string;
 }
 
-export default function WalkInBooking({ onClose, onCreated, user, staffMember, createdBy = 'admin', staffName, variant = 'modal' }: Props) {
+export default function WalkInBooking({ onClose, onCreated, user, staffMember, createdBy = 'admin', staffName, variant = 'modal', defaultLocation }: Props) {
   const { t } = useLanguage();
+  const [selectedLocation, setSelectedLocation] = useState<BranchName>(() => {
+    if (defaultLocation && (defaultLocation.toLowerCase().includes('chandani') || defaultLocation.toLowerCase().includes('chowk'))) {
+      return 'Chandani Chowk';
+    }
+    return 'Bus Stand';
+  });
   const [step,         setStep]         = useState<Step>('customer');
   const [customerName, setCustomerName] = useState('');
   const [customerPhone,setCustomerPhone]= useState('');
@@ -288,11 +299,11 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
   useEffect(() => {
     if (step !== 'slot' || totalMins <= 0) return;
     setSlotsLoading(true); setSelSlot(null);
-    fetchSlots(selDate, totalMins)
+    fetchSlots(selDate, totalMins, selectedLocation)
       .then(s => setSlots(s))
       .catch(() => setSlots([]))
       .finally(() => setSlotsLoading(false));
-  }, [selDate, step, totalMins]);
+  }, [selDate, step, totalMins, selectedLocation]);
 
   const qty    = (id: string) => cart.find(i => i.service.id === id)?.qty ?? 0;
   const setQty = useCallback((id: string, delta: number) => {
@@ -335,6 +346,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
         endTime:             selSlot.endISO,
         bookingTime:         selSlot.label,
         bookingDate:         startOfDay(selDate).toISOString(),
+        location:            selectedLocation,
 
         // Services — serviceNames is for display; serviceItems carries qty for billing
         serviceNames:        cart.map(i => i.service.name + (i.qty > 1 ? ` ×${i.qty}` : '')).join(', '),
@@ -380,7 +392,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
 
   const inner = (<>
         {/* Header */}
-        <div className="flex items-center justify-between px-7 py-4 border-b border-white/15 shrink-0 bg-zinc-900/60">
+        <div className="flex items-center justify-between px-7 py-4 border-b border-white/15 shrink-0 bg-zinc-900/60 flex-wrap gap-3">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-xl bg-teal-500/15 border border-teal-500/30 flex items-center justify-center">
               <CalendarCheck size={15} className="text-teal-400" />
@@ -390,9 +402,31 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
               <p className="text-teal-400/70 text-xs mt-0.5">{t('bookingNote')}</p>
             </div>
           </div>
-          <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/12 text-white hover:bg-white/15 hover:border-white/20 transition-all shrink-0">
-            <X size={16}/>
-          </button>
+
+          <div className="flex items-center gap-2">
+            {/* Store branch switcher */}
+            <div className="flex items-center gap-1 bg-black/60 border border-white/15 rounded-xl p-1">
+              <MapPin size={12} className="text-gold ml-1.5 mr-0.5" />
+              {BRANCHES.map(b => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setSelectedLocation(b.name as BranchName)}
+                  className={`px-3 py-1 rounded-lg text-xs font-black transition-all ${
+                    selectedLocation === b.name
+                      ? 'bg-gold text-black shadow-sm'
+                      : 'text-gray-400 hover:text-white hover:bg-white/8'
+                  }`}
+                >
+                  {b.shortName}
+                </button>
+              ))}
+            </div>
+
+            <button onClick={onClose} className="w-9 h-9 flex items-center justify-center rounded-xl bg-white/8 border border-white/12 text-white hover:bg-white/15 hover:border-white/20 transition-all shrink-0">
+              <X size={16}/>
+            </button>
+          </div>
         </div>
 
         {/* Body */}
@@ -649,6 +683,7 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
                   <div className="p-5 space-y-3">
                     <div className="flex justify-between text-sm"><span className="text-gray-500">Customer</span><span className="text-white font-bold">{customerName}</span></div>
                     <div className="flex justify-between text-sm"><span className="text-gray-500">Phone</span><span className="text-gray-300">{customerPhone}</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-gray-500">Store Branch</span><span className="text-gold font-bold flex items-center gap-1"><MapPin size={12}/> {selectedLocation}</span></div>
                     <div className="border-t border-white/10 pt-3">
                       <p className="text-[11px] uppercase tracking-wider text-gray-500 mb-2">Services</p>
                       {cart.map(({ service, qty: q }) => (

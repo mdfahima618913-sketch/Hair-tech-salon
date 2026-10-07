@@ -17,7 +17,7 @@ import {
   User, Phone, CheckCircle2, Loader2, AlertCircle, Lock,
   CreditCard, Star, Users, CalendarX, Sun, CloudSun, Moon,
   Mic, MicOff, Wand2, RotateCcw, Sparkles, ShoppingBag,
-  ArrowRight, Scissors, Tag, Coffee, Zap,
+  ArrowRight, Scissors, Tag, Coffee, Zap, MapPin,
 } from 'lucide-react';
 import { format, addDays, isSameDay, startOfDay } from 'date-fns';
 import { db } from '../lib/firebase';
@@ -25,6 +25,7 @@ import { collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc
 import { type SalonConfig, DEFAULT_SALON_CONFIG, fetchSalonConfig } from '../lib/salonConfig';
 import { servicesData, Service } from '../constants/services';
 import { Link } from 'react-router-dom';
+import { BRANCHES, BranchName, DEFAULT_BRANCH_NAME, getBookingBranch, getBranchDetails } from '../lib/branches';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -551,11 +552,13 @@ function VoiceMic({ onResult, services: voiceServices, config: voiceConfig }: { 
 
 // ─── Slot picker screen ────────────────────────────────────────────────────────
 
-function SlotScreen({ totalMins, onBack, onSelect, config }: {
+function SlotScreen({ totalMins, onBack, onSelect, config, selectedBranch, onSelectBranch }: {
   totalMins: number;
   onBack: () => void;
   onSelect: (date: Date, slot: SlotOption) => void;
   config: SalonConfig;
+  selectedBranch: BranchName;
+  onSelectBranch: (b: BranchName) => void;
 }) {
   const [selDate, setSelDate]       = useState(() => new Date());
   const [loading, setLoading]       = useState(false);
@@ -574,6 +577,9 @@ function SlotScreen({ totalMins, onBack, onSelect, config }: {
       if (dead) return;
       setBookings(snap.docs.map(d => {
         const x = d.data();
+        const branch = getBookingBranch(x);
+        // Only count appointments booked for the currently selected branch
+        if (branch !== selectedBranch) return null;
         if (x.startTime && x.endTime) return {startTime:x.startTime, endTime:x.endTime};
         if (x.bookingDate && x.bookingTime) {
           const dt = new Date(x.bookingDate);
@@ -587,7 +593,7 @@ function SlotScreen({ totalMins, onBack, onSelect, config }: {
       }).filter(Boolean) as ExistingBooking[]);
     }).catch(()=>setBookings([])).finally(()=>{if(!dead)setLoading(false);});
     return ()=>{dead=true;};
-  }, [selDate]);
+  }, [selDate, selectedBranch]);
 
   const slots    = useMemo(()=>computeSlots(selDate,totalMins,bookings,config),[selDate,totalMins,bookings,config]);
   const groups   = useMemo(()=>({
@@ -612,6 +618,38 @@ function SlotScreen({ totalMins, onBack, onSelect, config }: {
       </div>
 
       <div className="flex-1 overflow-y-auto bg-gray-50">
+        {/* Branch Selector Banner */}
+        <div className="bg-white px-4 pt-3 pb-3 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] font-black uppercase tracking-wider text-gray-500 flex items-center gap-1.5">
+              <MapPin size={13} className="text-[#D4AF37]" /> Salon Branch
+            </p>
+            <span className="text-[11px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              {selectedBranch}
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {BRANCHES.map(b => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => onSelectBranch(b.name as BranchName)}
+                className={`p-2.5 rounded-xl border-2 text-left transition-all ${
+                  selectedBranch === b.name
+                    ? 'border-[#D4AF37] bg-amber-50/60 shadow-sm'
+                    : 'border-gray-200 bg-white hover:border-gray-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black text-gray-900">{b.shortName}</span>
+                  {selectedBranch === b.name && <CheckCircle2 size={13} className="text-[#D4AF37]" />}
+                </div>
+                <p className="text-[10px] text-gray-500 truncate mt-0.5">{b.address}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* Date strip */}
         <div className="bg-white px-4 py-4 border-b border-gray-100">
           <p className="text-[11px] font-bold uppercase tracking-wider text-gray-400 mb-3">Choose Date</p>
@@ -693,6 +731,7 @@ function SlotScreen({ totalMins, onBack, onSelect, config }: {
 
 export default function BookingSystem() {
   const [screen, setScreen]         = useState<Screen>('browse');
+  const [selectedBranch, setSelectedBranch] = useState<BranchName>(DEFAULT_BRANCH_NAME);
   const [cart,   setCart]           = useState<CartItem[]>([]);
   const [search, setSearch]         = useState('');
   const [activeCategory, setActiveCat] = useState(CATEGORIES[0]);
@@ -937,6 +976,7 @@ export default function BookingSystem() {
       endTime:             selSlot.endISO,
       bookingTime:         selSlot.label,
       bookingDate:         startOfDay(selDate).toISOString(),
+      location:            selectedBranch,
       serviceNames:        allServiceNames,
       serviceItems:        allServiceItems,
       serviceDurationMins: totalMins,
@@ -1052,7 +1092,11 @@ export default function BookingSystem() {
         <h2 className="text-2xl font-black text-gray-900 mb-2">Booking Confirmed!</h2>
         <p className="text-gray-500 text-sm mb-1">We'll see you at the salon</p>
         <p className="text-[#D4AF37] font-bold text-sm mb-1">{format(selDate,'EEE, MMM d, yyyy')}</p>
-        <p className="text-gray-400 text-sm mb-6">{selSlot?.label}</p>
+        <p className="text-gray-400 text-sm mb-3">{selSlot?.label}</p>
+        <div className="flex items-center justify-center gap-1.5 text-xs font-black text-amber-800 bg-amber-50 border border-amber-200/80 px-3.5 py-1.5 rounded-xl mb-6 max-w-sm mx-auto">
+          <MapPin size={13} className="text-[#D4AF37]" />
+          <span>{getBranchDetails(selectedBranch).fullName}</span>
+        </div>
         <div className="bg-gray-50 rounded-2xl p-4 mb-6 text-left space-y-2">
           {cart.map(({service,qty})=>(
             <div key={service.id} className="flex justify-between text-sm">
@@ -1083,7 +1127,9 @@ export default function BookingSystem() {
     <div className="fixed inset-0 z-[200]">
       <SlotScreen totalMins={totalMins} onBack={()=>setScreen('browse')}
         onSelect={(date,slot)=>{setSelDate(date);setSelSlot(slot);setScreen('details');}}
-        config={salonConfig}/>
+        config={salonConfig}
+        selectedBranch={selectedBranch}
+        onSelectBranch={setSelectedBranch}/>
     </div>
   );
 
@@ -1106,6 +1152,18 @@ export default function BookingSystem() {
             {isExpress && <span className="text-[11px] font-black text-white bg-orange-500 rounded-md px-1.5 py-0.5 uppercase">Express</span>}
           </div>
           <p className="text-xs text-gray-500 pl-5">{cart.map(i=>i.service.name).join(', ')}</p>
+          <div className="mt-2.5 pt-2 border-t border-gray-200/60 flex items-center justify-between text-xs">
+            <span className="flex items-center gap-1.5 text-gray-700 font-bold">
+              <MapPin size={12} className="text-[#D4AF37]" /> {getBranchDetails(selectedBranch).fullName}
+            </span>
+            <button
+              type="button"
+              onClick={() => setScreen('slots')}
+              className="text-[#D4AF37] font-black text-[11px] hover:underline uppercase tracking-wider"
+            >
+              Change Store
+            </button>
+          </div>
         </div>
 
         {/* Phone — first field, triggers auto-fill lookup */}
@@ -1253,13 +1311,31 @@ export default function BookingSystem() {
       <div className="flex-1 overflow-y-auto">
         {/* Appointment card */}
         <div className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
-          <div className="px-4 py-3 border-b border-gray-50 flex items-center gap-2">
-            <Calendar size={15} className="text-[#D4AF37]"/>
-            <p className="text-sm font-bold text-gray-800">{format(selDate,'EEEE, MMMM d, yyyy')}</p>
+          <div className="px-4 py-3 border-b border-gray-50 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Calendar size={15} className="text-[#D4AF37]"/>
+              <p className="text-sm font-bold text-gray-800">{format(selDate,'EEEE, MMMM d, yyyy')}</p>
+            </div>
+            <span className="text-[11px] font-black text-amber-700 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+              {selectedBranch}
+            </span>
           </div>
           <div className="px-4 py-3">
-            <p className="text-sm text-gray-400">{selSlot?.label}</p>
-            <p className="text-xs text-gray-400 mt-0.5">~{totalMins} min · {info.name} · {info.phone}</p>
+            <p className="text-sm font-bold text-gray-900">{selSlot?.label}</p>
+            <p className="text-xs text-gray-500 mt-0.5">~{totalMins} min · {info.name} · {info.phone}</p>
+            <div className="mt-2.5 pt-2.5 border-t border-gray-100 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                <MapPin size={12} className="text-[#D4AF37] shrink-0" />
+                <span className="font-semibold truncate">{getBranchDetails(selectedBranch).fullName}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setScreen('slots')}
+                className="text-[11px] font-bold text-[#D4AF37] hover:underline shrink-0 ml-2"
+              >
+                Change
+              </button>
+            </div>
           </div>
         </div>
 
@@ -1418,6 +1494,34 @@ export default function BookingSystem() {
             <X size={14}/> Close
           </Link>
         </div>
+        {/* Branch location selector */}
+        <div className="px-4 pb-2.5">
+          <div className="flex items-center justify-between p-2 rounded-xl bg-amber-500/8 border border-amber-500/20">
+            <div className="flex items-center gap-2 min-w-0 pr-2">
+              <MapPin size={15} className="text-[#D4AF37] shrink-0" />
+              <div className="min-w-0">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block leading-none">Branch</span>
+                <span className="text-xs font-black text-gray-900 truncate block mt-0.5">{getBranchDetails(selectedBranch).fullName}</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 shrink-0">
+              {BRANCHES.map(b => (
+                <button
+                  key={b.id}
+                  type="button"
+                  onClick={() => setSelectedBranch(b.name as BranchName)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-black transition-all ${
+                    selectedBranch === b.name
+                      ? 'bg-[#D4AF37] text-black shadow-sm'
+                      : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  {b.shortName}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
         {/* Search + voice */}
         <div className="px-4 pb-3 flex items-center gap-2.5">
           <div className="relative flex-1">
@@ -1557,6 +1661,29 @@ export default function BookingSystem() {
             transition={{type:'spring',stiffness:300,damping:30}}
             className="absolute bottom-0 left-0 right-0 z-50 px-4 pb-4 pt-2 bg-gradient-to-t from-white via-white/95 to-transparent space-y-2"
           >
+            {/* Branch selector pill in cart bar */}
+            <div className="flex items-center justify-between px-3 py-1.5 bg-amber-50/90 border border-amber-200/80 rounded-xl">
+              <span className="text-[11px] font-bold text-amber-900 flex items-center gap-1.5">
+                <MapPin size={12} className="text-[#D4AF37]" /> Branch:
+              </span>
+              <div className="flex items-center gap-1">
+                {BRANCHES.map(b => (
+                  <button
+                    key={b.id}
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setSelectedBranch(b.name as BranchName); }}
+                    className={`px-2 py-0.5 rounded text-[11px] font-black transition-all ${
+                      selectedBranch === b.name
+                        ? 'bg-[#D4AF37] text-black shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {b.shortName}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Express toggle */}
             <button onClick={()=>setIsExpress(v=>!v)}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all ${
