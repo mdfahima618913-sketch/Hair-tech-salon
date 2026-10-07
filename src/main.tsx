@@ -7,7 +7,7 @@ import { seedServicesIfEmpty } from './lib/firebase';
 
 // Initialize and seed data
 testConnection();
-seedServicesIfEmpty();
+//seedServicesIfEmpty();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

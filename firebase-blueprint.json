@@ -9,6 +9,7 @@
         "date": { "type": "string", "format": "date" },
         "timeSlot": { "type": "string" },
         "serviceIds": { "type": "array", "items": { "type": "string" } },
+        "location": { "type": "string", "description": "Branch location (e.g. Bus Stand or Chandani Chowk)" },
         "totalPrice": { "type": "number" },
         "paymentId": { "type": "string" },
         "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },

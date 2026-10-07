@@ -6,13 +6,15 @@ import {
   Users, Package, Zap, Building2, Wrench, Coffee, Megaphone,
   ShoppingBag, Hammer, MoreHorizontal, Banknote, Smartphone,
   CreditCard, ArrowLeftRight, Calendar, ReceiptText, Filter,
+  MapPin,
 } from 'lucide-react';
 import {
-  collection, query, where, getDocs, addDoc, deleteDoc,
+  collection, query, where, getDocs, onSnapshot, addDoc, deleteDoc,
   doc, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { format, startOfMonth, addMonths, subMonths, parseISO } from 'date-fns';
+import { BRANCHES, BranchName, DEFAULT_BRANCH_NAME } from '../lib/branches';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -48,6 +50,7 @@ interface Expense {
   paymentMethod: string;
   paidTo: string;
   notes: string;
+  location?: string;
   createdAt: any;
 }
 
@@ -71,38 +74,45 @@ export default function ExpenseManager() {
   const [loading,       setLoading]       = useState(false);
   const [showForm,      setShowForm]      = useState(false);
   const [filterCat,     setFilterCat]     = useState<CategoryId | 'all'>('all');
+  const [filterBranch,  setFilterBranch]  = useState<'all' | BranchName>('all');
   const [deletingId,    setDeletingId]    = useState<string | null>(null);
 
   // Form state
   const blankForm = () => ({
-    date:     format(new Date(), 'yyyy-MM-dd'),
-    category: 'misc' as CategoryId,
+    date:        format(new Date(), 'yyyy-MM-dd'),
+    category:    'misc' as CategoryId,
     description: '',
-    amount:   '',
-    payment:  'cash',
-    paidTo:   '',
-    notes:    '',
+    amount:      '',
+    payment:     'cash',
+    paidTo:      '',
+    notes:       '',
+    location:    DEFAULT_BRANCH_NAME as BranchName,
   });
   const [form,      setForm]      = useState(blankForm);
   const [saving,    setSaving]    = useState(false);
   const [saveError, setSaveError] = useState('');
   const [savedMsg,  setSavedMsg]  = useState('');
 
-  // ── Data loading ─────────────────────────────────────────────────────────────
+  // ── Data loading (Realtime sync on expenses) ──────────────────────────────────
 
   useEffect(() => {
     const yearMonth = format(selectedMonth, 'yyyy-MM');
     setLoading(true);
 
-    // Expenses for this month
-    getDocs(query(collection(db, 'expenses'), where('yearMonth', '==', yearMonth)))
-      .then(snap => {
+    // Expenses for this month — Realtime listener so additions anywhere appear instantly
+    const unsubscribeExpenses = onSnapshot(
+      query(collection(db, 'expenses'), where('yearMonth', '==', yearMonth)),
+      snap => {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense));
         list.sort((a, b) => b.date.localeCompare(a.date));
         setExpenses(list);
-      })
-      .catch(() => setExpenses([]))
-      .finally(() => setLoading(false));
+        setLoading(false);
+      },
+      err => {
+        console.error('Realtime expense listener error:', err);
+        setLoading(false);
+      }
+    );
 
     // Revenue from invoices this month (best-effort — may fail if index not ready)
     const monthStart = Timestamp.fromDate(startOfMonth(selectedMonth));
@@ -121,6 +131,10 @@ export default function ExpenseManager() {
         setRevenueCount(snap.docs.length);
       })
       .catch(() => { setRevenue(null); setRevenueCount(0); });
+
+    return () => {
+      unsubscribeExpenses();
+    };
   }, [selectedMonth]);
 
   // ── Derived stats ─────────────────────────────────────────────────────────────
@@ -137,11 +151,14 @@ export default function ExpenseManager() {
   }, [expenses]);
 
   const grouped = useMemo(() => {
-    const filtered = filterCat === 'all' ? expenses : expenses.filter(e => e.category === filterCat);
+    let filtered = filterCat === 'all' ? expenses : expenses.filter(e => e.category === filterCat);
+    if (filterBranch !== 'all') {
+      filtered = filtered.filter(e => (e.location || DEFAULT_BRANCH_NAME) === filterBranch);
+    }
     const map: Record<string, Expense[]> = {};
     filtered.forEach(e => { (map[e.date] ??= []).push(e); });
     return Object.entries(map).sort(([a], [b]) => b.localeCompare(a));
-  }, [expenses, filterCat]);
+  }, [expenses, filterCat, filterBranch]);
 
   // ── Add expense ───────────────────────────────────────────────────────────────
 
@@ -161,17 +178,12 @@ export default function ExpenseManager() {
         paymentMethod: form.payment,
         paidTo:        form.paidTo.trim(),
         notes:         form.notes.trim(),
+        location:      form.location,
         createdAt:     serverTimestamp(),
       };
-      const ref = await addDoc(collection(db, 'expenses'), payload);
-      const newExp: Expense = { id: ref.id, ...payload, createdAt: new Date() };
+      await addDoc(collection(db, 'expenses'), payload);
 
-      // Only show in list if it belongs to selected month
-      if (payload.yearMonth === format(selectedMonth, 'yyyy-MM')) {
-        setExpenses(prev => [newExp, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
-      }
-
-      setSavedMsg(`₹${fmt(amt)} expense added!`);
+      setSavedMsg(`₹${fmt(amt)} expense added for ${form.location}!`);
       setTimeout(() => setSavedMsg(''), 2500);
       setForm(blankForm());
       setShowForm(false);
@@ -359,6 +371,33 @@ export default function ExpenseManager() {
                 <ReceiptText size={11} /> New Expense
               </p>
 
+              {/* Branch Store Switcher */}
+              <div className="space-y-1.5">
+                <label className="text-[11px] font-black uppercase tracking-wider text-gray-400 flex items-center gap-1.5">
+                  <MapPin size={11} className="text-gold" /> Branch / Store Location
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {BRANCHES.map(b => (
+                    <button
+                      key={b.id}
+                      type="button"
+                      onClick={() => setForm(p => ({ ...p, location: b.name as BranchName }))}
+                      className={`py-2 px-3 rounded-xl border text-left transition-all flex items-center justify-between ${
+                        form.location === b.name
+                          ? 'bg-amber-500/15 border-amber-400 text-amber-300 font-black shadow-sm'
+                          : 'bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/8'
+                      }`}
+                    >
+                      <div className="min-w-0">
+                        <span className="text-xs font-black block">{b.shortName}</span>
+                        <span className="text-[10px] text-gray-500 truncate block">{b.address}</span>
+                      </div>
+                      {form.location === b.name && <CheckCircle2 size={13} className="text-amber-400 shrink-0 ml-1.5" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Date + Amount row */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -488,15 +527,34 @@ export default function ExpenseManager() {
       <div className="space-y-3">
         {/* Filter chips */}
         {expenses.length > 0 && (
-          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-0.5">
-            <Filter size={11} className="text-gray-600 shrink-0" />
+          <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-hide pb-0.5 flex-wrap">
+            {/* Branch filter pills */}
+            <div className="flex items-center gap-1 border-r border-white/10 pr-2 mr-1">
+              <MapPin size={11} className="text-gold shrink-0" />
+              {(['all', 'Bus Stand', 'Chandani Chowk'] as const).map(b => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setFilterBranch(b)}
+                  className={`shrink-0 px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
+                    filterBranch === b
+                      ? 'bg-amber-400 text-black font-black shadow-sm'
+                      : 'bg-white/[0.04] text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {b === 'all' ? 'All Stores' : b}
+                </button>
+              ))}
+            </div>
+
+            <Filter size={11} className="text-gray-600 shrink-0 ml-1" />
             <button
               onClick={() => setFilterCat('all')}
               className={`shrink-0 px-3 py-1 rounded-full text-xs font-bold transition-all ${
                 filterCat === 'all' ? 'bg-gold text-black' : 'bg-white/[0.06] text-gray-400 hover:text-white'
               }`}
             >
-              All ({expenses.length})
+              All Categories ({expenses.length})
             </button>
             {catTotals.map(c => (
               <button
@@ -557,6 +615,11 @@ export default function ExpenseManager() {
                     <div className="flex-1 min-w-0">
                       <p className="text-white text-sm font-bold truncate">{exp.description}</p>
                       <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {exp.location && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-amber-500/10 border-amber-500/20 text-amber-300">
+                            <MapPin size={9} /> {exp.location}
+                          </span>
+                        )}
                         {exp.paidTo && (
                           <span className="text-xs text-gray-500">→ {exp.paidTo}</span>
                         )}

@@ -27,7 +27,10 @@ import {
   IndianRupee, ChevronDown, ChevronUp, Crown, Flame,
   BarChart3, Percent, Users, Calendar, X,
   ArrowLeft, Receipt, ChevronRight, ChevronLeft,
+  Printer, Loader2,
 } from 'lucide-react';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
 
@@ -253,6 +256,220 @@ function WeekBars({ weekValues }: { weekValues: number[] }) {
 
 // ─── Staff Profile Drill-down ──────────────────────────────────────────────────
 
+function InvoiceModal({
+  invoice,
+  staffMember,
+  isLoading,
+  onClose,
+}: {
+  invoice: any | null;
+  staffMember?: StaffMember;
+  isLoading?: boolean;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!invoice) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [invoice, onClose]);
+
+  if (!invoice) return null;
+
+  const dateStr = invoice.createdAt ? toDate(invoice.createdAt).toLocaleString('en-IN', {
+    day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  }) : '—';
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const items = invoice.items ?? [];
+  const subtotal = invoice.subtotal ?? invoice.total ?? items.reduce((a: number, it: any) => a + (it.price ?? 0), 0);
+  const total = invoice.total ?? subtotal;
+  const discountAmount = invoice.discountAmount ?? 0;
+  const paymentMethod = invoice.paymentMethod ?? 'Cash';
+  const myStaffItems = staffMember ? items.filter((it: any) => it.staffId === staffMember.id) : items;
+  const myStaffCommission = myStaffItems.reduce((a: number, it: any) => a + (it.commissionAmount ?? 0), 0);
+
+  return (
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-in fade-in duration-200"
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        className="relative w-full max-w-md bg-zinc-950 border border-white/15 rounded-3xl shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
+      >
+        {/* Top Header */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-zinc-900/80 shrink-0">
+          <div className="flex items-center gap-2">
+            <Receipt size={16} className="text-gold" />
+            <span className="text-white font-black text-sm uppercase tracking-wider">
+              {invoice.invoiceNumber ? `Invoice #${invoice.invoiceNumber}` : 'Bill Details'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handlePrint}
+              title="Print Receipt"
+              className="p-2 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-gray-300 hover:text-white transition-all text-xs font-bold flex items-center gap-1.5"
+            >
+              <Printer size={13} />
+              <span className="hidden sm:inline">Print</span>
+            </button>
+            <button
+              onClick={onClose}
+              className="p-2 rounded-xl bg-white/8 hover:bg-white/12 border border-white/10 text-gray-400 hover:text-white transition-all"
+            >
+              <X size={15} />
+            </button>
+          </div>
+        </div>
+
+        {/* Receipt Body */}
+        <div className="flex-1 overflow-y-auto p-5 scrollbar-hide space-y-4">
+          {isLoading && (
+            <div className="flex items-center justify-center py-4 text-gold gap-2 text-xs font-bold">
+              <Loader2 size={14} className="animate-spin" /> Loading full bill details…
+            </div>
+          )}
+
+          {/* Salon Receipt Card */}
+          <div className="bg-white text-zinc-900 rounded-2xl p-5 shadow-lg font-mono text-xs border border-gray-200">
+            {/* Header */}
+            <div className="text-center pb-3 border-b border-dashed border-gray-300">
+              <p className="font-black text-lg uppercase tracking-tight text-black">Hair Tech</p>
+              <p className="text-xs font-bold text-gray-600">Unisex Salon, Araria</p>
+              <p className="text-[11px] text-gray-500 mt-0.5">+91 87896 03343</p>
+              <div className="flex justify-center gap-1.5 mt-2">
+                <span className={`text-[10px] px-2 py-0.5 rounded border font-bold uppercase ${
+                  invoice.source === 'online' ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-amber-50 border-amber-200 text-amber-800'
+                }`}>
+                  {invoice.source === 'online' ? 'Online Booking' : 'Walk-in'}
+                </span>
+                {invoice.location && (
+                  <span className="text-[10px] px-2 py-0.5 rounded border bg-gray-50 border-gray-200 text-gray-700 font-bold">
+                    {invoice.location}
+                  </span>
+                )}
+              </div>
+              <div className="mt-2 text-[11px] text-gray-500 space-y-0.5">
+                {invoice.invoiceNumber && (
+                  <p>Invoice: <span className="font-black text-black">#{invoice.invoiceNumber}</span></p>
+                )}
+                <p>{dateStr}</p>
+              </div>
+            </div>
+
+            {/* Customer Details */}
+            <div className="py-2.5 border-b border-dashed border-gray-300 space-y-1 text-xs">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Customer</span>
+                <span className="font-bold text-black">{invoice.customerName || 'Walk-in Guest'}</span>
+              </div>
+              {invoice.customerPhone && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Phone</span>
+                  <span className="text-gray-700">{invoice.customerPhone}</span>
+                </div>
+              )}
+              {staffMember && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">Staff Profile</span>
+                  <span className="font-black text-purple-700">{staffMember.name}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Itemized Services */}
+            <div className="py-3 border-b border-dashed border-gray-300 space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-wider text-gray-400">Services</p>
+              {items.map((it: any, idx: number) => {
+                const isThisStaff = staffMember && it.staffId === staffMember.id;
+                return (
+                  <div key={idx} className={`p-1.5 rounded-lg ${isThisStaff ? 'bg-purple-50/70 border border-purple-100' : ''}`}>
+                    <div className="flex justify-between items-start text-xs">
+                      <span className="font-bold text-gray-900 flex-1 pr-2">
+                        {it.serviceName}
+                        {(it.quantity ?? 1) > 1 && ` ×${it.quantity}`}
+                      </span>
+                      <span className="font-black text-black shrink-0">
+                        ₹{(it.price ?? 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-gray-500 mt-0.5">
+                      <span>Staff: {it.staffName || (isThisStaff ? staffMember?.name : 'Salon Staff')}</span>
+                      {it.commissionAmount !== undefined && (
+                        <span className="text-purple-600 font-bold">Comm: ₹{it.commissionAmount.toLocaleString('en-IN')}</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Financial Summary */}
+            <div className="pt-3 space-y-1.5 text-xs">
+              <div className="flex justify-between text-gray-600">
+                <span>Subtotal</span>
+                <span>₹{subtotal.toLocaleString('en-IN')}</span>
+              </div>
+              {discountAmount > 0 && (
+                <div className="flex justify-between text-red-600 font-bold">
+                  <span>Discount {invoice.discountPercent ? `(${invoice.discountPercent}%)` : ''}</span>
+                  <span>-₹{discountAmount.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              <div className="pt-1.5 border-t border-gray-300 flex justify-between text-sm font-black text-black">
+                <span>Total Amount</span>
+                <span className="text-[#B8941F]">₹{total.toLocaleString('en-IN')}</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-600 pt-1">
+                <span>Payment Method</span>
+                <span className="font-bold uppercase text-black">{paymentMethod}</span>
+              </div>
+              {invoice.amountDue > 0 && (
+                <div className="flex justify-between text-xs text-red-600 font-bold">
+                  <span>Amount Due</span>
+                  <span>₹{invoice.amountDue.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+              {staffMember && myStaffCommission > 0 && (
+                <div className="mt-2.5 pt-2 border-t border-dashed border-gray-200 flex justify-between text-xs font-black text-purple-700 bg-purple-50 p-2 rounded-lg">
+                  <span>Commission Earned ({staffMember.name})</span>
+                  <span>₹{myStaffCommission.toLocaleString('en-IN')}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="text-center pt-4 text-[10px] text-gray-400">
+              <p className="font-bold">Thank you for visiting Hair Tech Salon!</p>
+              <p>Luxury unisex grooming & beauty experience</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="p-4 border-t border-white/10 bg-zinc-900/60 flex items-center justify-between shrink-0">
+          <span className="text-xs text-gray-400">
+            Status: <span className="text-emerald-400 font-bold uppercase">{invoice.status ?? 'Paid'}</span>
+          </span>
+          <button
+            onClick={onClose}
+            className="px-5 py-2 bg-white/10 hover:bg-white/15 border border-white/12 rounded-xl text-xs font-bold text-white transition-all"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StaffProfileView({
   staffId, staff, staffInvoices, onBack,
 }: {
@@ -262,6 +479,27 @@ function StaffProfileView({
   onBack: () => void;
 }) {
   const member = staff.find(s => s.id === staffId);
+  const [selectedInvoice, setSelectedInvoice] = useState<any | null>(null);
+  const [fetchingInvoice, setFetchingInvoice] = useState(false);
+  const [selectedServiceFilter, setSelectedServiceFilter] = useState<string | null>(null);
+
+  const handleBillClick = async (inv: Invoice) => {
+    setSelectedInvoice(inv);
+    const invId = (inv as any).id;
+    if (invId) {
+      try {
+        setFetchingInvoice(true);
+        const snap = await getDoc(doc(db, 'invoices', invId));
+        if (snap.exists()) {
+          setSelectedInvoice({ id: snap.id, ...snap.data() });
+        }
+      } catch (err) {
+        console.error('Failed to fetch invoice doc:', err);
+      } finally {
+        setFetchingInvoice(false);
+      }
+    }
+  };
 
   // Own date filter — defaults to all-time so full history is shown
   const [profileFrom, setProfileFrom] = useState('');
@@ -333,10 +571,14 @@ function StaffProfileView({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [staffInvoices, staffId, profileFrom, profileTo]);
 
-  // Bills within range — non-mutating sort
-  const filteredBills = useMemo(() =>
-    [...filteredInvoices].sort((a, b) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime()),
-  [filteredInvoices]);
+  // Bills within range — non-mutating sort with optional service filter
+  const filteredBills = useMemo(() => {
+    let list = [...filteredInvoices];
+    if (selectedServiceFilter) {
+      list = list.filter(inv => (inv.items ?? []).some(it => it.staffId === staffId && it.serviceName === selectedServiceFilter));
+    }
+    return list.sort((a, b) => toDate(b.createdAt).getTime() - toDate(a.createdAt).getTime());
+  }, [filteredInvoices, selectedServiceFilter, staffId]);
 
   // Team comparison within the range
   const teamComparison = useMemo(() => {
@@ -770,34 +1012,46 @@ function StaffProfileView({
         ) : (
           <>
             <div className="divide-y divide-white/5">
-              {serviceBreakdown.map((svc, i) => (
-                <div key={svc.name} className="px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
-                  <div className="flex items-center gap-3 mb-2">
-                    <span className="text-sm shrink-0 w-5">{MEDAL[i] ?? ''}</span>
-                    <span className="text-white text-sm font-bold flex-1 truncate">{svc.name}</span>
-                    <span className="text-[11px] text-gray-500 shrink-0">{svc.count}×</span>
-                    <span className="text-gold font-black text-sm shrink-0 w-20 text-right">
-                      ₹{svc.revenue.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 pl-8">
-                    <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${(svc.revenue / maxSvcRev) * 100}%` }}
-                        transition={{ duration: 0.55, ease: 'easeOut' }}
-                        className="h-full bg-gold/55 rounded-full"
-                      />
+              {serviceBreakdown.map((svc, i) => {
+                const isSelected = selectedServiceFilter === svc.name;
+                return (
+                  <button
+                    key={svc.name}
+                    type="button"
+                    onClick={() => setSelectedServiceFilter(prev => prev === svc.name ? null : svc.name)}
+                    className={`w-full text-left px-5 py-3.5 transition-colors cursor-pointer group ${
+                      isSelected ? 'bg-gold/10' : 'hover:bg-white/[0.03]'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="text-sm shrink-0 w-5">{MEDAL[i] ?? ''}</span>
+                      <span className={`text-sm font-bold flex-1 truncate ${isSelected ? 'text-gold' : 'text-white group-hover:text-gold'}`}>
+                        {svc.name}
+                      </span>
+                      <span className="text-[11px] text-gray-500 shrink-0">{svc.count}×</span>
+                      <span className="text-gold font-black text-sm shrink-0 w-20 text-right">
+                        ₹{svc.revenue.toLocaleString('en-IN')}
+                      </span>
                     </div>
-                    <span className="text-[10px] text-gray-600 shrink-0">
-                      avg ₹{svc.avg.toLocaleString('en-IN')} · comm ₹{svc.commission.toLocaleString('en-IN')}
-                    </span>
-                  </div>
-                </div>
-              ))}
+                    <div className="flex items-center gap-3 pl-8">
+                      <div className="flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(svc.revenue / maxSvcRev) * 100}%` }}
+                          transition={{ duration: 0.55, ease: 'easeOut' }}
+                          className={`h-full rounded-full ${isSelected ? 'bg-gold' : 'bg-gold/55'}`}
+                        />
+                      </div>
+                      <span className="text-[10px] text-gray-600 shrink-0">
+                        avg ₹{svc.avg.toLocaleString('en-IN')} · comm ₹{svc.commission.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
             <div className="px-5 py-2.5 border-t border-white/10 bg-white/[0.01] flex justify-between text-xs font-bold">
-              <span className="text-gray-500">{summary.services} total services</span>
+              <span className="text-gray-500">{summary.services} total services · Click service to filter bills</span>
               <span className="text-gold">₹{summary.revenue.toLocaleString('en-IN')} · <span className="text-purple-400">₹{summary.commission.toLocaleString('en-IN')} comm</span></span>
             </div>
           </>
@@ -807,10 +1061,24 @@ function StaffProfileView({
       {/* Bills in period */}
       {filteredBills.length > 0 && (
         <div className="bg-zinc-900 border border-white/12 rounded-2xl overflow-hidden">
-          <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
-            <p className="text-xs uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
-              <Receipt size={12} /> Bills
-            </p>
+          <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <p className="text-xs uppercase tracking-widest font-black text-gray-500 flex items-center gap-2">
+                <Receipt size={12} /> Bills
+              </p>
+              {selectedServiceFilter && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gold/15 text-gold text-[10px] font-black border border-gold/30">
+                  <Scissors size={10} /> {selectedServiceFilter}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedServiceFilter(null)}
+                    className="hover:text-white ml-0.5"
+                  >
+                    <X size={10} />
+                  </button>
+                </span>
+              )}
+            </div>
             <span className="text-[11px] text-gray-500">{filteredBills.length} invoice{filteredBills.length !== 1 ? 's' : ''} · {profileLabel}</span>
           </div>
           <div className="divide-y divide-white/5">
@@ -819,32 +1087,71 @@ function StaffProfileView({
               const myRevenue = myItems.reduce((a, it) => a + (it.price ?? 0), 0);
               const myComm    = myItems.reduce((a, it) => a + (it.commissionAmount ?? 0), 0);
               return (
-                <div key={(inv as any).id ?? i} className="px-5 py-3 hover:bg-white/[0.02] transition-colors">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <span className="text-[11px] text-gray-500">
-                          {toDate(inv.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                <button
+                  key={(inv as any).id ?? i}
+                  type="button"
+                  onClick={() => handleBillClick(inv)}
+                  className="w-full text-left px-5 py-3.5 hover:bg-white/[0.05] transition-all flex items-center justify-between gap-3 group cursor-pointer"
+                >
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-[11px] font-bold text-gray-400">
+                        {toDate(inv.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      {(inv as any).invoiceNumber && (
+                        <span className="text-[10px] font-black text-gold px-1.5 py-0.5 rounded bg-gold/10 border border-gold/20">
+                          #{(inv as any).invoiceNumber}
                         </span>
-                        {(inv as any).invoiceNumber && (
-                          <span className="text-[10px] text-gray-700">· #{(inv as any).invoiceNumber}</span>
-                        )}
-                      </div>
-                      <p className="text-white text-xs font-medium truncate">
-                        {myItems.map(it => it.serviceName).join(', ')}
-                      </p>
+                      )}
+                      {(inv as any).customerName && (
+                        <span className="text-[11px] text-gray-300 font-bold truncate">
+                          · {(inv as any).customerName}
+                        </span>
+                      )}
+                      {(inv as any).location && (
+                        <span className="text-[10px] font-bold text-amber-300 px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/20">
+                          {(inv as any).location}
+                        </span>
+                      )}
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-gold text-sm font-black">₹{myRevenue.toLocaleString('en-IN')}</p>
-                      <p className="text-[11px] text-purple-400">comm ₹{myComm.toLocaleString('en-IN')}</p>
+                    {/* Itemized services as clickable tags */}
+                    <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                      {myItems.map((it, idx) => (
+                        <span
+                          key={idx}
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[11px] font-semibold text-gray-200 group-hover:border-gold/30 group-hover:text-gold transition-colors"
+                        >
+                          <Scissors size={10} className="text-gold shrink-0" />
+                          <span>{it.serviceName}</span>
+                          <span className="text-gray-400 font-normal">₹{(it.price ?? 0).toLocaleString('en-IN')}</span>
+                        </span>
+                      ))}
                     </div>
                   </div>
-                </div>
+                  <div className="text-right shrink-0 flex items-center gap-3">
+                    <div>
+                      <p className="text-gold text-sm font-black">₹{myRevenue.toLocaleString('en-IN')}</p>
+                      <p className="text-[11px] text-purple-400 font-medium">comm ₹{myComm.toLocaleString('en-IN')}</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gold/10 border border-gold/25 text-gold text-xs font-bold group-hover:bg-gold group-hover:text-black transition-all shadow-sm">
+                      <Receipt size={13} className="shrink-0" />
+                      <span className="hidden sm:inline">Fetch Bill</span>
+                    </div>
+                  </div>
+                </button>
               );
             })}
           </div>
         </div>
       )}
+
+      {/* Invoice Detail Modal */}
+      <InvoiceModal
+        invoice={selectedInvoice}
+        staffMember={member}
+        isLoading={fetchingInvoice}
+        onClose={() => setSelectedInvoice(null)}
+      />
 
       {/* Empty state */}
       {summary.services === 0 && filteredBills.length === 0 && (

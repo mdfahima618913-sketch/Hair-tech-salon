@@ -11,7 +11,7 @@ import {
   TrendingDown, BarChart3, CalendarDays, ChevronRight as ChevronRightIcon,
   Receipt, UserCheck, Plus, Trash2, Edit2, Save, Building2,
   Wallet, BarChart, PieChart, Smartphone, Wrench, Percent, Printer, CalendarPlus, IndianRupee, Crown,
-  CalendarCheck, Sun, CloudSun, Moon, Lock,
+  CalendarCheck, Sun, CloudSun, Moon, Lock, MapPin,
 } from 'lucide-react';
 import { format, addDays, subDays, startOfDay, isSameDay, isToday, isYesterday } from 'date-fns';
 import BannerManager  from './BannerManager';
@@ -21,6 +21,8 @@ import ServiceManager  from './ServiceManager';
 import DataIO          from './DataIO';
 import ExpenseManager  from './ExpenseManager';
 import TrendingServicesManager from './TrendingServicesManager';
+import QuickExpenseModal from './QuickExpenseModal';
+import { BRANCHES, BranchName, DEFAULT_BRANCH_NAME, getBookingBranch, getBranchDetails } from '../lib/branches';
 import {
   signInWithEmailAndPassword,
   signOut,
@@ -53,6 +55,7 @@ interface Booking {
   customerEmail: string;
   bookingDate: string;
   bookingTime: string;
+  location?: string;
   serviceNames: string;
   totalAmount: number;
   status: BookingStatus;
@@ -607,7 +610,12 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
               {(booking.customerName ?? '?').charAt(0).toUpperCase()}
             </div>
             <div>
-              <p className="text-white text-sm font-bold leading-none">{booking.customerName ?? '—'}</p>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <p className="text-white text-sm font-bold leading-none">{booking.customerName ?? '—'}</p>
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-gold/10 text-gold border border-gold/20">
+                  <MapPin size={9} /> {getBookingBranch(booking)}
+                </span>
+              </div>
               <p className="text-gray-500 text-xs mt-0.5">{booking.customerPhone ?? '—'}</p>
             </div>
           </div>
@@ -706,6 +714,7 @@ function BookingRow({ booking, onStatusChange, onCreateBill, onViewInvoice, onCo
               >
                 <div className="p-6 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                   {[
+                    { label: 'Store Branch',value: getBookingBranch(booking) },
                     { label: 'Email',       value: booking.customerEmail ?? '—' },
                     { label: 'Payment ID',  value: booking.paymentId     ?? '—' },
                     { label: 'Order ID',    value: booking.orderId       ?? '—' },
@@ -1444,6 +1453,35 @@ function VvipCustomerCard({
 function Dashboard({ user, staffMember }: { user: FirebaseUser; staffMember?: StaffMember & { id: string } }) {
   const isStaffMode = !!staffMember;
   const [bookings, setBookings]           = useState<Booking[]>([]);
+  // Store / branch location filter (Bus Stand is default for legacy compatibility)
+  const [selectedLocation, setSelectedLocation] = useState<'all' | BranchName>('Bus Stand');
+  const [branchDropdownOpen, setBranchDropdownOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const branchDropdownRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (branchDropdownRef.current && !branchDropdownRef.current.contains(event.target as Node)) {
+        setBranchDropdownOpen(false);
+      }
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const [quickExpenseOpen, setQuickExpenseOpen] = useState(false);
+  const [expenseToast, setExpenseToast]         = useState<string | null>(null);
+
+  // Filter bookings by store location (fallback missing location to 'Bus Stand')
+  const scopedBookings = useMemo(() => {
+    if (selectedLocation === 'all') return bookings;
+    return bookings.filter(b => getBookingBranch(b) === selectedLocation);
+  }, [bookings, selectedLocation]);
+
   const [loading, setLoading]             = useState(true);
   const [listenerError, setListenerError] = useState<string | null>(null);
   const [search, setSearch]               = useState('');
@@ -2001,11 +2039,11 @@ Your uid is: ${user.uid}
   // Confirm all paid-but-unconfirmed bookings in one click
   // (does NOT touch payment-pending orders — those need manual admin review)
   const confirmAllPending = useCallback(async () => {
-    const unconfirmed = bookings.filter(b =>
+    const unconfirmed = scopedBookings.filter(b =>
       b.status === 'paid' || b.status === 'whatsapp_redirected'
     );
     await Promise.all(unconfirmed.map(b => handleStatusChange(b.id, 'confirmed')));
-  }, [bookings]);
+  }, [scopedBookings]);
 
   // Load staff list + broad invoice dataset for StaffAnalytics (runs once on view enter)
   useEffect(() => {
@@ -2016,7 +2054,7 @@ Your uid is: ${user.uid}
       getDocs(query(collection(db, 'invoices'), orderBy('createdAt', 'desc'), limit(2000))),
     ]).then(([staffSnap, invSnap]) => {
       setStaff(staffSnap.docs.map(d => ({ id: d.id, ...d.data() } as StaffMember)));
-      setStaffInvoices(invSnap.docs.map(d => d.data()));
+      setStaffInvoices(invSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     }).catch(console.error)
       .finally(() => setStaffLoading(false));
   }, [view]);
@@ -2555,21 +2593,21 @@ Your uid is: ${user.uid}
       const d = b.createdAt.toDate();
       return d >= start && (end ? d <= end : true);
     };
-    const periodBookings  = bookings.filter(inPeriod);
+    const periodBookings  = scopedBookings.filter(inPeriod);
     const pendingBookings = periodBookings.filter(b => b.status === 'pending');
     const completedCount  = periodBookings.filter(b => b.status === 'completed').length;
     const todayStr        = now.toDateString();
-    const todayCount      = bookings.filter(
+    const todayCount      = scopedBookings.filter(
       b => b.bookingDate && new Date(b.bookingDate).toDateString() === todayStr
     ).length;
 
     // ── Status breakdown for donut chart ────────────────────────────────────
     const statusBreakdown: { status: BookingStatus; count: number; color: string }[] = [
-      { status: 'confirmed', count: periodBookings.filter(b => b.status === 'confirmed').length, color: '#3b82f6' },
-      { status: 'paid',      count: periodBookings.filter(b => b.status === 'paid').length,      color: '#10b981' },
-      { status: 'completed', count: periodBookings.filter(b => b.status === 'completed').length, color: '#a855f7' },
-      { status: 'pending',   count: periodBookings.filter(b => b.status === 'pending').length,   color: '#f59e0b' },
-      { status: 'failed',    count: periodBookings.filter(b => b.status === 'failed').length,    color: '#ef4444' },
+      { status: 'confirmed' as const, count: periodBookings.filter(b => b.status === 'confirmed').length, color: '#3b82f6' },
+      { status: 'paid' as const,      count: periodBookings.filter(b => b.status === 'paid').length,      color: '#10b981' },
+      { status: 'completed' as const, count: periodBookings.filter(b => b.status === 'completed').length, color: '#a855f7' },
+      { status: 'pending' as const,   count: periodBookings.filter(b => b.status === 'pending').length,   color: '#f59e0b' },
+      { status: 'failed' as const,    count: periodBookings.filter(b => b.status === 'failed').length,    color: '#ef4444' },
     ].filter(s => s.count > 0);
 
     // ── Peak hours from bookings ─────────────────────────────────────────────
@@ -2593,7 +2631,7 @@ Your uid is: ${user.uid}
     for (let i = chartDays - 1; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
       const next = new Date(d); next.setDate(d.getDate() + 1);
-      const day = bookings.filter(b => {
+      const day = scopedBookings.filter(b => {
         if (!b.createdAt) return false;
         const bd = b.createdAt.toDate(); return bd >= d && bd < next;
       });
@@ -2611,7 +2649,7 @@ Your uid is: ${user.uid}
     for (let i = chartDays - 1; i >= 0; i--) {
       const d = new Date(); d.setDate(d.getDate() - i); d.setHours(0,0,0,0);
       const next = new Date(d); next.setDate(d.getDate() + 1);
-      const day = bookings.filter(b => {
+      const day = scopedBookings.filter(b => {
         if (!b.createdAt) return false;
         const bd = b.createdAt.toDate(); return bd >= d && bd < next && b.status !== 'failed';
       });
@@ -2791,17 +2829,17 @@ Your uid is: ${user.uid}
   const oneWeekAgo = startOfDay(subDays(new Date(), 7));
 
   const pendingTabBookings = useMemo(() => {
-    const actualPending = bookings.filter(b => {
+    const actualPending = scopedBookings.filter(b => {
       if (b.status !== 'pending') return false;
       const createdMs = b.createdAt?.toMillis?.();
       if (!createdMs) return true;
       return nowTick - createdMs >= PENDING_NOTIFY_DELAY_MS;
     });
-    const oldActive = bookings.filter(b =>
+    const oldActive = scopedBookings.filter(b =>
       b.status !== 'completed' && b.status !== 'pending' && b.status !== 'failed' && !isRecentBooking(b)
     );
     return [...actualPending, ...oldActive];
-  }, [bookings, nowTick]);
+  }, [scopedBookings, nowTick]);
 
   const isFutureBooking = (b: Booking): boolean => {
     const d = getBookingDate(b);
@@ -2809,11 +2847,11 @@ Your uid is: ${user.uid}
     return d >= startOfDay(addDays(new Date(), 1));
   };
 
-  const activeBookings     = useMemo(() => bookings.filter(b => b.status !== 'completed' && b.status !== 'pending' && b.status !== 'failed' && isRecentBooking(b)), [bookings]);
-  const upcomingBookings   = useMemo(() => bookings.filter(b => b.status !== 'completed' && b.status !== 'pending' && b.status !== 'failed' && isFutureBooking(b)), [bookings]);
-  const completedBookings  = useMemo(() => bookings.filter(b => b.status === 'completed' && !b.invoiceId), [bookings]);
-  const failedBookings     = useMemo(() => bookings.filter(b => b.status === 'failed'), [bookings]);
-  const rescheduledBookings = useMemo(() => bookings.filter(b => !!b.rescheduledAt && b.status !== 'completed' && b.status !== 'failed'), [bookings]);
+  const activeBookings     = useMemo(() => scopedBookings.filter(b => b.status !== 'completed' && b.status !== 'pending' && b.status !== 'failed' && isRecentBooking(b)), [scopedBookings]);
+  const upcomingBookings   = useMemo(() => scopedBookings.filter(b => b.status !== 'completed' && b.status !== 'pending' && b.status !== 'failed' && isFutureBooking(b)), [scopedBookings]);
+  const completedBookings  = useMemo(() => scopedBookings.filter(b => b.status === 'completed' && !b.invoiceId), [scopedBookings]);
+  const failedBookings     = useMemo(() => scopedBookings.filter(b => b.status === 'failed'), [scopedBookings]);
+  const rescheduledBookings = useMemo(() => scopedBookings.filter(b => !!b.rescheduledAt && b.status !== 'completed' && b.status !== 'failed'), [scopedBookings]);
 
   type LabelInfo = { text: string; color: string; bg: string };
   const getBookingLabels = (b: Booking, tab: string): LabelInfo[] => {
@@ -2839,7 +2877,7 @@ Your uid is: ${user.uid}
     let list: Booking[];
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = bookings.filter(b =>
+      list = scopedBookings.filter(b =>
         (b.customerName  ?? '').toLowerCase().includes(q) ||
         (b.customerPhone ?? '').includes(q) ||
         (b.customerEmail ?? '').toLowerCase().includes(q) ||
@@ -2903,6 +2941,7 @@ Your uid is: ${user.uid}
         <WalkInBooking
           user={user}
           staffMember={staffMember ?? undefined}
+          defaultLocation={selectedLocation === 'all' ? 'Bus Stand' : selectedLocation}
           onClose={() => setWalkInOpen(false)}
           onCreated={(_id) => { setWalkInOpen(false); setActiveTab('active'); }}
         />
@@ -2911,7 +2950,7 @@ Your uid is: ${user.uid}
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] text-white">
+    <div className="min-h-screen bg-[#0A0A0A] text-white overflow-x-hidden">
       {/* Background texture */}
       <div className="fixed inset-0 pointer-events-none">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-gold/3 rounded-full blur-[180px]" />
@@ -2919,9 +2958,9 @@ Your uid is: ${user.uid}
       </div>
 
       {/* ── Top Bar ── */}
-      <header className="sticky top-0 z-50 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-white/15">
-        <div className="max-w-7xl mx-auto px-5 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 shrink-0">
+      <header className="sticky top-0 z-50 bg-[#0A0A0A]/95 backdrop-blur-xl border-b border-white/15 w-full overflow-x-clip">
+        <div className="w-full max-w-7xl mx-auto px-3 sm:px-5 h-16 flex items-center justify-between gap-2 sm:gap-3 min-w-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <div className="w-9 h-9 rounded-xl bg-gold/15 border border-gold/30 flex items-center justify-center shadow-[0_0_16px_rgba(212,175,55,0.2)]">
               <Scissors size={15} className="text-gold" />
             </div>
@@ -2932,16 +2971,16 @@ Your uid is: ${user.uid}
               </p>
             </div>
             {isStaffMode ? (
-              <span className="ml-1 px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-full text-[11px] text-blue-400 font-black uppercase tracking-widest">
+              <span className="ml-0.5 sm:ml-1 px-2 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded-full text-[10px] sm:text-[11px] text-blue-400 font-black uppercase tracking-widest">
                 {staffMember?.name ?? 'Staff'}
               </span>
             ) : (
-              <span className="ml-1 px-2 py-0.5 bg-gold/10 border border-gold/20 rounded-full text-[11px] text-gold font-black uppercase tracking-widest">Live</span>
+              <span className="ml-0.5 sm:ml-1 px-2 py-0.5 bg-gold/10 border border-gold/20 rounded-full text-[10px] sm:text-[11px] text-gold font-black uppercase tracking-widest">Live</span>
             )}
           </div>
 
           {/* ── Module navigation — filtered by role ── */}
-          <nav className="flex items-center gap-0.5 bg-zinc-900 border border-white/15 rounded-xl p-1">
+          <nav className="flex items-center gap-0.5 bg-zinc-900 border border-white/15 rounded-xl p-1 shrink min-w-0 overflow-x-auto scrollbar-none">
             {(isStaffMode ? [
               { id: 'bookings',   label: 'Bookings',  icon: <CalendarDays size={13} /> },
               { id: 'billing',    label: 'Billing',   icon: <Receipt      size={13} /> },
@@ -2956,7 +2995,7 @@ Your uid is: ${user.uid}
               { id: 'tools',      label: 'Tools',     icon: <Wrench       size={13} /> },
             ]).map(tab => (
               <button key={tab.id} onClick={() => handleViewSwitch(tab.id as DashView)}
-                className={`relative flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
+                className={`relative flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs font-black uppercase tracking-wider transition-all shrink-0 ${
                   view === tab.id
                     ? 'bg-gold text-black shadow-sm'
                     : 'text-gray-400 hover:text-white hover:bg-white/8'
@@ -2971,23 +3010,91 @@ Your uid is: ${user.uid}
             ))}
           </nav>
 
-          <div className="flex items-center gap-3">
-            <p className="text-gray-500 text-xs hidden sm:block">{user.email}</p>
+          {/* ── Compact Store / Location Dropdown in Header (Default: Bus Stand) ── */}
+          <div className="relative shrink-0" ref={branchDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setBranchDropdownOpen(v => !v)}
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-gold/30 hover:border-gold/60 rounded-xl text-xs font-bold text-white transition-all shadow-sm active:scale-95"
+              title="Click to switch store location"
+            >
+              <MapPin size={12} className="text-gold shrink-0" />
+              <span className="font-black text-gold max-w-[85px] sm:max-w-[110px] truncate">{selectedLocation === 'all' ? 'All Stores' : selectedLocation}</span>
+              <ChevronDown size={10} className={`text-gray-400 transition-transform duration-200 ${branchDropdownOpen ? 'rotate-180 text-gold' : ''}`} />
+            </button>
+            {branchDropdownOpen && (
+              <div className="absolute right-0 top-full mt-1.5 w-44 bg-zinc-900 border border-white/15 rounded-xl shadow-2xl py-1 z-50 overflow-hidden">
+                <div className="px-3 py-1.5 border-b border-white/10 text-[10px] font-black uppercase tracking-wider text-gray-500">
+                  Select Store
+                </div>
+                {(['Bus Stand', 'Chandani Chowk', 'all'] as const).map(loc => (
+                  <button
+                    key={loc}
+                    type="button"
+                    onClick={() => { setSelectedLocation(loc); setBranchDropdownOpen(false); }}
+                    className={`w-full flex items-center justify-between px-3 py-2 text-xs font-bold text-left transition-colors ${
+                      selectedLocation === loc
+                        ? 'bg-gold/15 text-gold'
+                        : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    <span>{loc === 'all' ? 'All Stores' : loc}</span>
+                    {selectedLocation === loc && <CheckCircle2 size={13} className="text-gold shrink-0" />}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+            {/* User profile avatar & chip — resolves horizontal header stretch */}
+            <div className="relative shrink-0" ref={userMenuRef}>
+              <button
+                type="button"
+                onClick={() => setUserMenuOpen(v => !v)}
+                title={`Logged in as ${user.email || 'Admin'}`}
+                className="flex items-center gap-1.5 py-1 px-1.5 sm:px-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-gray-300 transition-all active:scale-95"
+              >
+                <div className="w-6 h-6 rounded-full bg-gold/20 border border-gold/40 text-gold flex items-center justify-center font-black text-[11px] shrink-0">
+                  {user.email ? user.email.charAt(0).toUpperCase() : 'A'}
+                </div>
+                <span className="hidden xl:inline text-[11px] font-medium text-gray-300 max-w-[110px] truncate">
+                  {user.email}
+                </span>
+                <ChevronDown size={10} className={`text-gray-400 transition-transform ${userMenuOpen ? 'rotate-180 text-gold' : ''}`} />
+              </button>
+              {userMenuOpen && (
+                <div className="absolute right-0 top-full mt-1.5 w-60 bg-zinc-900 border border-white/15 rounded-2xl shadow-2xl py-2.5 px-3.5 z-50 animate-in fade-in duration-150">
+                  <div className="border-b border-white/10 pb-2 mb-2">
+                    <p className="text-[10px] uppercase font-black text-gray-500 tracking-wider">Signed in as</p>
+                    <p className="text-xs font-bold text-white break-all">{user.email}</p>
+                    <p className="text-[10px] text-gold font-bold mt-0.5">{isStaffMode ? staffMember?.name : 'Salon Administrator'}</p>
+                  </div>
+                  <button
+                    onClick={() => { setUserMenuOpen(false); handleSignOut(); }}
+                    disabled={signOutLoading}
+                    className="w-full flex items-center gap-2 py-1.5 text-xs font-bold text-red-400 hover:text-red-300 transition-colors"
+                  >
+                    <LogOut size={12} /> Sign Out
+                  </button>
+                </div>
+              )}
+            </div>
 
             {/* Notification permission toggle */}
             {notifPermission !== 'denied' && (
               <button
                 onClick={notifPermission === 'granted' ? undefined : handleRequestPermission}
                 title={notifPermission === 'granted' ? 'Desktop notifications enabled' : 'Enable desktop notifications'}
-                className={`flex items-center gap-2 px-3 py-2 border rounded-xl text-xs font-bold transition-all ${
+                className={`p-2 border rounded-xl text-xs font-bold transition-all shrink-0 ${
                   notifPermission === 'granted'
                     ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400 cursor-default'
                     : 'bg-white/8 border-white/10 text-gray-400 hover:border-amber-500/30 hover:text-amber-400'
                 }`}
               >
                 {notifPermission === 'granted'
-                  ? <><Bell size={13} /> <span className="hidden sm:inline">Notifs On</span></>
-                  : <><BellOff size={13} /> <span className="hidden sm:inline">Enable Notifs</span></>
+                  ? <Bell size={13} className="text-emerald-400" />
+                  : <BellOff size={13} />
                 }
               </button>
             )}
@@ -2995,10 +3102,11 @@ Your uid is: ${user.uid}
             <button
               onClick={handleSignOut}
               disabled={signOutLoading}
-              className="flex items-center gap-2 px-4 py-2 bg-white/8 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all"
+              title="Sign Out"
+              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-white/8 hover:bg-white/10 border border-white/10 rounded-xl text-xs font-bold text-gray-300 transition-all shrink-0"
             >
               {signOutLoading ? <Loader2 size={13} className="animate-spin" /> : <LogOut size={13} />}
-              <span className="hidden sm:inline">Sign Out</span>
+              <span className="hidden lg:inline">Sign Out</span>
             </button>
           </div>
         </div>
@@ -3054,6 +3162,14 @@ Your uid is: ${user.uid}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-[#D4AF37] to-[#F0D060] rounded-xl text-black font-black text-xs uppercase tracking-wider shadow-[0_4px_20px_-4px_rgba(212,175,55,0.4)] hover:scale-105 transition-all"
             >
               <Receipt size={13} /> Express Bill
+            </button>
+
+            {/* Quick Expense button in action bar */}
+            <button
+              onClick={() => setQuickExpenseOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-rose-500 to-pink-600 rounded-xl text-white font-black text-xs uppercase tracking-wider shadow-[0_4px_20px_-4px_rgba(244,63,94,0.4)] hover:scale-105 transition-all"
+            >
+              <Plus size={13} className="stroke-[3]" /> Add Expense
             </button>
 
             {/* Refresh — only visible on bookings/insights, admin-only */}
@@ -5936,6 +6052,31 @@ Your uid is: ${user.uid}
         />
       )}
 
+      {/* ── Quick Expense Modal ── */}
+      <QuickExpenseModal
+        isOpen={quickExpenseOpen}
+        onClose={() => setQuickExpenseOpen(false)}
+        defaultLocation={selectedLocation === 'all' ? 'Bus Stand' : selectedLocation}
+        onAdded={(exp) => {
+          setExpenseToast(`₹${exp.amount.toLocaleString('en-IN')} expense recorded for ${exp.location || 'Bus Stand'} in Tools → Expenses`);
+          setTimeout(() => setExpenseToast(null), 4500);
+        }}
+      />
+
+      {/* Floating Expense Confirmation Toast */}
+      {expenseToast && (
+        <div className="fixed bottom-6 right-6 z-[250] flex items-center gap-2.5 px-4 py-3 bg-zinc-900 border border-emerald-500/40 text-emerald-300 rounded-2xl shadow-2xl animate-in slide-in-from-bottom-3 duration-200">
+          <CheckCircle2 size={16} className="text-emerald-400 shrink-0" />
+          <span className="text-xs font-bold">{expenseToast}</span>
+          <button
+            onClick={() => setExpenseToast(null)}
+            className="text-gray-500 hover:text-white ml-2"
+          >
+            <X size={13} />
+          </button>
+        </div>
+      )}
+
       </main>
     </div>
   );
@@ -6074,8 +6215,3 @@ export default function AdminDashboard() {
   // Admin → full dashboard
   return <Dashboard user={user} staffMember={undefined} />;
 }
-
-
-
-
-

@@ -125,6 +125,10 @@ service cloud.firestore {
       allow read, write: if true;
     }
 
+    match /expenses/{expenseId} {
+      allow read, write: if true;
+    }
+
     match /users/{userId} {
       allow get, list: if isSignedIn() && request.auth.uid == userId;
       allow write:     if isSignedIn() && request.auth.uid == userId;
