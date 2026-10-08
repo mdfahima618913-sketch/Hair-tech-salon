@@ -13,10 +13,15 @@ import {
   doc, serverTimestamp, Timestamp,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import { format, startOfMonth, addMonths, subMonths, parseISO } from 'date-fns';
+import {
+  format, startOfDay, endOfDay, startOfWeek, startOfMonth, endOfMonth,
+  addMonths, subMonths, subDays, addDays, parseISO,
+} from 'date-fns';
 import { BRANCHES, BranchName, DEFAULT_BRANCH_NAME } from '../lib/branches';
 
 // ─── Types ─────────────────────────────────────────────────────────────────────
+
+export type DurationPreset = 'today' | 'yesterday' | 'this_week' | 'this_month' | 'last_month' | 'custom';
 
 const CATEGORIES = [
   { id: 'salary',      label: 'Salary / Wages',  Icon: Users,          color: 'text-purple-400', bg: 'bg-purple-500/12 border-purple-500/20', dot: 'bg-purple-400' },
@@ -67,8 +72,11 @@ function fmt(n: number) {
 // ─── Main Component ────────────────────────────────────────────────────────────
 
 export default function ExpenseManager() {
-  const [selectedMonth, setSelectedMonth] = useState(() => startOfMonth(new Date()));
-  const [expenses,      setExpenses]      = useState<Expense[]>([]);
+  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const [preset,        setPreset]        = useState<DurationPreset>('this_month');
+  const [startDate,     setStartDate]     = useState(() => format(startOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [endDate,       setEndDate]       = useState(() => format(endOfMonth(new Date()), 'yyyy-MM-dd'));
+  const [allExpenses,   setAllExpenses]   = useState<Expense[]>([]);
   const [revenue,       setRevenue]       = useState<number | null>(null);
   const [revenueCount,  setRevenueCount]  = useState(0);
   const [loading,       setLoading]       = useState(false);
@@ -79,7 +87,7 @@ export default function ExpenseManager() {
 
   // Form state
   const blankForm = () => ({
-    date:        format(new Date(), 'yyyy-MM-dd'),
+    date:        startDate === endDate ? startDate : format(new Date(), 'yyyy-MM-dd'),
     category:    'misc' as CategoryId,
     description: '',
     amount:      '',
@@ -93,19 +101,77 @@ export default function ExpenseManager() {
   const [saveError, setSaveError] = useState('');
   const [savedMsg,  setSavedMsg]  = useState('');
 
-  // ── Data loading (Realtime sync on expenses) ──────────────────────────────────
+  // ── Preset selection helper ───────────────────────────────────────────────────
+
+  const applyPreset = (p: DurationPreset) => {
+    setPreset(p);
+    const now = new Date();
+    if (p === 'today') {
+      const s = format(now, 'yyyy-MM-dd');
+      setStartDate(s);
+      setEndDate(s);
+    } else if (p === 'yesterday') {
+      const s = format(subDays(now, 1), 'yyyy-MM-dd');
+      setStartDate(s);
+      setEndDate(s);
+    } else if (p === 'this_week') {
+      const s = format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+      setStartDate(s);
+      setEndDate(format(now, 'yyyy-MM-dd'));
+    } else if (p === 'this_month') {
+      setStartDate(format(startOfMonth(now), 'yyyy-MM-dd'));
+      setEndDate(format(endOfMonth(now), 'yyyy-MM-dd'));
+    } else if (p === 'last_month') {
+      const lm = subMonths(now, 1);
+      setStartDate(format(startOfMonth(lm), 'yyyy-MM-dd'));
+      setEndDate(format(endOfMonth(lm), 'yyyy-MM-dd'));
+    }
+  };
+
+  const handlePrevStep = () => {
+    try {
+      if (startDate === endDate) {
+        const prev = format(subDays(parseISO(startDate), 1), 'yyyy-MM-dd');
+        setStartDate(prev);
+        setEndDate(prev);
+        setPreset('custom');
+      } else {
+        const cur = parseISO(startDate);
+        const prev = subMonths(cur, 1);
+        setStartDate(format(startOfMonth(prev), 'yyyy-MM-dd'));
+        setEndDate(format(endOfMonth(prev), 'yyyy-MM-dd'));
+        setPreset('custom');
+      }
+    } catch { /* ignore */ }
+  };
+
+  const handleNextStep = () => {
+    try {
+      if (startDate === endDate) {
+        const next = format(addDays(parseISO(startDate), 1), 'yyyy-MM-dd');
+        setStartDate(next);
+        setEndDate(next);
+        setPreset('custom');
+      } else {
+        const cur = parseISO(startDate);
+        const next = addMonths(cur, 1);
+        setStartDate(format(startOfMonth(next), 'yyyy-MM-dd'));
+        setEndDate(format(endOfMonth(next), 'yyyy-MM-dd'));
+        setPreset('custom');
+      }
+    } catch { /* ignore */ }
+  };
+
+  // ── Data loading (Realtime sync across all expenses) ──────────────────────────
 
   useEffect(() => {
-    const yearMonth = format(selectedMonth, 'yyyy-MM');
     setLoading(true);
-
-    // Expenses for this month — Realtime listener so additions anywhere appear instantly
     const unsubscribeExpenses = onSnapshot(
-      query(collection(db, 'expenses'), where('yearMonth', '==', yearMonth)),
+      collection(db, 'expenses'),
       snap => {
         const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Expense));
-        list.sort((a, b) => b.date.localeCompare(a.date));
-        setExpenses(list);
+        list.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+        setAllExpenses(list);
         setLoading(false);
       },
       err => {
@@ -114,28 +180,71 @@ export default function ExpenseManager() {
       }
     );
 
-    // Revenue from invoices this month (best-effort — may fail if index not ready)
-    const monthStart = Timestamp.fromDate(startOfMonth(selectedMonth));
-    const monthEnd   = Timestamp.fromDate(startOfMonth(addMonths(selectedMonth, 1)));
-    getDocs(query(
-      collection(db, 'invoices'),
-      where('createdAt', '>=', monthStart),
-      where('createdAt', '<', monthEnd),
-    ))
-      .then(snap => {
-        const total = snap.docs.reduce((a, d) => {
-          const inv = d.data() as any;
-          return a + (inv.amountPaid ?? inv.total ?? 0);
-        }, 0);
-        setRevenue(Math.round(total));
-        setRevenueCount(snap.docs.length);
-      })
-      .catch(() => { setRevenue(null); setRevenueCount(0); });
-
     return () => {
       unsubscribeExpenses();
     };
-  }, [selectedMonth]);
+  }, []);
+
+  // ── Filter expenses by active date range ──────────────────────────────────────
+
+  const expenses = useMemo(() => {
+    return allExpenses.filter(e => {
+      if (!e.date) return false;
+      if (startDate && e.date < startDate) return false;
+      if (endDate && e.date > endDate) return false;
+      return true;
+    });
+  }, [allExpenses, startDate, endDate]);
+
+  // ── Revenue from invoices for this selected date range ────────────────────────
+
+  useEffect(() => {
+    if (!startDate || !endDate) return;
+
+    try {
+      const startTs = Timestamp.fromDate(startOfDay(parseISO(startDate)));
+      const endTs   = Timestamp.fromDate(endOfDay(parseISO(endDate)));
+
+      getDocs(query(
+        collection(db, 'invoices'),
+        where('createdAt', '>=', startTs),
+        where('createdAt', '<=', endTs),
+      ))
+        .then(snap => {
+          const total = snap.docs.reduce((a, d) => {
+            const inv = d.data() as any;
+            return a + (inv.amountPaid ?? inv.total ?? 0);
+          }, 0);
+          setRevenue(Math.round(total));
+          setRevenueCount(snap.docs.length);
+        })
+        .catch(async () => {
+          // Fallback query if composite index is still building or absent
+          try {
+            const snap = await getDocs(collection(db, 'invoices'));
+            const matching = snap.docs.filter(d => {
+              const data = d.data();
+              const dt = data.createdAt?.toDate ? data.createdAt.toDate() : (data.date ? new Date(data.date) : null);
+              if (!dt) return false;
+              const dtStr = format(dt, 'yyyy-MM-dd');
+              return dtStr >= startDate && dtStr <= endDate;
+            });
+            const total = matching.reduce((a, d) => {
+              const inv = d.data() as any;
+              return a + (inv.amountPaid ?? inv.total ?? 0);
+            }, 0);
+            setRevenue(Math.round(total));
+            setRevenueCount(matching.length);
+          } catch {
+            setRevenue(null);
+            setRevenueCount(0);
+          }
+        });
+    } catch {
+      setRevenue(null);
+      setRevenueCount(0);
+    }
+  }, [startDate, endDate]);
 
   // ── Derived stats ─────────────────────────────────────────────────────────────
 
@@ -198,7 +307,7 @@ export default function ExpenseManager() {
     setDeletingId(id);
     try {
       await deleteDoc(doc(db, 'expenses', id));
-      setExpenses(prev => prev.filter(e => e.id !== id));
+      setAllExpenses(prev => prev.filter(e => e.id !== id));
     } catch { /* silent */ }
     finally { setDeletingId(null); }
   };
@@ -208,44 +317,127 @@ export default function ExpenseManager() {
   const netProfit    = revenue !== null ? revenue - totalExpenses : null;
   const expRatio     = revenue && revenue > 0 ? Math.min(100, Math.round((totalExpenses / revenue) * 100)) : 0;
   const isProfit     = netProfit !== null && netProfit >= 0;
-  const monthLabel   = format(selectedMonth, 'MMMM yyyy');
+
+  const durationLabel = useMemo(() => {
+    if (!startDate || !endDate) return 'All dates';
+    if (startDate === endDate) {
+      if (startDate === todayStr) return `Today (${format(parseISO(startDate), 'd MMM yyyy')})`;
+      if (startDate === format(subDays(new Date(), 1), 'yyyy-MM-dd')) return `Yesterday (${format(parseISO(startDate), 'd MMM yyyy')})`;
+      return format(parseISO(startDate), 'EEE, d MMM yyyy');
+    }
+    return `${format(parseISO(startDate), 'd MMM yyyy')} – ${format(parseISO(endDate), 'd MMM yyyy')}`;
+  }, [startDate, endDate, todayStr]);
 
   return (
     <div className="space-y-5 pb-8">
 
-      {/* ── Month navigation ── */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setSelectedMonth(m => subMonths(m, 1))}
-            className="w-8 h-8 rounded-xl bg-white/8 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/12 transition-all"
-          >
-            <ChevronLeft size={15} />
-          </button>
-          <div className="flex items-center gap-2">
-            <Calendar size={14} className="text-gold" />
-            <span className="text-white font-black text-sm">{monthLabel}</span>
+      {/* ── Date Range & Duration Selector Toolbar ── */}
+      <div className="space-y-3 bg-zinc-900 border border-white/10 rounded-2xl p-4">
+        {/* Top row: Presets + Add Expense button */}
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {/* Quick presets */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[11px] font-black uppercase tracking-wider text-gray-500 mr-1 flex items-center gap-1">
+              <Calendar size={12} className="text-gold" /> Duration:
+            </span>
+            {[
+              { id: 'today',      label: 'Today' },
+              { id: 'yesterday',  label: 'Yesterday' },
+              { id: 'this_week',  label: 'This Week' },
+              { id: 'this_month', label: 'This Month' },
+              { id: 'last_month', label: 'Last Month' },
+              { id: 'custom',     label: 'Custom Range' },
+            ].map(p => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => applyPreset(p.id as DurationPreset)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                  preset === p.id
+                    ? 'bg-gold text-black font-black shadow-md'
+                    : 'bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
+
           <button
-            onClick={() => setSelectedMonth(m => addMonths(m, 1))}
-            disabled={format(addMonths(selectedMonth, 1), 'yyyy-MM') > format(new Date(), 'yyyy-MM')}
-            className="w-8 h-8 rounded-xl bg-white/8 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/12 transition-all disabled:opacity-30 disabled:pointer-events-none"
+            onClick={() => { setShowForm(v => !v); setSaveError(''); setForm(blankForm()); }}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${
+              showForm
+                ? 'bg-gold/15 border-gold/30 text-gold'
+                : 'bg-gradient-to-r from-[#D4AF37] to-[#F0D060] text-black font-black hover:opacity-90 shadow-sm'
+            }`}
           >
-            <ChevronRight size={15} />
+            {showForm ? <X size={13} /> : <Plus size={13} />}
+            {showForm ? 'Cancel' : 'Add Expense'}
           </button>
         </div>
 
-        <button
-          onClick={() => { setShowForm(v => !v); setSaveError(''); setForm(blankForm()); }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-xl border text-xs font-black uppercase tracking-wider transition-all ${
-            showForm
-              ? 'bg-gold/15 border-gold/30 text-gold'
-              : 'bg-white/8 border-white/10 text-gray-300 hover:text-white hover:border-white/20'
-          }`}
-        >
-          {showForm ? <X size={13} /> : <Plus size={13} />}
-          {showForm ? 'Cancel' : 'Add Expense'}
-        </button>
+        {/* Date inputs row with Previous/Next period shift and active label */}
+        <div className="pt-3 border-t border-white/8 flex items-center justify-between gap-4 flex-wrap">
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">From</span>
+              <input
+                type="date"
+                value={startDate}
+                max={endDate || undefined}
+                onChange={e => {
+                  setStartDate(e.target.value);
+                  setPreset('custom');
+                }}
+                className="bg-transparent text-white text-xs font-bold focus:outline-none [color-scheme:dark]"
+              />
+            </div>
+
+            <span className="text-gray-500 text-xs font-bold">→</span>
+
+            <div className="flex items-center gap-1.5 bg-black/40 border border-white/10 rounded-xl px-2.5 py-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-gray-500">To</span>
+              <input
+                type="date"
+                value={endDate}
+                min={startDate || undefined}
+                onChange={e => {
+                  setEndDate(e.target.value);
+                  setPreset('custom');
+                }}
+                className="bg-transparent text-white text-xs font-bold focus:outline-none [color-scheme:dark]"
+              />
+            </div>
+
+            {/* Quick jump prev/next */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title="Previous day / month"
+                onClick={handlePrevStep}
+                className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+              >
+                <ChevronLeft size={14} />
+              </button>
+              <button
+                type="button"
+                title="Next day / month"
+                onClick={handleNextStep}
+                className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-gray-400 hover:text-white hover:bg-white/10 transition-all"
+              >
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          </div>
+
+          {/* Active summary label badge */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-400 font-medium">Viewing:</span>
+            <span className="font-bold text-gold bg-gold/10 px-2.5 py-1 rounded-lg border border-gold/20 flex items-center gap-1.5">
+              <Calendar size={11} /> {durationLabel}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* ── P&L Overview Card ── */}
@@ -581,7 +773,7 @@ export default function ExpenseManager() {
             <ReceiptText size={32} className="text-gray-700 mx-auto" />
             <p className="text-gray-500 text-sm font-bold">No expenses recorded</p>
             <p className="text-gray-600 text-xs">
-              {filterCat !== 'all' ? 'Try clearing the filter' : `Tap "Add Expense" to log your first entry for ${monthLabel}`}
+              {filterCat !== 'all' ? 'Try clearing the filter' : `Tap "Add Expense" to log your first entry for ${durationLabel}`}
             </p>
           </div>
         ) : (

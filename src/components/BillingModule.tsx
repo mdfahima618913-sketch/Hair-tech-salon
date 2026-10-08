@@ -24,7 +24,7 @@ import {
 import {
   collection, doc, getDoc, getDocs, setDoc, addDoc, updateDoc,
   query, where, orderBy, serverTimestamp, Timestamp,
-  limit,
+  limit, onSnapshot,
 } from 'firebase/firestore';
 import { startOfDay, addDays } from 'date-fns';
 import { db } from '../lib/firebase';
@@ -681,16 +681,34 @@ function ServiceStep({
     setAddError,
   );
 
-  // Load services from Firestore (same collection used by Tools → Services tab)
+  // Load services live from Firestore (same collection used by Tools → Services tab)
   useEffect(() => {
-    getDocs(query(collection(db, 'services'), orderBy('category'), orderBy('name')))
-      .then(snap => {
-        const valid = snap.docs
-          .map(d => ({ id: d.id, ...d.data() } as Service))
-          .filter(s => (s as any).active !== false && typeof s.priceValue === 'number' && !isNaN(s.priceValue));
+    const unsub = onSnapshot(collection(db, 'services'), snap => {
+      const valid = snap.docs
+        .map(d => {
+          const data = d.data();
+          const pv = typeof data.priceValue === 'number' ? data.priceValue : Number(String(data.price || '').replace(/[^0-9.]/g, '')) || 0;
+          return {
+            id:          d.id,
+            name:        data.name || '',
+            category:    data.category || 'Add-ons',
+            price:       data.price || `₹${pv}`,
+            priceValue:  pv,
+            time:        data.time || '30 min',
+            active:      data.active !== false,
+            imageUrl:    data.imageUrl || '',
+            description: data.description || '',
+          } as Service;
+        })
+        .filter(s => (s as any).active !== false && typeof s.priceValue === 'number' && !isNaN(s.priceValue));
+      valid.sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.name || '').localeCompare(b.name || ''));
+      if (valid.length > 0) {
         setFirestoreServices(valid);
-      })
-      .catch(() => {});
+      }
+    }, (err) => {
+      console.warn('BillingModule onSnapshot services error:', err);
+    });
+    return unsub;
   }, []);
 
   // Load recent invoices to rank services by how often they're picked.
@@ -737,13 +755,9 @@ function ServiceStep({
       .catch(() => {});
   }, []);
 
-  // Merge: Firestore services take precedence; static catalogue fills any gaps.
-  // Manually pinned services (Tools → Trending) come first in their configured order,
-  // then the rest sorted by how frequently each has been picked in recent bills.
+  // Primary source of truth is Firestore database
   const allServices = useMemo(() => {
-    const fsNames = new Set(firestoreServices.map(s => s.name.toLowerCase()));
-    const staticOnly = servicesData.filter(s => !fsNames.has(s.name.toLowerCase()));
-    const merged = [...firestoreServices, ...staticOnly];
+    const merged = firestoreServices.length > 0 ? firestoreServices : servicesData;
 
     const byId = new Map(merged.map(s => [s.id, s]));
     const pinned = pinnedIds.map(id => byId.get(id)).filter((s): s is Service => !!s);
@@ -2318,7 +2332,7 @@ export default function BillingModule({ prefill: propPrefill, defaultLocation, o
     // Fallback: comma-split serviceNames (older bookings / online Razorpay)
     const names = prefill.serviceNames.split(',').map(s => s.trim().replace(/\s*×\d+$/, ''));
     const matched = names.flatMap(name => {
-      const svc = servicesData.find(s => s.name === name);
+      const svc = servicesData.find(s => s.name.toLowerCase() === name.toLowerCase());
       if (!svc) return [];
       const pv = svc.priceValue ?? 0;
       return [{

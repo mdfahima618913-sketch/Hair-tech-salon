@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import {
   collection, addDoc, serverTimestamp, query, where, getDocs, getDoc, doc,
-  orderBy, limit,
+  orderBy, limit, onSnapshot,
 } from 'firebase/firestore';
 import { User as FirebaseUser } from 'firebase/auth';
 import { db } from '../lib/firebase';
@@ -305,21 +305,55 @@ export default function WalkInBooking({ onClose, onCreated, user, staffMember, c
       .finally(() => setSlotsLoading(false));
   }, [selDate, step, totalMins, selectedLocation]);
 
+  // Load services live from Firestore so any updates in Tools reflect immediately
+  const [firestoreServices, setFirestoreServices] = useState<Service[]>([]);
+  useEffect(() => {
+    const unsub = onSnapshot(collection(db, 'services'), snap => {
+      const list = snap.docs
+        .filter(d => (d.data() as any).active !== false)
+        .map(d => {
+          const data = d.data();
+          const pv = typeof data.priceValue === 'number' ? data.priceValue : Number(String(data.price || '').replace(/[^0-9.]/g, '')) || 0;
+          return {
+            id:          d.id,
+            name:        data.name || '',
+            category:    data.category || 'Add-ons',
+            price:       data.price || `₹${pv}`,
+            priceValue:  pv,
+            time:        data.time || '30 min',
+            ...(data.description && { description: data.description }),
+            ...(data.imageUrl && { imageUrl: data.imageUrl }),
+          } as Service;
+        });
+      list.sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.name || '').localeCompare(b.name || ''));
+      if (list.length > 0) {
+        setFirestoreServices(list);
+      }
+    }, (err) => {
+      console.warn('WalkInBooking onSnapshot services error:', err);
+    });
+    return unsub;
+  }, []);
+
+  const activeServices = useMemo(() => {
+    return firestoreServices.length > 0 ? firestoreServices : servicesData;
+  }, [firestoreServices]);
+
   const qty    = (id: string) => cart.find(i => i.service.id === id)?.qty ?? 0;
   const setQty = useCallback((id: string, delta: number) => {
     setCart(prev => {
       const ex = prev.find(i => i.service.id === id);
-      if (!ex) return delta > 0 ? [...prev, { service: servicesData.find(s => s.id === id)!, qty: 1 }] : prev;
+      if (!ex) return delta > 0 ? [...prev, { service: activeServices.find(s => s.id === id)!, qty: 1 }] : prev;
       const n = ex.qty + delta;
       return n <= 0 ? prev.filter(i => i.service.id !== id) : prev.map(i => i.service.id === id ? { ...i, qty: n } : i);
     });
-  }, []);
+  }, [activeServices]);
 
   const filtered = useMemo(() => {
-    if (!search.trim()) return servicesData;
+    if (!search.trim()) return activeServices;
     const q = search.toLowerCase();
-    return servicesData.filter(s => s.name.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
-  }, [search]);
+    return activeServices.filter(s => s.name.toLowerCase().includes(q) || s.category.toLowerCase().includes(q));
+  }, [search, activeServices]);
 
   const grouped = useMemo(() => {
     const g: Record<string, Service[]> = {};

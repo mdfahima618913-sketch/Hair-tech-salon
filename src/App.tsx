@@ -23,7 +23,6 @@ import BookingSystem   from './components/BookingSystem';
 import AdminDashboard  from './components/AdminDashboard';
 import MyAppointments  from './components/MyAppointments';
 
-import { seedServicesIfEmpty } from './lib/firebase';
 import { LanguageProvider } from './lib/LanguageContext';
 
 function LandingPage({ scaleX }: { scaleX: any }) {
@@ -61,8 +60,6 @@ function LandingPage({ scaleX }: { scaleX: any }) {
 }
 
 export default function App() {
-  useEffect(() => { seedServicesIfEmpty(); }, []);
-
   const { scrollYProgress } = useScroll();
   const scaleX = useSpring(scrollYProgress, { stiffness: 100, damping: 30, restDelta: 0.001 });
 

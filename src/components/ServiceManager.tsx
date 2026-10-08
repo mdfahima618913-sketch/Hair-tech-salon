@@ -7,7 +7,7 @@ import {
   RefreshCw, Link,
 } from 'lucide-react';
 import {
-  collection, getDocs, setDoc, deleteDoc, doc, query, orderBy,
+  collection, getDocs, setDoc, deleteDoc, doc, query, orderBy, onSnapshot,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { getServiceImage } from '../lib/serviceImages';
@@ -234,18 +234,66 @@ export default function ServiceManager() {
     setTimeout(() => setToast(null), 3500);
   };
 
+  // Real-time synchronization from Firestore Database — single source of truth
+  useEffect(() => {
+    setLoading(true);
+    const unsub = onSnapshot(collection(db, 'services'), snap => {
+      const list = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id:          d.id,
+          name:        data.name || '',
+          price:       data.price || `₹${data.priceValue ?? 0}`,
+          priceValue:  typeof data.priceValue === 'number' ? data.priceValue : Number(String(data.price || '').replace(/[^0-9.]/g, '')) || 0,
+          time:        data.time || '30 min',
+          category:    data.category || 'Add-ons',
+          active:      data.active !== false,
+          imageUrl:    data.imageUrl || '',
+          description: data.description || '',
+        } as Service;
+      });
+
+      list.sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.name || '').localeCompare(b.name || ''));
+      setServices(list);
+      setOpenCats(prev => prev.size > 0 ? prev : new Set(list.map(s => s.category)));
+      setLoading(false);
+    }, (err) => {
+      console.error('Failed to listen to services:', err);
+      setLoading(false);
+      showToast(false, 'Failed to load services from Database: ' + err.message);
+    });
+
+    return unsub;
+  }, []);
+
   const load = async () => {
     setLoading(true);
     try {
-      const snap = await getDocs(query(collection(db, 'services'), orderBy('category'), orderBy('name')));
-      const list = snap.docs.map(d => ({ id: d.id, ...d.data() } as Service));
+      const snap = await getDocs(collection(db, 'services'));
+      const list = snap.docs.map(d => {
+        const data = d.data();
+        return {
+          id:          d.id,
+          name:        data.name || '',
+          price:       data.price || `₹${data.priceValue ?? 0}`,
+          priceValue:  typeof data.priceValue === 'number' ? data.priceValue : Number(String(data.price || '').replace(/[^0-9.]/g, '')) || 0,
+          time:        data.time || '30 min',
+          category:    data.category || 'Add-ons',
+          active:      data.active !== false,
+          imageUrl:    data.imageUrl || '',
+          description: data.description || '',
+        } as Service;
+      });
+      list.sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.name || '').localeCompare(b.name || ''));
       setServices(list);
       setOpenCats(new Set(list.map(s => s.category)));
-    } catch { /* silent */ }
-    finally { setLoading(false); }
+      showToast(true, 'Services reloaded from database.');
+    } catch (e: any) {
+      showToast(false, 'Reload failed: ' + (e.message ?? 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
   };
-
-  useEffect(() => { load(); }, []);
 
   const categories = useMemo(() =>
     Array.from(new Set(services.map(s => s.category))).sort(),
@@ -296,6 +344,7 @@ export default function ServiceManager() {
         : editId!;
 
       await setDoc(doc(db, 'services', id), {
+        id,
         name,
         price:       `₹${form.priceValue}`,
         priceValue:  Number(form.priceValue),
@@ -308,8 +357,7 @@ export default function ServiceManager() {
       }, { merge: true });
 
       setEditId(null);
-      await load();
-      showToast(true, isNew ? `"${name}" added to ${category}.` : `"${name}" updated.`);
+      showToast(true, isNew ? `"${name}" added to ${category}.` : `"${name}" updated successfully.`);
     } catch (e: any) {
       showToast(false, 'Failed to save: ' + (e.message ?? 'Unknown error'));
     } finally { setSaving(false); }
@@ -318,8 +366,10 @@ export default function ServiceManager() {
   const handleToggle = async (s: Service) => {
     try {
       await setDoc(doc(db, 'services', s.id), { active: !s.active }, { merge: true });
-      setServices(p => p.map(x => x.id === s.id ? { ...x, active: !x.active } : x));
-    } catch { /* silent */ }
+      showToast(true, `"${s.name}" is now ${!s.active ? 'visible' : 'hidden'}.`);
+    } catch (e: any) {
+      showToast(false, 'Failed to update visibility: ' + (e.message ?? 'Unknown error'));
+    }
   };
 
   const handleDelete = async () => {

@@ -31,15 +31,28 @@ export default function TrendingServicesManager() {
 
   useEffect(() => {
     Promise.all([
-      getDocs(query(collection(db, 'services'), orderBy('category'), orderBy('name'))),
+      getDocs(collection(db, 'services')),
       getDoc(doc(db, 'settings', 'trending_services')),
     ]).then(([svcSnap, cfgSnap]) => {
       const fsServices = svcSnap.docs
-        .map(d => ({ id: d.id, ...d.data() } as Service & { active?: boolean }))
+        .map(d => {
+          const data = d.data();
+          const pv = typeof data.priceValue === 'number' ? data.priceValue : Number(String(data.price || '').replace(/[^0-9.]/g, '')) || 0;
+          return {
+            id:          d.id,
+            name:        data.name || '',
+            category:    data.category || 'Add-ons',
+            price:       data.price || `₹${pv}`,
+            priceValue:  pv,
+            time:        data.time || '30 min',
+            active:      data.active !== false,
+            imageUrl:    data.imageUrl || '',
+            description: data.description || '',
+          } as Service & { active?: boolean };
+        })
         .filter(s => s.active !== false && typeof s.priceValue === 'number' && !isNaN(s.priceValue));
-      const fsNames = new Set(fsServices.map(s => s.name.toLowerCase()));
-      const staticOnly = servicesData.filter(s => !fsNames.has(s.name.toLowerCase()));
-      setAllServices([...fsServices, ...staticOnly]);
+      fsServices.sort((a, b) => (a.category || '').localeCompare(b.category || '') || (a.name || '').localeCompare(b.name || ''));
+      setAllServices(fsServices);
       if (cfgSnap.exists()) {
         setPinnedIds((cfgSnap.data().serviceIds ?? []).slice(0, MAX_PINNED));
       }

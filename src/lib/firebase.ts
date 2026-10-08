@@ -43,12 +43,15 @@ export const seedServicesIfEmpty = async () => {
   try {
     const servicesRef = collection(db, 'services');
     const snapshot = await getDocs(servicesRef);
-    const existingDocs = snapshot.docs;
+    if (!snapshot.empty && snapshot.docs.length > 0) {
+      // Services already exist in database — DO NOT overwrite or delete user changes!
+      return;
+    }
     
     const batch = writeBatch(db);
     let operationCount = 0;
 
-    // 1. Ensure all servicesData are in the DB with correct IDs
+    // Only populate if database is truly empty
     servicesData.forEach(service => {
       const docRef = doc(servicesRef, service.id);
       batch.set(docRef, {
@@ -59,31 +62,9 @@ export const seedServicesIfEmpty = async () => {
       operationCount++;
     });
 
-    // 2. Find and remove duplicates (different ID for same name) or old combo services
-    const serviceNames = new Set(servicesData.map(s => s.name));
-    const knownIds = new Set(servicesData.map(s => s.id));
-
-    existingDocs.forEach(d => {
-      const data = d.data();
-      
-      // Case A: Duplicate name but different ID (likely old auto-gen ID or different prefix)
-      if (serviceNames.has(data.name) && !knownIds.has(d.id)) {
-        batch.delete(d.ref);
-        operationCount++;
-      } else if (!knownIds.has(d.id)) {
-        // Case B: Old combo services - If it's in Combos category but not in our list, remove it
-        if (data.category === 'Combos' || d.id.startsWith('cb-')) {
-          batch.delete(d.ref);
-          operationCount++;
-        }
-      }
-    });
-
     if (operationCount > 0) {
       await batch.commit();
-      console.log("Services synchronized and deduplicated successfully!");
-    } else {
-      console.log("Services already synchronized.");
+      console.log("Services initially seeded into database.");
     }
 
     // Seed Website Config

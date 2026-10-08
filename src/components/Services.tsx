@@ -7,7 +7,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import Fuse from 'fuse.js';
-import { collection, onSnapshot, query, where } from 'firebase/firestore';
+import { collection, onSnapshot } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 const INITIAL_SHOW = 8;
@@ -43,9 +43,10 @@ export default function Services() {
   const [servicesData,  setData]       = useState<any[]>([]);
 
   useEffect(() => {
-    const q = query(collection(db, 'services'), where('active', '==', true));
-    const unsub = onSnapshot(q, snap => {
-      const raw  = snap.docs.map(d => ({ ...d.data(), id: d.id })) as any[];
+    const unsub = onSnapshot(collection(db, 'services'), snap => {
+      const raw  = snap.docs
+        .map(d => ({ ...d.data(), id: d.id }))
+        .filter((d: any) => d.active !== false) as any[];
       const deduped = Array.from(new Map(raw.map(s => [s.name, s])).values());
       setData(deduped);
     });
@@ -70,7 +71,7 @@ export default function Services() {
       return acc;
     }, {});
 
-    return categoryConfig
+    const knownConfigured = categoryConfig
       .map(cfg => ({
         ...cfg,
         name: cfg.id,
@@ -78,6 +79,20 @@ export default function Services() {
         hasPremium: (grouped[cfg.id] ?? []).some(isPremiumService),
       }))
       .filter(c => c.services.length > 0);
+
+    const knownIds = new Set(categoryConfig.map(c => c.id));
+    const extraCats = Object.keys(grouped)
+      .filter(cat => !knownIds.has(cat) && (grouped[cat]?.length ?? 0) > 0)
+      .map(cat => ({
+        id: cat,
+        name: cat,
+        icon: Scissors,
+        image: 'https://images.unsplash.com/photo-1560066984-138dadb4c035?auto=format&fit=crop&q=80&w=800',
+        services: grouped[cat],
+        hasPremium: (grouped[cat] ?? []).some(isPremiumService),
+      }));
+
+    return [...knownConfigured, ...extraCats];
   }, [servicesData, searchQuery]);
 
   const visibleCats = searchQuery ? categories : (showAll ? categories : categories.slice(0, INITIAL_SHOW));
